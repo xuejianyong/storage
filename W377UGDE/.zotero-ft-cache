@@ -1,0 +1,3127 @@
+Journal of Machine Learning Research 21 (2020) 1-53
+
+Submitted 1/19; Revised 9/20; Published 10/20
+
+Successor Features Combine Elements of Model-Free and Model-based Reinforcement Learning
+
+Lucas Lehnert Computer Science Department Carney Institute for Brain Science Brown University Providence, RI 02912, USA
+Michael L. Littman Computer Science Department Brown University Providence, RI 02912, USA
+
+lucas lehnert@brown.edu michael littman@brown.edu
+
+Editor: Shie Mannor
+
+Abstract
+A key question in reinforcement learning is how an intelligent agent can generalize knowledge across diﬀerent inputs. By generalizing across diﬀerent inputs, information learned for one input can be immediately reused for improving predictions for another input. Reusing information allows an agent to compute an optimal decision-making strategy using less data. State representation is a key element of the generalization process, compressing a high-dimensional input space into a low-dimensional latent state space. This article analyzes properties of diﬀerent latent state spaces, leading to new connections between modelbased and model-free reinforcement learning. Successor features, which predict frequencies of future observations, form a link between model-based and model-free learning: Learning to predict future expected reward outcomes, a key characteristic of model-based agents, is equivalent to learning successor features. Learning successor features is a form of temporal diﬀerence learning and is equivalent to learning to predict a single policy’s utility, which is a characteristic of model-free agents. Drawing on the connection between model-based reinforcement learning and successor features, we demonstrate that representations that are predictive of future reward outcomes generalize across variations in both transitions and rewards. This result extends previous work on successor features, which is constrained to ﬁxed transitions and assumes re-learning of the transferred state representation.
+Keywords: Successor Features, Model-Based Reinforcement Learning, State Representations, State Abstractions
+1. Introduction
+A central question in Reinforcement Learning (RL) (Sutton and Barto, 2018) is how to process high dimensional inputs and compute decision-making strategies that maximize rewards. For example, a self-driving car has to process all its sensor data to decide when to accelerate or brake to drive the car safely. If the sensor data is high dimensional, obtaining an optimal decision-making strategy may become computationally very diﬃcult because an optimal decision has to be computed for every possible sensor input. This “curse of
+c 2020 Lucas Lehnert and Michael L. Littman.
+License: CC-BY 4.0, see https://creativecommons.org/licenses/by/4.0/. Attribution requirements are provided at http://jmlr.org/papers/v21/19-060.html.
+
+Lehnert and Littman
+dimensionality” (Bellman, 1961) can be overcome by compressing high dimensional sensor data into a lower dimensional latent state space. In the self-driving car example, if the car is following another vehicle that is stopping, detecting brake lights is suﬃcient to make the decision to slow the self-driving car down. Other information such as the colour of the car in front can be ignored. In RL, these decisions are grounded through a reward function, which would give high reward if the self-driving car reaches its destination and low reward if an accident is caused. An intelligent agent can simplify a task by mapping high-dimensional inputs into a lower dimensional latent state space, leading to faster learning because information can be reused across diﬀerent inputs. This article addresses the question how diﬀerent principles of compressing inputs are related to one another and demonstrates how an agent can learn to simplify one task to accelerate learning on a diﬀerent previously unseen task.
+Previous work presents algorithms that reuse Successor Features (SFs) (Barreto et al., 2017a) to initialize learning across tasks with diﬀerent reward speciﬁcations, leading to improvements in learning speed in challenging control tasks (Barreto et al., 2018; Zhang et al., 2017; Kulkarni et al., 2016). This article follows a diﬀerent methodology: By analyzing which properties diﬀerent latent state spaces are predictive of, diﬀerent models of generalizations are compared leading to new connections between latent state spaces that support either model-free RL or model-based RL. Model-free RL memorizes and makes predictions for one particular decision-making strategy, while model-based RL aims at predicting future reward outcomes for any arbitrary decision-making strategy. Our analysis demonstrates how previous formulations of SFs learn latent state spaces that are predictive of the optimal decision-making strategy and are thus akin to model-free RL. This article introduces a new model, called the Linear Successor Feature Model (LSFM), and presents results demonstrating that LSFMs learn latent state spaces that support model-based RL.
+Latent state spaces model equivalences between diﬀerent inputs and are suitable for transfer across diﬀerent tasks only if these equivalences are preserved. Because LSFMs construct latent state spaces that extract equivalences of a task’s transition dynamics and rewards, they aﬀord transfer to tasks that preserve these equivalences but have otherwise diﬀerent transitions, rewards, or optimal decision-making strategies. Ultimately, by compressing a high-dimensional state space, the representation learned by an LSFM can enable a model-based agent to learn a model of an MDP and an optimal policy signiﬁcantly faster than agents that do not use a state abstraction or use a state abstraction of a diﬀerent type. In contrast to SFs, which aﬀord transfer across tasks with diﬀerent rewards but assume ﬁxed transition dynamics (Barreto et al., 2017a; Stachenfeld et al., 2017), LSFMs remove the assumption of a ﬁxed transition function. While SFs are re-learned and adjusted to ﬁnd the optimal policy of a previously unseen task (Lehnert et al., 2017), the presented experiments outline how LSFMs can preserve the latent state space across diﬀerent tasks and construct an optimal policy by using less data than tabular RL algorithms that do not generalize across inputs.
+To unpack the diﬀerent connection points and contributions, we start by ﬁrst presenting the two state representation types in Section 2 and provide a formal introduction of successor features in Section 3. Subsequently, Section 4 introduces LSFMs and presents the main theoretical contributions showing how LSFMs can be used for model-based RL. Then, Section 5 presents the link to model-free learning and presents a sequence of examples and
+2
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+simulation illustrating to what extent the representations learned with LSFMs generalize across tasks with diﬀerent transitions, rewards, and optimal policies.
+
+2. Predictive State Representations
+
+An RL task is formalized as a Markov Decision Processes (MDP) M = S, A, p, r, γ , where
+
+the state space S describes all possible sensor inputs, and the ﬁnite action space A describes
+
+the space of all possible decisions. The state space S is assumed to be an arbitrary set and
+
+can either be ﬁnite or uncountably inﬁnite. All results presented in this article are stated
+
+for arbitrary state spaces S unless speciﬁed otherwise. How the state changes over time is
+
+determined by the transition function p, which speciﬁes a probability or density function
+
+of reaching a next state s if an action a is selected at state s. Transitions are Markovian
+
+and the probability or density of transitioning to a state s is speciﬁed by p(s |s, a). The
+
+reward function r : S × A × S → [−R, R] speciﬁes which reward is given for each transition
+
+and rewards are bounded in magnitude by a constant R ∈ R. Besides assuming a bounded reward function, both reward and transition functions are assumed to be arbitrary.
+
+A policy π describes an agent’s decision-making strategy and speciﬁes a probability
+
+π(s, a) of selecting an action a ∈ A at state s ∈ S. A policy’s performance is described by
+
+the value function
+
+∞
+
+V π(s) = Ep,π
+
+γtr(st, at, st+1) s1 = s ,
+
+(1)
+
+t=1
+
+which predicts the expected discounted return generated by selecting actions according to π when trajectories are started at the state s. The expectation1 in Equation (1) is computed over all inﬁnite length trajectories that select actions according to π and start at state s. Similarly, the Q-value function is deﬁned as
+
+∞
+
+Qπ(s, a) = Ep,π
+
+γtr(st, at, st+1) s1 = s, a1 = a .
+
+(2)
+
+t=1
+
+The expectation of the Q-value function in Equation (2) is computed over all inﬁnite length trajectories that start at state s with action a and then follow the policy π.
+A latent state space Sφ is constructed using a state representation function φ : S → Sφ. A state representation can be understood as a compression of the state space, because two diﬀerent states s and s˜ can be assigned to the same latent state φ(s) = φ(s˜). In this case, the state representation φ aliases s and s˜.
+Figure 1(a) presents a grid world example where nine states are compressed into three diﬀerent latent states and Sφ = {φ1, φ2, φ3}. In this example, the state representation partitions the state space along three diﬀerent columns and constructs a smaller latent grid world of size 3 × 1. If an intelligent agent uses this state representation for learning, the agent would only maintain information about which column it is in but not which row and eﬀectively operate on this smaller latent 3 × 1 grid world.
+
+1. The subscript of the expectation operator E denotes the probability distributions or densities over which the expectation is computed.
+
+3
+
+Lehnert and Littman
+
+φ1 φ2 φ3
+
+φ1 φ2 φ3
+
+(a) Column World Example
+
+0
+
+6
+
+(b) State Values V π
+
+(c) Example Trajectory
+
+Figure 1: State Representations Construct Lower Dimensional Latent State Spaces. 1(a): The column world example is a 3 × 3 grid world where an agent can move up (action ↑), down (action ↓), left (action ←), or right (action →) to adjacent grid cells and entering the right (green) column is rewarded. The number in each grid cell indicate the reward obtained by entering the respective cell. The state representation merges each column (colour) into a diﬀerent latent state. 1(b): The lower panel presents a matrix plot of the state values V π for a policy that selects actions uniformly at random. Grid cells of the same column have equal distance to the rewarding column and thus equal state values. Because this state representation only generalizes across states of the same column, the constructed latent state space can be used to predict the value function V π as well. The top panel, which presents a matrix plot of state values for the three latent states, illustrates how the latent state space can be used for value predictions as well. 1(c): Using the latent state space, a latent 3 × 1 MDP can be constructed. Both latent MDP and original MDP produce equal reward sequences for trajectories that follow the same action sequence and that start at corresponding states and latent states. The ﬁgure illustrates such an example trajectory that starts at (1,1) or latent state φi and then follows the action sequence →, ↓, →. Selecting the action ↓ is modelled as a self loop in the latent MDP. Both trajectories generate the same reward sequence of 0, 0, 1. Intuitively, the compressed 3 × 1 grid world simulates reward sequences in exactly the same way as the 3 × 3 column world task.
+
+4
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+2.1 Value-Predictive State Representations
+
+A value-predictive state representation constructs a latent state space that retains enough
+information to support accurate value or Q-value predictions. Figure 1(b) shows that the
+value of states of the same column are equal. Suppose each latent state is represented as a one-hot bit vector2 in three dimensions and Sφ = {e1, e2, e3}. Because each grid cell is mapped to a one-hot bit vector, φ(s) = ei for some index i. Furthermore there exists a real valued vector v ∈ R3 such that
+
+V π(s) = (φ(s)) v = ei v.
+
+(3)
+
+Because the state representation φ outputs one-hot bit vectors, each entry of the vector
+v contains the state value associated with one of the three columns. Similarly, the state representation φ can be used for Q-value predictions and for each action a, Qπ(s, a) = ei qa, where qa ∈ R3. This article refers to such state representations that serve as basis functions (Sutton, 1996; Konidaris et al., 2011) for accurate value or Q-value predictions
+as value-predictive. Because value-predictive state representations are only required to be
+predictive of a particular policy π, they implicitly depend on the policy π.
+
+2.2 Reward-Predictive State Representations
+
+A reward-predictive state representation constructs a latent state space that retains enough information about the original state space to support accurate predictions of future expected reward outcomes. Figure 1(c) shows a trajectory that starts at grid cell (1,1) and follows an action sequence to produce a reward sequence of 0, 0, 1. Because the state representation constructs a latent MDP that is a 3×1 grid world, a trajectory starting at the latent grid cell φ1 and following the same action sequence results in a latent state sequence of φ1, φ2, φ2, φ3. If a positive reward is associated with entering the state φ3, the latent grid world would also produce a reward sequence of 0, 0, 1. For any start state and any arbitrary action sequence, both the latent grid world and the original grid world produce equal reward sequences. This property can be formalized using a family of functions {ft}t∈N that predicts the expected reward outcome after executing an action sequence a1, ..., at starting at state s:
+
+ft : (s, a1, ..., at) → Ep [rt|s, a1, ..., at] .
+
+(4)
+
+The expectation in Equation (4) is computed over all trajectories that start in state s and follow the action sequence a1, ..., at. A state representation is reward-predictive if the function ft can be re-parameterized in terms of the constructed latent state space and if there exists a family of functions {gt}t∈N such that
+
+∀t ≥ 1, s, a1, ..., at, ft(s, a1, ..., at) = gt(φ(s), a1, ..., at).
+
+(5)
+
+Because reward-predictive state representations are designed to produce accurate predictions of future expected reward outcomes, they need to encode information about both the transition and reward functions. Unlike value-predictive state representations, rewardpredictive state representations are independent of a particular policy.
+
+2. A one-hot bit vector ei is a column vector of zeros but with the ith entry set to one. Vectors are denoted with bold lower-case letters. Matrices are denoted with bold capitalized letters.
+
+5
+
+Lehnert and Littman
+
+2.3 Learning State Representations
+Figure 1 presents an example where the same state representation is both value- and rewardpredictive. In this article, we will present the distinctions and connection points between value-predictive and reward-predictive state representations. Further, we will discuss learning algorithms that search the space of all possible state representations to identify approximations of value- or reward-predictive state representations. The following results and examples demonstrate that value- and reward-predictive state representations can generalize across states very diﬀerently. Speciﬁcally, re-using a reward-predictive state representation φ across tasks can accelerate learning because a model-based agent only needs to construct the function gt (which is deﬁned on a small latent state space) for the new task instead of re-learning the function ft from scratch. To ensure a fair comparison between diﬀerent approximations, this article assumes that the dimensionality of the latent state space or the number of latent states is a ﬁxed hyper-parameter.
+
+3. Successor Features
+
+Successor features (Barreto et al., 2017a) are a generalization of the Successor Represen-
+tation (SR) (Dayan, 1993). The SR can be deﬁned as follows: For ﬁnite state and action
+spaces, the transition probabilities while selecting actions according to a policy π can be written as a stochastic transition matrix P π. If the start state with index s is represented
+as a one-hot bit vector es, the probability distribution of reaching a state after one time step of executing policy π can be written as a row vector es P π. After t time steps, the probability distribution over states can be written as a vector es (P π)t. Suppose the path across the state space has a random length that follows the Geometric distribution with
+parameter γ: At each time step, a biased coin is ﬂipped and the path continues with prob-
+ability γ. In this model, the probability vector of reaching diﬀerent states in t time steps is (1 − γ)γt−1es (P π)t. Omitting the factor (1 − γ), the SR recursively computes the marginal probabilities over all time steps:
+
+∞
+
+Ψπ = γt−1(P π)t−1 = I + γP πΨπ.
+
+(6)
+
+t=1
+
+Each entry (i, j) of the matrix (1−γ)Ψπ contains the marginal probability across all possible durations of transitioning from state i to state j. Intuitively, the entry (i, j) of the matrix Ψπ can be understood as the frequency of encountering state j when starting a path at state i and following the policy π. An action conditioned SR describes the marginal probability across all possible durations of transitioning from state i to state j, but ﬁrst a particular action a is selected, and then a policy π is followed:
+
+∞
+
+Ψπa d=ef.
+
+γt−1P a(P π)t−2 = I + γP aΨπ,
+
+(7)
+
+t=1
+
+where P a is the stochastic transition matrix describing all transition probabilities when action a is selected. Because P a is a stochastic matrix, it can be shown that Ψπ is invert-
+
+6
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+ible and that there exists a one-to-one correspondence between each transition matrix and action-conditional SR matrix.3
+SFs combine this idea with arbitrary state representations. Given a state representation φ, the SF is a column vector deﬁned for each state and action pair (Kulkarni et al., 2016; Zhang et al., 2017) and
+
+∞
+
+ψπ(s, a) = Ep,π
+
+γt−1φst s1 = s, a1 = a ,
+
+(8)
+
+t=1
+
+where the expectation in Equation (8) is computed over all inﬁnite length trajectories that
+start at state s with action a and then follow the policy π. The output at state s of the
+vector-valued state-representation function φ is denoted by φs. We will refer to this vector φs as either the latent vector or latent state. If following the policy π leads to encountering a particular latent vector φs many times, then this latent vector will occur in the summation in Equation (8) many times.4 Depending on the state representation φ, the vector ψπ(s, a) will be more similar to the latent vector φs and ψπ(s, a) will be more dis-similar to a latent vector φs˜ if s˜ is a state that cannot be reached from the state s. A SF vector ψπ can be understood as a statistic measuring how frequently diﬀerent latent states vectors are
+encountered.
+The following two sections draw connections between SFs, reward-predictive, and value-
+predictive state representations and outline under what assumptions learning SFs is equiv-
+alent to learning reward- or value-predictive state representations.
+
+4. Connections to Reward-Predictive Representations
+
+A reward-predictive state representation constructs a latent state space that is rich enough to produce predictions of future expected reward outcomes for any arbitrary actions sequence. For accurate predictions, the empirical transition probabilities between latent states have to mimic transitions in the original task. Figure 2 presents a reward-prediction example where only one action is available to the agent. In this task, the goal is to predict that a positive reward is obtained in three time steps if the agent starts at state s1. This example compares two diﬀerent state representations, the representation φ, which does not compress the state space, and φ˜, which merges the ﬁrst two states into one latent state. These two state representations lead to diﬀerent empirical latent transition probabilities. While the ﬁrst representation preserves the deterministic transitions of the task, the second representation does not. If states s1 and s2 are mapped to the same latent state φ˜1, then a transition from state s1 to s2 appears as a self-loop from latent state φ˜1 to itself and a transition from s2 to s3 appears as a transition from φ˜1 to φ˜2. Because the state representation φ constructs a latent state space with empirical latent transition probabilities that match the transition probabilities of the original task, this state representation is reward predictive.
+
+3. By Equation (6), Ψπ = I +γP πΨπ ⇐⇒ I = (I −γP π)Ψπ ⇐⇒ (Ψπ)−1 = I −γP π. Equation (7) outlines
+
+how to construct Ψπa from P a for all actions.
+
+The
+
+reverse
+
+direction
+
+follows
+
+from
+
+Ψ
+
+π a
+
+=
+
+I
+
++
+
+γP
+
+aΨπ
+
+⇐⇒
+
+(Ψ
+
+π a
+
+−
+
+I )(Ψπ)−1/γ
+
+=
+
+P a.
+
+4. The remainder of the article will list function arguments in the subscript of a symbol and φs always
+
+denotes the output of φ at state s.
+
+7
+
+Lehnert and Littman
+
+φ1
+
+H H H
+
+to
+
+φ1
+
+φ2
+
+φ3
+
+from H
+
+HH
+
+φ1
+
+0 1 0 φ2
+
+φ2
+
+001
+
+φ3
+
+001
+
+φ3
+
+Empirical Latent
+
+Transition Distribution with φ.
+
+φ
+
+φ˜
+
+s1
+
+φ˜1
+
+r=0
+
+s2
+
+φ˜1
+
+r=0
+
+H H
+
+to
+
+H
+
+from H
+
+φ˜1
+
+φ˜2
+
+φ˜1 HH 0.5 0.5
+
+φ˜2
+
+01
+
+s3
+
+φ˜2
+
+r = 1 Empirical Latent
+
+Three-State MDP.
+
+Transition Distribution with φ˜.
+
+Figure 2: Three-State MDP Example. The centre schematic shows a single action threestate MDP with deterministic transitions (black arrows). Only the self-looping transition at state s3 is rewarded. The two state representations φ and φ˜ map the three states to diﬀerent feature vectors, resulting in diﬀerent empirical featuretransition probabilities. These probabilities are computed from observed trajectories that start at state s1.
+
+Probability Density
+
+Pr{φ1 →a φ3|ω}
+
+φ1
+
+φ2
+
+φ3
+
+ω(·)
+
+s Pr{s →a φ3}
+
+φ4 p(s, a, ·)
+
+Feature Space
+S
+
+Pr{s →a φ3}: The probability of transitioning from s to any state mapped to φ3 by selecting action a.
+Pr{φ1 →a φ3|ω}: Empirical probability of transitioning from latent state φ1 to latent state φ3 by selecting action a.
+
+Figure 3: Empirical Latent Transition Probabilities Depend on State-Visitation Frequencies. This example illustrates how empirical latent transition probabilities depend on state-visitation frequencies. In this example, the state space S is a bounded interval in R that is clustered into one of four latent states: φ1, φ2, φ3, or φ4. State-visitation frequencies are modelled for each partition independently using the density function ω. The schematic plots the density function p over states of selecting action a at state s (blue area) and the density function ω over the state partition φ1 (orange area). The probability Pr{s →a φ3} of transitioning into the partition φ3 is the blue shaded area. The probability Pr{φ1 →a φ3|ω} of a transition from φ1 to φ3 occurring is the marginal of Pr{s →a φ3} over all states s mapping to φ1, weighted by ω.
+
+8
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+A reward-predictive state representation can be used in conjunction with a Linear Action Model (Sutton et al., 2008; Yao and Szepesv´ari, 2012) to compute expected future reward outcomes.
+
+Deﬁnition 1 (Linear Action Model (LAM)). Given an MDP and a state representation φ : S → Rn, a LAM consists of a set of matrices and vectors {M a, wa}a∈A, where M a is of size n × n and the column vector wa is of dimension n.
+
+Given a ﬁxed state representation, the transition matrices of a LAM {M a}a∈A model the empirical latent transition probabilities and the vectors {wa}a∈A model a linear map from latent states to expected one-step reward outcomes. The expected reward outcome
+
+after following the action sequence a1, ..., at starting at state s can then be approximated with
+
+Ep [rt|s, a1, ..., at] ≈ φs M a1 · · · M at−1wat .
+
+(9)
+
+The following sections will address how a state representation φ and a LAM can be found
+
+to predict expected future reward outcomes as accurately as possible. Because this article’s
+
+goal is to establish diﬀerent connections between learning successor features and model-
+
+based RL and to demonstrate that the learned reward-predictive state representations are
+
+suitable for transfer across variations in transitions and rewards, an extension of these model
+
+to non-linear latent transition and reward functions is left to future work.
+
+To tie SFs to reward-predictive state representations, we ﬁrst introduce a set of square
+
+real-valued matrices {F a}a∈A such that, for every state s and action a,
+
+φs F a ≈ ψπ(s, a)
+
+∞
+
+= Ep,π
+
+γt−1φst s1 = s, a1 = a
+
+t=1
+
+(10) (11)
+
+where the policy π is deﬁned on the latent state space. A Linear Successor Feature Model (LSFM) is then deﬁned using the matrices {F a}a∈A:
+
+Deﬁnition 2 (Linear Successor Feature Model (LSFM)). Given an MDP, a policy π, and a state representation φ : S → Rn, an LSFM consists of a set of matrices and vectors {F a, wa}a∈A, where F a is of size n × n and the column vector wa is of dimension n. The matrices {F a}a∈A are used to model a linear map from latent state features to SFs as described in Equation (10).
+
+LSFMs require the state representation φ to (linearly) approximate the SF ψπ(s, a) using the matrices {F a}a∈A (Equation (10)). Previously presented SF frameworks (Barreto et al., 2017a, 2018) do not use the state representation φ to approximate SF vectors ψπ as described in Equation (10) and construct the state-representation function φ diﬀerently, for example, by setting the output of φ to be one-step rewards (Barreto et al., 2017b). In contrast, LSFMs are used to learn the state-representation function φ that satisﬁes Equation (10). Because LSFMs distinctly incorporate this approximative property, SFs can be connected to model-based RL.
+An intelligent agent that uses a state representation φ operates directly on the constructed latent state space and is constrained to only search the space of policies that are deﬁned on its latent state space. These policies are called abstract policies.
+
+9
+
+Lehnert and Littman
+
+Deﬁnition 3 (Abstract Policies). An abstract policy πφ is a function mapping latent state and action pairs to probability values:
+∀s ∈ S, a ∈ A, πφ(φs, a) ∈ [0, 1] and πφ(φs, a) = 1.
+a
+For a ﬁxed state representation φ, the set of all abstract policies is denoted with Πφ.
+The following sections ﬁrst tie learning LAMs to reward-predictive state representations. We then show that learning LSFMs is equivalent to learning LAMs tying LSFMs to rewardpredictive state representations.
+
+4.1 Encoding Bisimulation Relations
+To ensure accurate predictions of future reward outcomes, the previous discussion suggests that the empirical latent transition probabilities have to match the transition probabilities in the original task. Figure 3 presents a schematic explaining these dependencies further. In this example, the state space is a bounded interval in R that is mapped to four diﬀerent latent states, φ1, φ2, φ3, or φ4. The probability of transitioning from the state s to any state that is mapped to φ3 is denoted with Pr{s →a φ3}. This probability Pr{s →a φ3} is the marginal over all states s that are mapped to the latent state φ3. Assume that ω is a density function over all states that are mapped to the latent state φ1. This density function could model the visitation frequencies of diﬀerent states as an intelligent agent interacts with the MDP. The empirical probability of transitioning from latent state φ1 to φ3 is then the marginal over all states mapping to φ1 and
+
+Pr φ1 →a φ3 ω =
+
+ω(s)Pr{s →a φ3}ds = Eω Pr{s →a φ3} φ(s) = φ1 . (12)
+
+s:φ(s)=φ1
+
+The expectation in Equation (12) is computed with respect to ω over all states s that map to the latent state φ1. As Equation (12) outlines, the empirical transition probability Pr{φ1 →a φ3|ω} depends on the visitation frequencies ω. The probability Pr{s →a φ3} of transitioning from a state s into a partition only depends on the transition function p itself.
+Consider two diﬀerent states s and s˜ that map to the same latent state and φ(s) = φ(s˜). If the state representation is constructed such that
+∀a, ∀φi, Pr{s →a φi} = Pr{s˜ →a φi} and Ep r(s, a, s ) s, a = Ep r(s˜, a, s ) s˜, a , (13)
+
+then the empirical latent state transition probabilities would become independent of ω because the integrand in Equation (12) is constant and
+
+Pr φ1 →a φ3 ω =
+
+ω(s) Pr{s →a φ3} ds = Pr{s →a φ3}.
+
+s:φ(s)=φ1
+
+constant
+
+(14)
+
+Equation (14) follows directly from the transition condition in line (13), because the probability Pr{s →a φ3} is constant for all states s that are mapped to the latent state vector φ1. If the two identities in line (13) hold, then the resulting latent state space constructs latent transition probabilities that correspond to the transition probabilities in the original task.
+
+10
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Equation (13) describes an informal deﬁnition of bisimulation (Givan et al., 2003). Deﬁnition 4 listed in Appendix A.1 presents a formal measure theoretic deﬁnition of bisimulation on arbitrary (measurable) state spaces. This deﬁnition is used to prove the theorems stated in this section. To prove that LAMs encode state representations that generalize only across bisimilar states, two assumptions are made.
+
+Assumption 1. The state space S of an MDP can be partitioned into at most n diﬀerent partitions of bisimilar states, where n is a natural number.
+
+Assumption 2. A state representation φ : S → {e1, ..., en} is assumed to have a range that consists of all n one-hot bit vectors. For each i, there exists a state s such that φ(s) = ei.
+
+Assumption 1 is not particularly restrictive in a learning context: If an agent has observed n distinct states during training, then a state representation assigning each state to one of n diﬀerent one-hot bit vectors can always be constructed. While doing so may not be useful to generalize across diﬀerent states, this argument suggests that Assumption 1 is not restrictive in practice. Assumption 2 is relaxed in the following sections.
+If action a is selected at state s, the expected next feature vector is
+
+n
+
+Ep φ(s ) s, a = Pr{s →a ej}ej = · · · , Pr{s →a ej}, · · · .
+
+(15)
+
+j=1
+
+The expected value in Equation (15) is computed over all possible next states s that can be reached from state s by selecting action a. In Equation (15), the next state s is a random variable whose probability distribution or density function is described by the MDP’s transition function p. By Assumption 2, each state is mapped to some one-hot bit vector ej. Because there are only n diﬀerent one-hot bit vectors of dimension n, the summation in Equation (15) is ﬁnite. Each entry of the resulting vector in Equation (15) stores the probability Pr{s →a ej} of observing the feature vector ej after selecting action a at state s.
+Because the expected next feature vector Ep [φ(s )|s, a] is a probability vector, the transition matrices {M a}a∈A of a LAM are stochastic: If φ(s) = ei and ei M a = Ep [ej|s, a], then the ith row of the matrix M a is equal to the probability vector shown in Equation (15). If ei wa = Ep [r(s, a, s )|s, a], then the weight vectors of a LAM {wa}a∈A encode a reward table. These observations lead to the ﬁrst theorem.5
+Theorem 1. For an MDP S, A, p, r, γ , let φ : S → {e1, ..., en} be a state representation and {M a, wa}a∈A a LAM. Assume that S can be partitioned into at most n partitions of bisimilar states. If the state representation φ satisﬁes
+
+∀s ∈ S, ∀a ∈ A, φs wa = Ep r(s, a, s ) s, a and φs M a = Ep [φs |s, a] ,
+
+(16)
+
+then φ generalizes across bisimilar states and any two states s and s˜ are bisimilar if φs = φs˜.
+
+The proof of Theorem 1 uses the fact that the expected value of one-hot bit vectors encode exact probability values. A similar observation can be made about the SFs for a
+
+5. Appendix A.1 presents formal proofs for all presented theorems.
+
+11
+
+Lehnert and Littman
+
+one-hot bit-vector state representation. In this case, the (1 − γ) rescaled SF contains the marginal of reaching a state partition across time steps:
+
+∞
+
+∞
+
+(1 − γ)Ep,π
+
+γt−1et s, a1 = ..., (1 − γ)γt−1Ep,π Pr s a−1·→··at ei s, a1 , ...
+
+t=1
+
+t=1
+
+, (17)
+
+where the expectation in Equation (17) is computed over inﬁnite length trajectories starting at state s with action a. This observation leads to the following theorem stating that LSFMs can be used to identify a one-hot state representation that generalizes across bisimilar states.
+
+Theorem 2. For an MDP S, A, p, r, γ , let φ : S → {e1, ..., en} be a state representation and {F a, wa}a∈A an LSFM. If, for one policy π ∈ Πφ, the representation φ satisﬁes
+
+∀s ∈ S, ∀a ∈ A, φs wa = Ep r(s, a, s ) s, a and φs F a = φs + γEp,π [φs F a |s, a] , (18)
+
+then φ generalizes across bisimilar states and any two states s and s˜ are bisimilar if φs = φs˜. If Equation (18) holds for one policy π ∈ Πφ, then Equation (18) also holds every other policy π˜ ∈ Πφ as well.
+
+Equation (18) describes a ﬁxed-point equation similar to the Bellman ﬁxed-point equation:
+
+∞
+
+es F a = Ep,π
+
+γt−1est s, a
+
+t=1
+
+∞
+
+= es + γEp Ep,π
+
+γt−1est s , a s, a
+
+t=1
+
+= es + γEp es F a s, a .
+
+(19) (20) (21)
+
+Finding a policy π ∈ Πφ to test if Equation (18) holds for a state representation φ is trivial, because it is suﬃcient to test the state representation for any single policy. Theorems 1 and 2 show that LAMs and LSFMs can be used to identify one-hot reward-predictive state representations. To arrive at an algorithm that can learn reward-predictive state representations, the following sections convert the conditions outlined in Theorems 1 and 2 into learning objectives. The next section presents an analysis showing how violating these conditions by some margin results in increased reward-sequence prediction errors. We refer to state representations that can only approximately predict expected reward sequences as an approximate reward-predictive state representation.
+
+4.2 Approximate Reward-Predictive State Representations
+In this section, we analyze to what extent a state representation is reward predictive if it only approximately satisﬁes the conditions outlined in Theorems 1 and 2. In addition, we will also generalize beyond one-hot representations and relax Assumption 2 by considering state representations that map the state space into Rn. The latent feature’s dimension n is considered a ﬁxed hyper-parameter.
+
+12
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Because LAMs only model one-step transitions but are used to predict entire reward sequences, the scale and expansion properties of the constructed latent state space inﬂuences how prediction errors scale and compound (Talvitie, 2018; Asadi et al., 2018). Deﬁne the following variables:6
+
+W = max ||wa||, M = max ||M a||, N = sup ||φs||.
+
+(22)
+
+a∈A
+
+a∈A
+
+s∈S
+
+To identify approximate reward-predictive state representations, a state representation φ is analyzed by its one-step reward-prediction error and one-step expected transition error. These quantities are computed using a LAM {M a, wa}a∈A and are deﬁned as
+
+εr = sup r(s, a) − φs wa and
+
+(23)
+
+s,a
+
+εp = sup Ep φs s, a − φs M a .
+
+(24)
+
+s,a
+
+Equivalently, a state representation is also analyzed using an LSFM that predicts the SF for a policy that selects actions uniformly at random. For an LSFM {F a, wa}a∈A, deﬁne
+
+1
+
+F= |A|
+
+F a.
+
+(25)
+
+a∈A
+
+For such an LSFM, the linear SF prediction error is deﬁned as
+
+εψ = sup φs + γEp φs F s, a − φs F a .
+
+(26)
+
+s,a
+
+Because the matrix F averages across all actions, the LSFM computes the SFs for a policy that selects actions uniformly at random. Here, we focus on uniform random action selection to simplify the analysis. While the matrix F could be constructed diﬀerently, the proofs of the theoretical results presented in this section assume that F can only depend on the matrices {F a}a∈A and is not a function of the state s.
+Similar to the previous discussion, LSFMs are closely related to LAMs and the onestep transition error εp can be upper bounded by the linear SF error εψ. We deﬁne the quantities εr, εt, and εψ to upper bound the magnitude with which the identities provided in Theorems 1 and 2 are violated. The following analysis generalizes the previously presented results by showing that, if a state representation approximately satisﬁes the requirements of Theorems 1 and 2, then this state representation is approximately reward predictive.
+
+Lemma 1. For an MDP, a state representation φ, an LSFM and a LAM,
+
+1 + γM
+
+εp ≤ εψ γ + Cγ,M,N ∆,
+
+(27)
+
+where Cγ,M,N = (1 + γ)(1 + γM )N /(γ(1 − γM )) and ∆ = maxa ||I + γM aF − F a||.
+
+6. All norms are assumed to be L2. The Euclidean norm is used for vectors. The norm of a matrix M is
+
+computed with ||M || =
+
+i,j M (i, j)2, where the summation ranges over all matrix entries M (i, j).
+
+13
+
+Lehnert and Littman
+
+Lemma 1 presents a bound stating that if an LSFM has low linear SF prediction er-
+
+rors, then a corresponding LAM can be constructed with low one-step transition error εp,
+
+assuming that ∆ is close to zero. If ∆ = 0, then the matrices {F a}a∈A can be thought
+
+of as action-conditional SR matrices for the transition matrices {M a}a∈A. In Section 3,
+
+Equation
+
+(7),
+
+the
+
+action-conditional
+
+SR
+
+matrix
+
+is
+
+deﬁned
+
+as
+
+Ψ
+
+π a
+
+=
+
+I
+
++
+
+γP aΨπ,
+
+where
+
+Pa
+
+is a stochastic transition matrix for a ﬁnite MDP. Furthermore, Section 3 also shows that
+
+there exists a bijection between the transition matrices {P a}a∈A and the action-conditional
+
+SR
+
+matrices
+
+{Ψ
+
+π a
+
+}a∈A.
+
+Similarly,
+
+if
+
+∆
+
+=
+
+0,
+
+then
+
+F a = I + γM aF .
+
+(28)
+
+In fact, the proof of Lemma 1 ﬁrst proceeds by assuming ∆ = 0 and showing a one-to-one correspondence between the LSFM matrices {F a}a∈A and the LAM’s transition matrices {M a}a∈A. For arbitrary state representations and LSFMs, Equation (28) may not hold and ∆ > 0.
+The following theorem presents a bound stating that low one-step reward and one-step transition errors lead to state representations that support accurate predictions of future expected reward outcomes. By Lemma 1, the following results also apply to LSFMs because low linear SF prediction errors lead to low one-step expected transition errors.
+
+Theorem 3. For an MDP, state representation φ → Rn, and for all T ≥ 1, s, a1, ..., aT ,
+
+T −1
+φs M a1 · · · M aT −1waT − Ep [rT |s, a1, ..., aT ] ≤ εp M tW + εr.
+t=1
+
+(29)
+
+Theorem 3 shows that prediction errors of expected rollouts are bounded linearly in εr and εp and prediction errors tend to zero as εr and εp tend to zero. Because LAMs are one-step models, prediction errors increase linearly with T if M ≤ 1 as the model is used to generalize over multiple time steps. Prediction errors may increase exponentially if the transition matrices are expansions and M > 1, similar to previously presented bounds (Asadi et al., 2018).
+The following theorem bounds the prediction error of ﬁnding a linear approximation of the Q-function Qπ(s, a) ≈ φs qa using a state representation φ and a real valued vector qa.
+Theorem 4. For an MDP, state representation φ : S → Rn, any arbitrary abstract policy π ∈ Πφ, and LAM {M a, wa}a∈A, there exists vectors vπ and {qa = wa + γM avπ}a∈A such that, for all states s and actions a,
+
+V π(s) − φs vπ
+
+≤ εr + γεp ||vπ|| and 1−γ
+
+Qπ(s, a) − φs qa
+
+≤
+
+εr
+
++
+
+γεp
+
+||v π || .
+
+1−γ
+
+(30)
+
+By Theorem 4, an (approximate) reward-predictive state representation (approximately) generalizes across all abstract policies, because the same state representation can be used to predict the value of every possible abstract policy π ∈ Πφ. Prediction errors tend to zero as εr and εp tend to zero. The value prediction error bounds stated in Theorem 4 are similar to bounds presented by Bertsekas (2011) on approximate (linear) policy iteration, because the presented results also approximate value functions using a function that is linear in
+
+14
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+φ(A) = φAB A eA = [1, 0, 0, 0, 0]
+
+r=0
+
+One-hot Vectors
+
+Arbitrary Vectors
+
+C
+
+r = 0.5 eC = [0, 0, 1, 0, 0] φC = [0, 0.5, 0.5]
+
+r=0 φ(B) = φAB B eB = [0, 1, 0, 0, 0]
+
+p
+
+=
+
+1 2
+
+p
+
+=
+
+1 2
+
+D
+
+r = 1 eD = [0, 0, 0, 1, 0] φD = [0, 1, 0]
+
+E
+
+r = 0 eE = [0, 0, 0, 0, 1] φE = [0, 0, 1]
+
+(a) Reward-predictive representations can be encoded using diﬀerent state features.
+
+Model LAM LSFM
+
+Prediction Target
+
+Ep[φ|A]
+
+Ep[φ|B]
+
+Ep[
+
+∞ t=1
+
+γ
+
+t−1φt|A]
+
+Ep[
+
+∞ t=1
+
+γ
+
+t−1φt|B]
+
+with one-hot
+= [0, 0, 1, 0, 0] = [0, 0, 0, 0.5, 0.5] = [1, 0, 9, 0, 0] = [0, 1, 0, 3.5, 3.5]
+
+with arbitrary
+= [0, 0.5, 0.5] = [0, 0.5, 0.5] = φAB + [0, 3.5, 3.5] = φAB + [0, 3.5, 3.5]
+
+(b) Prediction targets of a LAM and LSFM for both state representations.
+
+Figure 4: Real-valued reward-predictive state representations may not encode bisimulations, but support predictions of future expected reward outcomes. 4(a): In this ﬁve-state, example no states are bisimilar. Each edge is labelled with the reward given to the agent for a particular transition. The transition departing state B is probabilistic and leads to state D or E with equal probability. All other transitions are deterministic. Two diﬀerent state representations are considered. One representation maps states to one-hot bit vectors and the other representation maps states to real-valued vectors. 4(b): Prediction targets for both LAM and LSFM depend on what state representation is used. For a onehot state representation, the LAM and LSFM have diﬀerent prediction targets for states A and B, because a one-hot bit-vector state representation can be used to detect that transition probabilities are diﬀerent between A and B. In contrast, real valued state representations may lead to equal prediction targets for both LAM and LSFM, because the state features φC, φD, and φE can hide diﬀerent transition probabilities. The state representation φ is reward predictive and εr = εp = εψ = 0.
+
+15
+
+Lehnert and Littman
+some basis function φ. Conforming to these previously presented results on linear value function approximation, prediction errors scale linearly in one-step prediction errors εψ and εp. Theorems 4 and 3 show that, by learning a state representation that predicts SFs for policies that select actions uniformly at random, an approximate reward-predictive state representation is obtained. This state representation generalizes across the entire space of abstract policies, because accurate predictions of each policy’s value function are possible if prediction errors are low enough. Appendix A.2 presents formal proofs of Theorems 3 and 4.
+Figure 4 presents an example highlighting that reward-predictive state representations do not necessarily encode bisimulation relations. In this example, states A and B are not bisimilar, because the probabilities with which they transition to C, D, or E are diﬀerent. The state representation φ generalizes across these two states and εr = εp = εψ = 0. The expected reward sequence for transitioning out of A or B is always 0, 0.5, 0.5, ..., so both states have equal expected future reward outcomes and the state representation φ is reward predictive. However, the state representation is not predictive of the probability with which a particular reward sequence is observed. For example, the latent state space constructed by φ would have to make a distinction between state A and B to support predictions stating that a reward sequence of 0, 1, 1, ... can be obtained from state B with probability 0.5. The example in Figure 4 highlights the diﬀerence between the analysis presented in this section and the previous section: By relaxing Assumption 2 and considering state-representation functions that map states to real-valued vectors instead of one-hot bit vectors, one may still obtain a reward-predictive state representation, but this representation may not necessarily encode a bisimulation relation.
+Note that an (approximate) reward-predictive state representation φ : S → Rn could in principle map each state to a distinct latent state vector. As demonstrated by the following simulations, the idea behind generalizing across states is that the dimension n of the constructed latent space is suﬃciently small to constrain the LSFM learning algorithm to assign approximately the same latent state vector to diﬀerent states. The following section illustrates how (approximate) reward-predictive state representations model generalization across diﬀerent states.
+4.3 Learning Reward-Predictive Representations
+Using the previously presented theoretical results, this section designs a loss objective to learn approximate reward-predictive state representations. By optimizing a loss function, a randomly chosen state-representation function φ : S → Rn is iteratively improved until the function φ can be used to accurately predict future reward sequences. The cluster plots in Figure 5 illustrate this process: Starting with a random assignment of feature vectors to diﬀerent grid states, a state representation is iteratively improved until all states of the same column are clustered approximately into the same latent state. These latent state vectors were only clustered because the loss function assesses whether a state representation is reward predictive. The fact that states of the same column are assigned approximately to the same latent state is an artifact of this optimization process. The hyper-parameter n can be understood as the size of the constructed latent space and a bound on the degree of compression of the state space. For example, if the state space consists of nine diﬀerent
+16
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Loss Value
+
+10í1
+
+10í3
+
+10í5
+
+0
+
+50 100
+
+Gradient Update
+
+Loss Value
+
+100
+
+10í1
+
+10í2
+
+0
+
+50 100
+
+Gradient Update
+
+Figure 5: In the column world task, learning reward-predictive state representations leads to clustering grid cells by each column. The top row illustrates a map of the column world task and a colouring of each column. The middle row presents an experiment that optimizes across diﬀerent state representations to ﬁnd a LAM that can be used for accurate one-step reward and one-step expected transition predictions. Each latent state is plotted as a dot in 3D-space and dots are coloured by the column they correspond to. At the end of the optimization process, three clusters of the same colour are formed showing that approximately the same latent state is assigned to states of the same column. The third row repeats the same experiment using an LSFM, which assesses whether the constructed latent state space can be used for accurate one-step reward predictions and SF predictions. Appendix C.1 describes this experiment in detail.
+
+17
+
+Lehnert and Littman
+
+states, setting n = 9 could result in not compressing the state space and mapping nine states onto nine distinct one-hot bit vectors. The following experiments explore how choosing a low enough feature dimension leads to compression and generalization across states.
+The previous sections present bounds on prediction errors that are parameterized in the worst-case one-step reward-prediction error εr and worst-case linear SF prediction error εψ. Given only a ﬁnite data set of transitions D = {(si, ai, ri, si)}Di=1, it may not be possible to compute estimates for εr and εψ without making further assumptions on the MDP at hand, such as a ﬁnite state space or a bounded Rademacher complexity of the transition and reward functions to obtain robust performance on a test data set (Mohri et al., 2018). Because the goal of this project is to study the connections between SFs and diﬀerent models of generalization across diﬀerent states, an analysis of how to ﬁnd provably correct predictions of εr and εψ given a ﬁnite data set D is beyond the scope of this article. Instead, the conducted experiments collect a data set D by sampling trajectories using a policy that selects actions uniformly at random. The data set D is generated to be large enough to cover all state and action pairs, ensuring that all possible transitions and rewards are implicitly represented in this data set. If the data set does not cover all states and actions, then the resulting reward-predictive state representation may only produce accurate predictions for some reward sequences because the data set does not communicate all aspects of the MDP at hand. A study of this interaction between a possibly limited training data set and the resulting model’s ability to make accurate predictions is left for future work.
+We design a loss objective to learn LSFMs LLSFM that is the sum of three diﬀerent terms: The ﬁrst term Lr computes the one-step reward prediction error and is designed to minimize the reward error εr. The second term Lψ computes the SF prediction error and is designed to minimize the SF error εψ. The last term LN is a regularizer constraining the gradient optimizer to ﬁnd a state representation that outputs unit norm vectors. Empirically, we found that this regularizer encourages the optimizer to ﬁnd a model with M ≈ 1 and W ≈ 1. (Reward-sequence prediction errors are lower for these values of M and W , as stated in Theorem 29.) Given a ﬁnite data set of transitions D = {(si, ai, ri, si)}Di=1, the formal loss objective is
+
+D
+LLSFM =
+i=1
+
+2
+
+D
+
+φsiwai − ri +αψ
+
+i=1
+
+φsiF a − y si,ai,ri,si
+
+2
+
+D
+
++αN
+
+2 i=1
+
+=Lr
+
+=Lψ
+
+2
+
+2
+
+φsi
+
+−1
+2
+
+, (31)
+
+=LN
+
+for a ﬁnite data set of transitions D = {(si, ai, ri, si)}Di=1. In Equation (31), the prediction target
+ys,a,r,s = φs + γφs F
+and αψ, αN > 0 are hyper-parameters. These hyper-parameters weigh the contribution of each error term to the overall loss objective. If αψ is set to too small a value, then the resulting state representation may only produce accurate one-step reward predictions, but not accurate predictions of longer reward sequences. This article presents simulations on ﬁnite state spaces and represents a state representation as a function s → es Φ where Φ is a weight matrix of size |S| × n. An approximation of a reward-predictive state representation is obtained by performing gradient descent on the loss objective LLSFM with respect to
+
+18
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+the free parameters {F a, wa}a∈A and Φ. For each gradient update, the target ys,a,r,s is considered a constant. The previously presented bounds show that prediction errors also
+
+increase with ∆ = maxa ||I + γM aF − F a||. Minimizing Lψ for a ﬁxed state representation
+
+φ minimizes ∆, because
+
+∆ ≤ cφLψ,
+
+(32)
+
+where cφ is a non-negative constant. Appendix A.3 presents a formal proof for Equation (32).
+To assess whether minimizing the loss LLSFM leads to approximating reward-predictive state representations, a transition data set was collected from the puddle-world task (Boyan and Moore, 1995). Conforming to the previous analysis, the LSFM is compared to a LAM that is trained using a similar loss function, described in Appendix C.2.
+Figure 6 presents the puddle-world experiments and the results. In puddle-world (Figure 6(a)), the agent has to navigate from a start state to a goal to obtain a reward of one while avoiding a puddle. Entering the puddle is penalized with a reward of minus one. To predict future reward outcomes accurately, a state representation has to preserve the grid position as accurately as possible to predict the location of the diﬀerent reward cells.
+By constraining the latent state space to 80 dimensions, the optimization process is forced to ﬁnd a compression of all 100 grid cells. To analyze across which states the learned reward-predictive state representation generalizes, all feature vectors were clustered using agglomerative clustering. Two diﬀerent states that are associated with feature vectors φs and φs˜ are merged into the same cluster if their Euclidean distance ||φs − φs˜||2 is low. For example, a randomly chosen representation would randomly assign states to diﬀerent latent states and the partition map could assign the grid cell at (0, 0) and (9, 9) to the same latent state. Figures 6(b) and 6(c) plot the obtained clustering as a partition map. Grid cells are labelled with the same partition index if they belong to the same cluster and colours correspond to the partition index. To predict reward outcomes accurately, the position in the grid needs to be roughly retained in the constructed latent state space. The partition maps in Figures 6(b) and 6(c) suggest that the learned state representation extracts this property from a transition data set, by generalizing only across neighboring grid cells and tiling the grid space. Only a transition data set D was given as input to the optimization algorithm and the algorithm was not informed about the grid-world topology of the task in any other way.
+Figures 6(d), 6(e), 6(f) plot an expected reward rollout and the predictions presented by a random initialization (6(d)), the learned representation using a LAM (6(e)), and the learned representation using a LSFM (6(f)). The blue curve plots the expected reward outcome Ep[rt|s, a1, ..., at] as a function of t for a randomly selected action sequence. Because transitions are probabilistic, the (blue) expected reward curve is smoothed and does not assume exact values of −1 or +1. While a randomly initialized state representation produces poor predictions of future reward outcomes (Figures 6(d)), the learned representations produce relatively accurate predictions and follow the expected reward curve (Figures 6(e) and 6(f)). Because the optimization process was forced to compress 100 grid cells into a 80-dimensional latent state space, the latent state space cannot preserve the exact grid cell position and thus approximation errors occur.
+Figure 6(g) averages the expected reward-prediction errors across 100 randomly selected action sequences. While a randomly chosen initialization produces high prediction errors,
+
+19
+
+Lehnert and Littman
+
+Start State 0 1 2 3 -1 4 5 6 7 8 9 +1
+0123456789
+(a) Puddle-world task map
+
+0 0012345678 1 9 9 10 11 12 13 14 6 7 8 2 15 15 16 17 18 19 20 21 22 23 3 24 25 26 27 28 29 30 21 22 23 4 31 32 33 34 35 36 37 38 39 40 5 41 42 43 44 45 46 47 38 39 40 6 48 49 50 51 52 53 54 55 56 57 7 58 59 60 61 62 63 54 55 56 57 8 64 65 66 67 68 69 70 71 72 73 9 74 75 76 76 77 78 79 71 72 73
+0123456789
+(b) LAM generalization map
+
+0 0123456789 1 10 11 12 13 14 15 16 17 18 19 2 20 21 21 22 14 15 16 23 24 25 3 26 27 28 22 29 30 31 32 33 34 4 35 27 28 36 29 37 37 32 38 39 5 40 41 41 36 42 43 43 44 45 46 6 47 48 48 49 50 50 51 44 52 53 7 54 55 55 56 57 58 51 59 60 61 8 62 63 64 65 66 58 67 59 68 69 9 70 71 72 73 74 75 76 77 78 79
+0123456789
+(c) LSFM generalization map
+
+1
+
+Exp. Reward
+
+Prediction
+
+0
+
+1
+
+Exp. Reward
+
+Prediction
+
+0
+
+1
+
+Exp. Reward
+
+Prediction
+
+0
+
+Expected Reward
+
+Expected Reward
+
+Expected Reward
+
+−1
+
+0
+
+100
+
+200
+
+Rollout Step
+
+(d) Example Rollout, Random
+
+Avg. Exp. Reward Prediction Error
+
+1.00
+
+Init.
+
+0.75
+
+LSFM
+
+LAM 0.50
+
+0.25
+
+0.00 0 100 200 Rollout Step
+
+(g) Reward-Prediction Error
+
+−1
+
+0
+
+100
+
+200
+
+Rollout Step
+
+(e) Example Rollout, LAM
+
+1.0
+
+1.0
+
+−1
+
+0
+
+100
+
+200
+
+Rollout Step
+
+(f) Example Rollout, LSFM
+
+1.0
+
+1.0
+
+Exploration Epsilon
+
+Exploration Epsilon Value Error
+
+Value Error
+
+0.5
+
+0.5
+
+0.5
+
+0.5
+
+0.0
+
+0.0
+
+0 25000 50000
+
+Iteration
+
+(h) LAM Value-Prediction Error
+
+0.0
+
+0.0
+
+0 25000 50000
+
+Iteration
+
+(i) LSFM Value-Prediction Error
+
+Figure 6: Puddle-World Experiment. 6(a): Map of the puddle-world task in which the agent can move up, down, left, or right to transition to adjacent grid cells. The agent always starts at the blue start cell and once the green reward cell is reached a reward of +1 is given and the interaction sequence is terminated. For each transition that enters the orange puddle, a reward of −1 is received. 6(b), 6(c): Partitioning obtained by merging latent states into clusters by Euclidean distance. 6(d), 6(e), 6(f): Expected reward and predictions for a randomly chosen 200-step action sequence using a randomly chosen representation, a representation learned with a LAM, and a representation learned with an LSFM. 6(g): Average expected reward-prediction errors with standard error for each representation. 6(h), 6(i): Optimizing the loss objective results in a sequence of state representations suitable for ﬁnding linear approximations of the value functions for a range of diﬀerent ε-greedy policies. Appendix C.2 presents more details.
+
+20
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+the learned state representations produce relatively low prediction errors of future reward outcomes. If expected reward-prediction errors are random after 200 time steps, then the γ-discounted return can be oﬀ by at most 0.9200 · 1/(1 − 0.9) ≈ 1.4 · 10−9 after 200 time steps for γ = 0.9 and a reward range of [−1, 1]. Hence, planning over a horizon of more than 200 time steps will impact a policy’s value estimate insigniﬁcantly. Reward-prediction errors decrease for a randomly chosen state representation (blue curve in Figure 6(g)) because the stochasticity of the task’s transitions smooths future expected reward outcomes as the number of steps increases.
+While the plots in Figure 6 suggest that both LSFMs and LAMs can be used to learn approximate reward-predictive state representations, the LSFM produces lower prediction errors for expected reward outcomes than the LAM and the LAM produces lower valueprediction errors. Because both models optimize diﬀerent non-linear and non-convex loss functions, the optimization process leads to diﬀerent local optima, leading to diﬀerent performance on the puddle-world task. While prediction errors are present, Figure 6 suggests that both LSFM and LAM learn an approximate reward-predictive state representation and empirically the diﬀerences between each model are not signiﬁcant.
+4.4 Connection to Model-based Reinforcement Learning
+The key characteristic of a model-based RL agent is to build an internal model of a task that supports predictions of future reward outcomes for any arbitrary decision sequence. Because reward-predictive state representations construct a latent state space suitable for predicting reward sequences for any arbitrary decision sequence, learning reward-predictive state representations can be understood as form of model-based RL. LSFMs tie SFs to reward-predictive state representations, which support predictions of future reward outcomes for any arbitrary decision sequence. The presented analysis describes how learning SFs is akin to learning a transition and reward model in model-based RL.
+5. Connections to Value-Predictive Representations
+This section ﬁrst outlines how SFs are related to value-predictive state representations and how learning SFs is akin to model-free learning. Subsequently, we illustrate how rewardpredictive state representations can be re-used across tasks with diﬀerent transitions and rewards to ﬁnd an optimal policy while re-using value-predictive state representations may prohibit an agent from learning an optimal policy. Barreto et al. (2017a) present SFs as a factorization of the Q-value function for an arbitrary ﬁxed policy π and demonstrate that re-using SFs across tasks with diﬀerent reward functions improves the convergence rate of online learning algorithms. This factorization assumes a state and action representation function ξ : S × A → Rm that serves as a basis function for one-step reward predictions and
+
+∀s ∈ S, ∀a ∈ A, ξs,aw = Ep r(s, a, s ) s, a .
+
+(33)
+
+21
+
+Lehnert and Littman
+
+Using a state and action representation function, the Q-value function can be factored:
+
+∞
+
+Qπ(s, a) = Ep,π
+
+γt−1r(st, at, st+1) s1 = s, a1 = a
+
+t=1
+
+∞
+
+= Ep,π
+
+γt−1ξ st,atw s1 = s, a1 = a
+
+t=1
+
+∞
+
+= Ep,π
+
+γt−1ξ st,at s1 = s, a1 = a w
+
+t=1
+
+= (ψπSA(s1, a1)) w.
+
+(34)
+
+(by (33))
+
+(35)
+
+(36) (where s1 = s, a1 = a) (37)
+
+Equation (37) assumes the following deﬁnition for a SF ψSπA:
+
+∞
+
+ψπSA(s, a) d=ef. Ep,π
+
+γt−1ξ st,at s1 = s, a1 = a .
+
+t=1
+
+(38)
+
+The
+
+state
+
+and
+
+action
+
+SF
+
+ψ
+
+π SA
+
+is
+
+a
+
+basis
+
+function
+
+that
+
+allows
+
+accurate
+
+predictions
+
+of
+
+the
+
+Q-value
+
+function
+
+Qπ .
+
+Consequently,
+
+the
+
+representation
+
+ψ
+
+π SA
+
+is
+
+a
+
+value-predictive
+
+state
+
+rep-
+
+resentation because it is designed to construct a latent feature space that supports accurate
+
+predictions of the Q-value function Qπ.
+
+Figure 7 illustrates that value-predictive state representations generalize across diﬀer-
+
+ent states diﬀerently than reward-predictive state representations. The counter example
+
+presented in Figure 7 demonstrates that it is not always possible to construct an opti-
+
+mal policy using a value-predictive state representation. If a sub-optimal policy is used,
+
+value-predictive state representations may alias states that have diﬀerent optimal actions
+
+prohibiting an intelligent agent from ﬁnding an optimal policy. In this case the value-
+
+predictive state representation has to be adjusted for the agent to be able to ﬁnd an opti-
+
+mal policy, a phenomenon that has been previously described by Russek et al. (2017). In
+
+contrast, reward-predictive state representations generalize across the entire policy space
+
+(Theorem 4) and allow an agent to ﬁnd either an optimal policy or close to optimal policy
+
+in the presence of approximation errors.
+
+In the following section, we show that learning SFs is akin to learning a value function
+
+in model-free RL and the presented argument ties SFs to model-free RL. Subsequently,
+
+we demonstrate that reward-predictive state representations can be re-used across tasks
+
+with diﬀerent transitions and rewards to ﬁnd an optimal policy on two transfer examples
+
+in Sections 5.2 and 5.3. While value-predictive state representations may prohibit an agent
+
+from learning an optimal policy (Figure 7), we illustrate in which cases reward-predictive
+
+state representations overcome this limitation.
+
+5.1 Connection to Linear Temporal Diﬀerence Learning
+
+Algorithms that learn SFs can be derived similarly to linear TD-learning (Sutton and Barto, 1998, Chapter 8.4). In linear TD-learning algorithms such as linear Q-learning or SARSA, all Q-values are represented with
+
+Qπ(s, a; θ) = ξs,aθ,
+
+(39)
+
+22
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Value predictive:
+
+Qπ(A, a)
+
+=
+
+γ 1−γ
+
+0.5
+
+Qπ(A, b)
+
+=
+
+γ 1−γ
+
+0.5
+
+Reward predictive:
+
+ψπ(A, a)
+
+=
+
+φA
+
++
+
+1 1−γ
+
+φ
+
+D
+
+ψπ(A, b)
+
+=
+
+φA
+
++
+
+1 1−γ
+
+φ
+
+C
+
+Qπ(B, a)
+
+=
+
+γ 1−γ
+
+0.5
+
+Qπ(B, b)
+
+=
+
+γ 1−γ
+
+0.5
+
+ψ π (B ,
+
+a)
+
+=
+
+φB
+
++
+
+1 1−γ
+
+φC
+
+ψ π (B ,
+
+b)
+
+=
+
+φB
+
++
+
+1 1−γ
+
+φD
+
+b, r = 0 A
+a, r = 0
+a, r = 0 B
+b, r = 0
+
+C
+
+a, b, r = 0.5
+
+a, r = 1 D
+b, r = 0
+
+Figure 7: Value-predictive state representations may prohibit an agent from learning an optimal policy. In this MDP, the agent can choose between action a and action b. All transitions are deterministic and each edge is labelled with the reward given to the agent. If a uniform-random action-selection policy is used to construct a valuepredictive state representation, then both states A and B will have equal Q-values. A reward-predictive state representation would always distinguish between A and B, because at state A the action sequence b, a, a... leads to a reward sequence of 0, 0.5, 0.5, ... while at state B the action sequence b, a, a, ... leads to a reward sequence of 0, 1, 1, .... An LSFM detects that states A and B should not be merged into the same latent state, because the states have diﬀerent SFs. The optimal policy is to select action a at state A, and action b at state B and then collect a reward of one at state D by repeating action a. If an agent uses a rewardpredictive state representation, then the optimal policy could be recovered. If an agent uses a value-predictive state representation, the agent would be constrained to not distinguish between states A and B and cannot recover an optimal policy.
+
+23
+
+Lehnert and Littman
+
+where θ is a real-valued weight vector that does not depend on a state s or action a. Linear TD-learning learns the parameter vector θ by minimizing the mean squared value error
+
+VE(θ) =
+
+µ(s, a, r, s ) Qθπ(s, a; θ) − ys,a,r,s 2 .
+
+(40)
+
+s,a,r,s
+
+Equation (40) averages prediction errors with respect to some distribution µ with which transitions (s, a, r, s ) are sampled. The prediction target
+
+ys,a,r,s = r + γ b(s , a )Qπ(s , a ; θ)
+
+(41)
+
+a
+
+varies by which function b is used. For example, to ﬁnd the optimal policy linear Qlearning uses an indicator function b(s, a) = 1[a = arg maxa Qπ(s, a; θ)] so that ys,a,r,s = r + γ maxa Qπ(s , a ; θ). For Expected SARSA (Sutton and Barto, 2018, Chapter 6.6), which evaluates a ﬁxed policy π, the target can be constructed using b(s, a) = π(s, a),
+where π(s, a) speciﬁes the probability with which a is selected at state s. When computing
+a gradient of VE(θ) the prediction target ys,a,r,s is considered a constant. For an observed transition (s, a, r, s ), the parameter vector is updated using the rule
+
+θt+1 = θt + α Qπ(s, a; θt) − ys,a,r,s ξ s,a,
+
+(42)
+
+where α is a learning rate and the subscript t tracks the update iteration. A SF-learning algorithm can be derived by deﬁning the mean squared SF error (Lehnert et al., 2017)
+
+SFE(ψπSA) =
+
+µ(s, a, r, s )||ψπSA(s, a) − ys,a,r,s ||2.
+
+(43)
+
+s,a,r,s
+
+Because the SF ψπSA(s, a) is a vector of dimension m, the target
+
+ys,a,r,s = ξ s,a + γ b(s , a )ψπSA(s , a )
+a
+
+(44)
+
+is also a vector but can be constructed similarly to the usual value-prediction target ys,a,r,s . Assuming that SFs are approximated linearly using the basis function ξ,
+
+ψπSA(s, a; G) = Gξs,a,
+
+(45)
+
+where F is a square matrix. Computing the gradient of SFE(ψπ) with respect to F results in an update rule similar to linear TD-learning:
+
+Gt+1 = Gt + α ψπSA(s, a; Gt) − ys,a,r,s ξ s,a.
+
+(46)
+
+Assuming the reward condition in Equation (33) holds, both linear TD-learning and SFlearning produce the same value-function sequence.
+
+Proposition 1 (Linear TD-learning and SF-learning Equivalence). Consider an MDP and a basis function ξ such that r(s, a) = ξs,aw for all states s and actions a. Suppose both iterates in Equation (42) and in Equation (46) use the same function b to construct prediction targets and are applied for the same trajectory (s1, a1, r1, s2, a2, ...). If θ0 = G0w, then
+
+∀t > 0, θt = Gtw.
+
+(47)
+
+24
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+Proposition 1 proves that both linear TD-learning and linear SF-learning generate identical value-function estimates on the same trajectory. Appendix B proves Proposition 1. Because linear TD-learning need not converge to an optimal solution, the SF iterate in Equation (46) also need not converge to an optimal solution. The tabular case, in which convergence can be guaranteed, is a sub-case of the presented analysis: For ﬁnite state and action spaces, a basis function ξ can be constructed that outputs a one-hot bit vector of dimension n, where n is the number of all state and action pairs. In this case, each weight in the parameter vector θ corresponds to the Q-value for a particular state and action pair. Similarly, each row in the matrix F corresponds to the SF vector for a particular state and action pair. In this light, learning SFs is akin to learning a value function in model-free RL.
+5.2 Generalization Across Transition and Reward Functions
+One key distinction between value- and reward-predictive state representations is their ability to generalize across diﬀerent transition and reward functions. While prior work on SFs (Barreto et al., 2016) and adversarial IRL (Fu et al., 2018) separately model the reward function from the transition function and observed policy, reward-predictive state representations only model equivalence relations between states separately from the transition and reward model. Consequently, reward-predictive state representations extract equivalences between diﬀerent state’s transitions and one-step rewards, reward-predictive state representations can be reused across tasks that vary in their transition and reward functions (Lehnert et al., 2019). Figure 8 presents a transfer experiment highligting that reusing a previously learned reward-predictive state representation allows an intelligent agent to learn an optimal policy using less data.
+This experiment uses two grid-world tasks (Figure 8(a)): For Task A, a transition data set DA is collected. A reward-predictive state representation is learned using an LSFM and a value-predictive state representation is learned using a form of Fitted Q-iteration (Riedmiller, 2005). These state representations are then reused without modiﬁcation to learn an optimal policy for Task B given a data set DB collected from Task B. Both data sets are generated by performing a random walk from a uniformly sampled start state to one of the rewarding goal states. In both tasks, the agent can transition between adjacent grid cells by moving up, down, left, or right, but cannot transition across a barrier. Transitions are probabilistic, because, with a 5% chance, the agent does not move after selecting any action.
+Figure 8(b) presents two heuristics for clustering all 100 states into 50 latent states. The ﬁrst heuristic constructs a reward-predictive state representation by joining states into the same latent state partition if they are directly connected to another. Because both tasks are navigation tasks, partitioning the state space in this way leads to approximately preserving the agent’s location in the grid. The second heuristic constructs a value-predictive state representation by joining states that have approximately the same optimal Q-values. Because Q-values are discounted sums of rewards, Q-values decay as one moves further away from a goal cell. This situation leads to diﬀerent corners being merged into the same state partition (for example grid cell (0, 0) is merged with (0, 9)) and an overall more fragmented partitioning that does not perserve the agent’s location. Because both state representations are computed for Task A, both state representations can be used to compute an optimal pol-
+25
+
+Lehnert and Littman
+icy for Task A. For Task B, an optimal policy cannot be obtained using the value-predictive state representation. For example, both grid cells at (0, 0) and (0, 9) have diﬀerent optimal actions in Task B but are mapped to the same latent state. Consequently, an optimal action cannot be computed using the previously learned value-predictive state representation. Because each grid cell has a diﬀerent optimal action, an optimal abstract policy mapping each latent state to an optimal action cannot be found and the navigation Task B cannot be completed within 5000 time steps if the value-predictive state representation is used (Figure 8(b), right panel). In contrast, the reward-predictive state representation can be used, because it approximately models the grid-world topology. For Task B, each latent state has to be associated with diﬀerent one-step rewards and latent transitions, but it is still possible to obtain an optimal policy using this state representation and complete the navigation task quickly.
+Figure 8(c) repeats a similar experiment, but learns a state representation using either an LSFM to ﬁnd a reward-predictive state representation or a modiﬁcation of Fitted Qiteration to ﬁnd a value-predictive state representation. The two left panels in Figure 8(c) plot a partitioning of the state space that was obtained by clustering all latent state feature vectors using agglomerative clustering. In this experiment, the latent feature space was set to have 50 dimensions. One can observe that the state representation learned using an LSFM qualitatively corresponds to clustering connected grid cells. The learned value-predictive state representation qualitatively resembles a clustering of states by their optimal Q-values, because Fitted Q-iteration optimizes this state representation to predict the optimal value function as accurately as possible. Both state representations are tested on Task B using the following procedure: First, a data set DB was collected of a ﬁxed size. Then, Fitted Q-iteration was used to compute the optimal policy for Task B using the previously learned state representation as a basis function such that Qπ∗(s, a) ≈ φs qa where qa is a weight vector and φ(s) = φs. The state representation φ trained on Task A is not modiﬁed to obtain an optimal policy in Task B. If the training data set DB obtained from Task B is too small, then the data set may not provide enough information to ﬁnd an optimal policy. In this case, Fitted Q-iteration converged to a sub-optimal policy. Because the data sets DB are generated at random, one may ﬁnd that sampling a data set of 2000 transitions may lead to an optimal solution often, but not all the time.
+The right panel in Figure 8(c) plots the dependency of being able to ﬁnd an optimal policy as a function of the transition data set. For each data set size, twenty diﬀerent data sets were sampled and the y-axis plots the fraction (with standard error of measure) of how often using this data set leads to a close-to-optimal policy. A close-to-optimal policy solves the navigation task in at most 22 time steps. The orange curve is computed using a tabular model-based agent, which constructs a transition and reward table using the sampled data set and solves for an optimal policy using value iteration. Reusing a reward-predictive state representation in Task B often leads to ﬁnding an optimal policy for small data set sizes (the blue curve in Figure 8(c), right panel). Because the training data set DB is only used to inform diﬀerent latent transitions and rewards, this agent can generalize across diﬀerent states and reuse what it has learned without having to observe every possible transition. This behavior leads to better performance than the tabular model-based baseline algorithm, which does not generalize across diﬀerent states and constructs a transition table for Task B and computes an optimal policy using value iteration (Sutton and Barto, 2018, Chapter
+26
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Task A: 0
+3
+6
+
+Task B: 0
+3
+6
+
+: Start state : Goal state (+1 reward) : Barrier
+
+9 0369
+
+9 0369
+
+(a) Maps of Transfer Grid Worlds
+
+Reward Predictive
+(Connected States)
+0 0122334567 1 0188994567 2 10 10 8 11 11 12 13 14 14 15 3 16 17 17 18 18 19 13 20 21 15 4 16 22 23 23 24 19 25 25 21 26 5 27 27 28 24 24 29 29 30 30 26 6 31 31 28 32 32 33 33 30 30 34 7 35 35 36 36 37 38 39 40 40 34 8 41 42 43 43 44 38 45 45 46 46 9 41 42 47 47 44 44 48 48 49 49
+0123456789
+
+Value Predictive (App. Equal Qπ∗ )
+0 0123456789 1 1 2 3 4 10 11 12 6 7 8 2 13 14 15 10 16 17 18 12 6 7 3 19 20 21 22 23 24 25 26 27 28 4 19 20 21 22 23 29 30 31 27 32 5 19 20 21 22 23 29 30 31 27 32 6 19 20 21 22 23 33 34 31 35 32 7 13 14 36 37 38 39 40 35 41 42 8 43 44 45 46 37 47 35 41 42 48 9 0 43 44 45 46 49 41 42 48 9
+0123456789
+
+Performance Timeout in Task A (5000 Steps) 20 Steps
+10 Steps
+
+Performance in Task B
+
+Optimal Connected
+States Equal Q-values Optimal Connected States Equal Q-values
+
+Simulations are repeated 20 times.
+
+(b) State representations obtained using a clustering heuristic or optimal Q-values of Task A
+
+Reward Predictive (LSFM)
+0 0112334556 1 7 8 9 2 10 10 11 11 12 12 2 7 8 9 13 13 14 15 15 16 17 3 18 19 20 21 21 22 15 15 16 17 4 18 19 20 23 24 24 25 25 26 27 5 18 28 29 23 24 24 30 30 26 27 6 18 28 29 31 31 32 30 30 33 34 7 35 35 36 36 37 38 39 39 33 34 8 40 41 41 42 42 38 39 39 43 43 9 44 45 45 46 46 47 47 48 48 49
+
+Value Predictive (Fitted Q)
+0 0123345677 1 8 9 9 3 3 3 10 11 12 7 2 1 1 1 9 1 4 5 10 5 13 3 14 15 16 17 18 19 18 20 12 0 4 21 22 23 24 25 25 26 18 27 27 5 28 29 29 30 31 32 32 33 34 6 6 35 16 36 36 30 37 37 38 34 34 7 39 39 40 40 41 42 43 43 33 33 8 2 44 44 40 41 45 46 47 47 48 9 39 39 8 40 2 49 46 13 48 7
+
+0123456789
+
+0123456789
+
+Fraction of Close to Optimal
+TraNTnresaPgfnoaestsrifitevireve
+
+Data Set Size Needed to Solve Task B 1.0
+
+Tabular Model
+
+0.5
+
+Reward Predictive
+
+Value Predictive
+
+0.0 1000
+
+4000
+
+7000
+
+Data Set Size
+
+10000
+
+(c) State partitions obtained through learning on a transition data set D.
+
+Figure 8: Reward-predictive representations generalize across variations in transitions and rewards. 8(b): The left panels plot state partitions obtained by clustering connected states or states with equal optimal Q-values in Task A (8(a)). The right panels plot the number of times steps a policy, which uses each representation, needs to complete Task B (8(a)). 8(c): The left panels plot partitions obtained by clustering latent states of a reward-predictive and value-predictive representation. The right panel plots how often one out of 20 transition data sets can be used to ﬁnd an optimal policy as a function of the data set size. By reusing the learned reward-predictive representation, an agent can generalize across states and compute an optimal policy using less data than a tabular model-based RL agent. Reusing a value-predictive representation leads to poor performance, because this representation is only predictive of Task A’s optimal policy.
+
+27
+
+Lehnert and Littman
+4.4). Reusing the learned value-predictive state representation leads to ﬁnding a sub-optimal policy in almost all cases (green curve in Figure 8(c), right panel). The value-predictive state representation is optimized to predict the Q-value function of the optimal policy in Task A. Because Task B has a diﬀerent optimal policy, reusing this representation does not lead to an optimal policy in Task B, because the previously learned representation is explicitly tied to Task A’s optimal policy. Note that any trial that did not ﬁnd a close-tooptimal policy that completes the task in 22 time steps did also not ﬁnish the task and hit the timeout threshold of 5000 time steps. Appendix C.3 presents additional details on the experiments conducted in Figure 8.
+5.3 Reward-Predictive Representations Encode Task Relevant State Information
+In this section, we present the last simulation result illustrating which aspect of an MDP reward-predictive state representations encode. Figure 9(a) illustrates the combination lock task, where an agent rotates three diﬀerent numerical dials to obtain a rewarding number combination. In this task, the state is deﬁned as a number triple and each dial has ﬁve diﬀerent positions labelled with the digits zero through four. For example, if Action 1 is chosen at state (0, 1, 4), then the left dial rotates by one step and the state changes to (1, 1, 4). A dial that is set to four will rotate to zero. For example, selecting Action 2 at state (0, 4, 4) will result in a transition to state (0, 0, 4).
+In the Training Lock task (Figure 9(a), left schematic), the right dial is “broken” and spins randomly after each time step. Consequently, Action 3 (red arrow) only causes a random change in the right dial and the agent can only use Action 1 (blue arrow) or Action 2 (green arrow) to manipulate the state of the lock. When the agent enters a combination where the left and middle dials are set to four, a reward of +1 is given, otherwise the agent receives no reward.7 While the combination lock task has 5 · 5 · 5 = 125 diﬀerent states, the state space of the Training Lock can be compressed to 5 · 5 = 25 latent states by ignoring the position of the randomly changing right dial, because the right dial is neither relevant for maximizing reward nor predicting reward sequences.
+The Test Lock 1 and Test Lock 2 tasks (Figure 9(a), center and right schematics) diﬀer from the training task in that the rewarding combination is changed and the rotation direction of the left dial is reversed (Action 1, blue arrow), resembling a change in both transition and reward functions. While in Test Lock 1, the right dial still spins at random, in Test Lock 2 the middle dial rotates at random instead and the right dial becomes relevant for maximizing reward. Both test tasks can also be compressed into 25 latent states by ignoring the position of the randomly rotating dial, but in Test Lock 2 this compression would be constructed diﬀerently than in Test Task 1 or in the Training Lock.
+To determine if a reward- or value-predictive state representation can be re-used to accelerate learning in a previously unseen task, we compute a two-state representations of each type for the Training Lock MDP. To assess if each state abstraction can be re-used, they are both tested by compressing the state space of a Q-learning agent (Watkins and Dayan, 1992) to learn an optimal policy in Test Lock 1 and Test Lock 2. Any resulting performance changes are then indicative of the state abstraction’s ability to generalize from
+7. Speciﬁcally, in the Training Lock task, the rewarding states are (4, 4, 0), (4, 4, 1), . . . (4, 4, 4).
+28
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Training Lock:
+
+Test Lock 1:
+
+Test Lock 2:
+
+(a) Combination Lock Tasks
+
+Action 1: Action 2: Action 3:
+
+24 20 16 12 8 4
+0
+
+Lock Task 1
+
+Lock Task 2
+
+Q-learning
+Q-learning with the ignore-wheel abstraction
+Q-learning with value-predictive abstraction
+Q-learning with reward-predictive abstraction
+
+35 70 105 140 Episode
+
+0 35 70 105 140 Episode
+
+(b) Performance of Each Model at Transfer
+
+Episode Length
+
+Figure 9: Combination Lock Transfer Experiment. 9(a): In the combination lock tasks, the agent decides between three diﬀerent actions to rotate each dial by one digit. Each dial has ﬁve sides labelled with the digits zero through four. The dark gray dial is “broken” and spins at random at every time step. In the training task, any combination setting the left and middle dial to four are rewarding. In Test Lock 1, setting the left dial to two and the middle dial to three is rewarding and simulations were started by setting the left dial to two and the middle dial to four. In Test Lock 2, setting the left dial to two and the right dial to three is rewarding and simulations were started by setting the left dial to two and the right dial to four. 9(b): Each panel plots the episode length of the Q-learning algorithm on Lock Task 1 and Lock Task 2 averaged over 20 repeats. Note that Q-learning with the ignore-wheel abstraction uses a diﬀerent abstraction in Test Lock 1 and Test Lock 2. In Test Lock 1, the ignore-wheel abstraction ignores the right dial. In Test Lock 2, the ignore-wheel abstraction ignores the middle dial. Please refer to Appendix C.3 for a detailed description of the experiment implementation.
+
+29
+
+Lehnert and Littman
+the Training Lock task to Test Lock 1 and Test Lock 2. If a state representation can generalize information from the training to the test task, then Q-learning with a state abstraction should converge to an optimal policy faster than a Q-learning agent that does not use any state abstraction. To combine the tabular Q-learning algorithm with a state abstraction, we assume in this section that a state abstraction function maps each state to a set of discrete latent states. Furthermore, before updating the Q-learning agent with a transition (s, a, r, s ), this transition is mapped to a latent space transition (φ(s), a, r , φ(s)) using the respective state abstraction function φ. Because the latent state space is smaller than the task’s original state space, one would expect that using a state abstraction function results in faster convergence, because any Q-value update is generalized across all states that are mapped to the same latent state.
+The reward-predictive state representation is computed using the training task’s transition and reward table with the same procedure used for the column-world task presented in Figure 5. (Please also refer to Appendix C.3 for implementation details.) To obtain a state-representation function mapping states to discrete latent states, the real-valued state representation function φreal-valued : S → Rn is then further reﬁned by clustering the set of feature vectors {φreal-valued(s)|s ∈ S} into discrete clusters using agglomerative clustering. Each cluster then becomes a separate latent state in the resulting latent state space.
+The value-predictive state representation is computed by associating two states with the same latent state if the optimal policy has equal Q-values at both states and for each action. This type of state abstraction has been previously introduced by Li et al. (2006) as a Q∗-irrelevance state abstraction and is predictive of Q-values because each latent state is associated with a diﬀerent set of Q-values.
+Figure 9(b) plots the episode length of four diﬀerent Q-learning agent conﬁgurations. The ﬁrst conﬁguration (blue curves in Figure 9(b)) forms a baseline and simulates the Qlearning algorithm on both test tasks, without using any state abstraction. The second conﬁguration, called “Q-learning with ignore dial abstraction” (black curves in Figure 9(b)) simulates the Q-learning algorithm with a manually coded state abstraction that ignores the right dial in Test Lock 1 and the middle dial in Test Lock 2. Because this state abstraction compresses the 125 task states into 25 latent states by removing the digit from the state triplet not relevant for maximizing reward, this variation converges signiﬁcantly faster than the baseline algorithm. The third variation, called “Q-learning with value-predictive abstraction” (orange curves in Figure 9(b)) simulates Q-learning with the value-predictive state abstraction. In both Test Lock 1 and Test Lock 2, this variation converges more slowly than using Q-learning without any state abstraction. As discussed in Section 5.2, a value-predictive state abstraction is constructed using the Q-values of the policy that is optimal in the Training Lock. Because each combination lock MDP has a diﬀerent optimal policy, a value-predictive state abstraction cannot be transferred across any of the two tasks. Consequently, the “Q-learning with a value-predictive abstraction” agent does not converge more quickly than the baseline agent. In these simulations, the Q-learning algorithm is not capable of ﬁnding an optimal policy, as outlined previously in Figure 7. The green curves in Figure 9(b) plot the average episode length when Q-learning is combined with a rewardpredictive state abstraction. In Lock Task 1, this agent converges almost as fast as the agent using the manually coded state abstraction (black curve, left panel). Only the position of the left and middle dials are relevant for predicting reward sequences r1, ..., rt that are gen-
+30
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+LAM (Sutton et al., 2008)
+s, a
+
+φ
+
+φs
+
+Ma
+
+wa
+
+Ep[φ |s, a] r(s, a)
+
+E [r1, r2, ...|s, a1, a2, ...]
+
+LSFM
+
+s, a
+
+φ
+
+φs
+
+Fa
+
+wa
+
+ψπ(s, a)
+
+r(s, a)
+
+E [r1, r2, ...|s, a1, a2, ...]
+
+SF (Barreto et al., 2017a)
+s, a ξ
+
+ψ
+
+ξ s,a
+
+w
+
+ψπ(s, a) r(s, a)
+
+w
+
+Qπ
+
+Fitted Q-Iteration (Riedmiller, 2005)
+s, a φ
+φs
+qa
+Qπ
+
+Reward-Predictive Models (model-based RL)
+
+Value-Predictive Models (model-free RL)
+
+Temporal Diﬀerence Learning : Representation Map (arbitrary function)
+: Prediction (linear if annotated with a matrix or vector)
+
+Figure 10: Comparison of Presented State-Representation Models.
+
+erated by following an arbitrary action sequence a1, ..., at from an arbitrary start state s in the Training Lock MDP and in the Test Lock 1 MDP. Consequently, a reward-predictive state abstraction can compress the 125 task states into 25 diﬀerent latent states by ignoring the right dial, resulting in a signiﬁcant performance improvement in Test Lock 1. Note that LSFMs only approximate reward-predictive state representations resulting in slightly slower convergence in comparison to the black curve in the left panel of Figure 9(b).
+This behaviour changes in Test Lock 2, because in Test Lock 2 a diﬀerent dial moves at random, changing how the state space should be compressed. Because the right dial is relevant for predicting expected reward sequences in Test Lock 2, the reward-predictive state representation learned in the Training Lock task is no longer reward-predictive in Test Lock 2 and cannot be re-used without modiﬁcations. Consequently, the “Q-learning with reward-predictive abstraction” agent exhibits worse performance (Figure 9(b), right panel, green curve) than using Q-learning without any state abstraction (Figure 9(b), right panel, blue curve).
+The results presented in Figure 9 demonstrate that reward-predictive state representations encode which state information is relevant for predicting reward sequences and maximizing reward in a task. Because reward-predictive state representations only model this aspect of an MDP, this type of state representation generalizes across tasks that preserve these state equivalences but diﬀer in their transitions and rewards otherwise. In contrast, value-predictive state representations “overﬁt” to a speciﬁc MDP and the MDP’s optimal policy, resulting in negative transfer and possibly prohibiting an agent from ﬁnding an optimal policy at transfer.
+31
+
+Lehnert and Littman
+6. Discussion
+This article presents a study of how successor features combine aspects of model-free and model-based RL. Connections are drawn by analyzing which properties diﬀerent latent state spaces are predictive of. The schematic in Figure 10 illustrates the diﬀerences between the presented models. By introducing LSFMs, SFs are tied to learning state representations that are predictive of future expected reward outcomes. This model ties successor features to model-based reinforcement learning, because an agent that has learned an LSFM can predict expected future reward outcomes for any arbitrary action sequence. While this connection to model-based RL has been previously hypothesized (Russek et al., 2017; Momennejad et al., 2017), LSFMs formalize this connection. Because SFs obey a ﬁxed-point equation similar to the Bellman ﬁxed-point equation, SFs can also be linked to temporal-diﬀerence learning. Similar to LAMs, LSFMs are a “strict” model-based architecture and are distinct from model-based and model-free hybrid architectures that iteratively search for an optimal policy and adjust their internal representation (Oh et al., 2017; Weber et al., 2017; Fran¸coisLavet et al., 2019; Gelada et al., 2019). LSFMs only evaluate SFs for a ﬁxed target policy that selects actions uniformly at random. The learned model can then be used to predict the value function of any arbitrary policy, including the optimal policy. In contrast to model-based and model-free hybrid architectures, the learned state representation does not have to be adopted to predict an optimal policy and generalizes across all latent policies. How to learn neural networks mapping inputs to latent feature spaces that are predictive of future reward outcomes is beyond the scope of this article and is left for future work.
+Similar to reward-predictive state representations, the Predictron architecture (Silver et al., 2017) and the MuZero algorithm (Schrittwieser et al., 2019) use or construct a state representation to predict reward sequences. In contrast to reward-predictive state representations, these other architectures predict reward sequences for k time steps and then use the value function for one (or multiple) policies to predict the return obtained after k time steps. This distinction is key in learning reward-predictive state representations with LSFMs, which do not include a value prediction module, because if a state representation is designed to predict the value function of a policy, then the resulting state representation would be (to some extent) value predictive. As outlined in Section 5, this change would compromise the resulting state abstraction’s ability to generalize across diﬀerent transition and reward functions.
+In contrast to the SF framework introduced by Barreto et al. (2017a), the connection between LSFMs and model-based RL is possible because the same state representation φ is used to predict its own SF (Figure 10 center column). While the deep learning models presented by Kulkarni et al. (2016) and Zhang et al. (2017) also use one state representation to predict SFs and one-step rewards, these models are also constrained to predict image frames. LSFMs do not use the state representation to reconstruct actual states. Instead, the state space is explicitly compressed, allowing the agent to generalize across distinct states.
+Table 1 summarizes diﬀerent properties of the presented state representations. Bisimulation relations (Givan et al., 2003) preserve most structure of the original MDP and latent transition probabilities match with transition probabilities in the original MDP (Section 4.1). Reward-predictive state representations do not preserve the transition probabil-
+32
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Model
+Bisimulation (Givan et al., 2003) Reward-Predictive (LSFM or LAM) Successor Features (Barreto et al., 2017a) Value-Predictive (Fitted Q-iteration)
+
+Predicts Trained Policy yes
+yes
+yes
+yes
+
+Generalizes to Variations in Rewards yes
+yes
+yes
+no
+
+Generalizes to Variations in Transitions yes
+yes
+no
+no
+
+Generalizes Predicts Across All Transition Policies Probabilities
+
+yes
+
+yes
+
+yes
+
+no
+
+no
+
+no
+
+no
+
+no
+
+Table 1: Summary of Generalization Properties of Presented State Representations
+
+ities of the original task (Figure 4) but construct a latent state space that is predictive of expected future reward outcomes. These two representations generalize across all abstract policies, because they can predict reward outcomes for arbitrary action sequences. Successor features are equivalent to value-predictive state representations, which construct a latent state space that is predictive of a policy’s value function (Section 5). Because the value function can be factored into SFs and a reward model (Equation (37)), SFs are robust to variations in reward functions. Reward-predictive state representations remove previous limitations of SFs and generalize across variations in transition functions. This property stands in contrast to previous work on SFs, which demonstrate robustness against changes in the reward function only (Barreto et al., 2017a, 2018; Kulkarni et al., 2016; Zhang et al., 2017; Stachenfeld et al., 2017; Momennejad et al., 2017; Russek et al., 2017). In all cases, including reward-predictive state representations, the learned models can only generalize to changes that approximately preserve the latent state space structure. For example, in Figure 8 positive transfer is possible because both tasks are grid worlds and only the locations of rewards and barriers is changed. If the same representation is used on a completely diﬀerent randomly generated ﬁnite MDP, then positive transfer may not be possible because both tasks do not have a latent state structure in common.
+In comparison to previous work on state abstractions (Even-Dar and Mansour, 2003; Li et al., 2006; Abel et al., 2016, 2018, 2019), this article does not consider state representations that compress the state space as much as possible. Instead, the degree of compression is set through the hyper-parameter that controls the dimension of the constructed latent state space. The presented experiments demonstrate that these state representations compress the state space and implicitly convey information useful for transfer. This formulation of state representations connects ideas from state abstractions to models that analyze linear basis functions (Parr et al., 2008; Sutton, 1996; Konidaris et al., 2011) or learn linear representations of the transition and reward functions (Song et al., 2016). Recently, Ruan et al. (2015) presented algorithms to cluster approximately bisimilar states. Their method relies on bisimulation metrics (Ferns et al., 2004), which use the Wasserstein metric to assess if two state transitions have the same distribution over next state clusters. In contrast to their approach, we phrase learning reward-predictive state representations as an energyminimization problem and remove the requirement of computing the Wasserstein metric.
+The presented experiments learn state representations by generating a transition data set covering all states of an MDP. Complete coverage is obtained on the grid world tasks by
+33
+
+Lehnert and Littman
+generating a large enough transition data set. Because this article focuses on drawing connections between diﬀerent models of generalization across states, combining the presented algorithms with eﬃcient exploration algorithms (Jin et al., 2018) or obtaining sample complexity or regret bounds similar to prior work (Jaksch et al., 2010; Azar et al., 2017; Osband et al., 2013) is left to future studies.
+7. Conclusion
+This article presents an analysis of which latent representations an intelligent agent can construct to support diﬀerent predictions, leading to new connections between model-based and model-free RL. By introducing LSFMs, the presented analysis links learning successor features to model-based RL and demonstrates that the learned reward-predictive state representations are suitable for transfer across variations in transitions and rewards. The presented results outline how diﬀerent models of generalization are related to another and proposes a model for phrasing model-based learning as a representation-learning problem. These results motivate the design and further investigation of new approximate model-based RL algorithms that learn state representations instead of one-step reward and transition models.
+Acknowledgments
+We would like to thank Prof. Michael J. Frank for many insightful discussions that beneﬁted the development of the presented work. This project was supported in part by the ONR MURI PERISCOPE project and in part by the NIH T32 Training Grant on Interactionist Cognitive Neuroscience.
+34
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Appendix A. Proofs of Theoretical Results
+This section lists formal proofs for all presented theorems and propositions.
+
+A.1 Bisimulation Theorems
+For an equivalence relation ∼ deﬁned on a set S, the set of all partition is denoted with S/ ∼. Each partition [s] ∈ S/ ∼ is a subset of S and s ∈ [s].
+
+Deﬁnition 4 (Bisimilarity (Ferns et al., 2011)). For an MDP M = S, A, p, r, γ where S, Σ, p is a measurable space with σ-algebra Σ and p is a Markov kernel labelled for each action a ∈ A. Consider an equivalence relation ∼b on the state space S such that each state partition [s ] also lies in the σ-algebra and ∀[s ] ∈ S/ ∼b, [s ] ∈ Σ. The equivalence relation ∼b is a bisimulation if
+
+s ∼b s˜ ⇐⇒ ∀a ∈ A, Ep r(s, a, s ) s, a = Ep r(s˜, a, s ) s˜, a
+
+(48)
+
+and ∀[s ] ∈ S/ ∼b, p([s ]|s, a) = p([s ]|s˜, a).
+
+(49)
+
+Using this deﬁnition, Theorem 1 can be proven.
+
+Proof of Theorem 1. Consider any two states s and s˜ such that φs = φs˜. For both s and s˜
+
+we have
+
+Ep r(s, a, s ) s, a = φs wa = φs˜ wa = Ep r(s˜, a, s ) s˜, a ,
+
+(50)
+
+and the bisimulation reward condition in Equation (48) holds. To show that also the bisimulation transition condition in Equation (49) holds, observe that
+
+φs = φs˜
+
+φs M a = φs˜ M a
+
+Ep [φs |s, a] = Ep [φs |s˜, a]
+
+n
+
+n
+
+p(s, a, [si])ei = p(s˜, a, [si])ei,
+
+i=1
+
+i=1
+
+⇐⇒
+
+(51)
+
+⇐⇒
+
+(52)
+
+⇐⇒
+
+(53)
+
+(54)
+
+where [si] ⊂ S are all states that are mapped to the one-hot feature vector ei. Each side of
+
+the identity (54) computes an expectation over one-hot bit vectors and thus the ith entry of
+
+n i=1
+
+p(s,
+
+a,
+
+[si])ei
+
+contains
+
+the
+
+probability
+
+value
+
+p(s, a, [si]).
+
+Hence
+
+both
+
+s
+
+and
+
+s˜ have
+
+equal
+
+probabilities of transitioning into each state partition that is associated with ei. Deﬁne an
+
+equivalence relation ∼φ such that
+
+∀s, s˜ ∈ S, φs = φs˜ ⇐⇒ s ∼φ s˜.
+
+(55)
+
+Because all feature vectors φs are one-hot bit vectors, there are at most n partitions and the
+
+set of all state partitions has size |S/ ∼φ | = n. Combining these observations, Equation (54) can be rewritten as
+
+∀[s ] ∈ S/ ∼φ, p([s ]|s, a) = p([s ]|s˜, a).
+
+(56)
+
+By lines (50) and (56), the equivalence relation ∼φ is a bisimulation relation and if φs = φs˜ then both s and s˜ are bisimilar.
+
+35
+
+Lehnert and Littman
+
+Lemma 2. Assume an MDP, state representation φ : S → {e1, ..., en}, LSFM {F a, wa}a∈A, and arbitrary policy π ∈ Πφ. Let F π be an n × n real valued matrix with each row F π(i) =
+
+Eπ ei F a s , then
+
+Eπ φs F a s = ei F π,
+
+(57)
+
+where φs = ei for some i. For a LAM {M a, wa}a∈A, let M π be a n × n real-valued matrix with each row M π(i) = Eπ ei M a s , then
+
+Eπ φs M a s = ei M π.
+
+(58)
+
+Proof of Lemma 2. The ﬁrst identities in (57) and (58) hold because φs = ei for some i. Then,
+
+Eπ φs F a s = π(s, a)φsF a = π(s, a)ei F a = Eπ ei F a s = F π(i) = ei F π
+
+a
+
+a
+
+and
+
+Eπ φs M a s = π(s, a)φsM a = π(s, a)ei M a = Eπ ei M a s = M π(i) = ei M π.
+
+a
+
+a
+
+Deﬁnition 5 (Weighting Function). For an MDP M = S, A, p, r, γ , let ∼ be an equiva-
+lence relation on the state space S, creating a set of state partitions S/ ∼. Assume that each
+state partition [s] is a measurable space [s], Σ[s], ω[s] , where ω[s] is a probability measure indexed by each partition [s] with σ-algebra Σ[s]. The function ω is called the weighting function.
+
+Lemma 3. Assume an MDP, state representation φ : S → {e1, ..., en}, LSFM {F a, wa}a∈A, and arbitrary abstract policy π ∈ Πφ. Then,
+∀s, ∀a φs F a = φs + γEp,π [φs F a |s, a] =⇒ ∀s, ∀a, ∃M a such that F a = I + γM aF π, (59)
+where the matrix F π is constructed as described in Lemma 2.
+
+Proof of Lemma 3. Consider an equivalence relation ∼φ that is constructed using the state representation φ and
+
+∀s, s˜ ∈ S, φs = φs˜ ⇐⇒ s ∼φ s˜.
+
+(60)
+
+The weighting function ω models a probability distribution of density function of visiting a state s that belongs to a state partition [s] ∈ S/ ∼φ. Because all states s ∈ [s] are mapped to the same feature vector φs, we have that
+
+Eω[s] [φs] = φs.
+
+(61)
+
+The stochastic matrix M a is deﬁned for every action a as
+
+M a(i, j) = Eω[s] Pr s →a ej with φs = ei,
+
+(62)
+
+36
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+where Pr s →a ej is the probability of transitioning into the state partition associated with the latent state ej and
+
+Pr s →a ej = p(s, a, [si]) such that ∀s ∈ [si], φ(s) = ej.
+
+(63)
+
+The identity in Equation (59) can be re-written as follows:
+
+φs F a = φs + γEp,π [φs F a |s, a] φs F a = φs + γEp [φs |s, a] F π
+
+Eω[s] φs F a = Eω[s] φs + γEp [φs |s, a] F π
+
+φs F a = φs + γEω[s] [Ep [φs |s, a]] F π
+
+n
+φs F a = φs + γEω[s]  Pr s →a ej
+j=1
+
+ ej F π
+
+φs F a = φs + γ Eω[s] Pr s →a e1 , ..., Eω[s] Pr s →a en
+
+⇐⇒ ⇐⇒ (by Lemma 2) ⇐⇒ ⇐⇒ (by (61))
+⇐⇒
+F π ⇐⇒
+
+n-dimensional row vector, because ej is one-hot
+φs F a = φs + γ [M a(i, 1), ..., M a(i, n)] F π φs F a = φs + γφs M aF π φs F a = φs (I + γM aF π)
+
+⇐⇒ (by (62)) ⇐⇒ (by φs = ei)
+(64)
+
+Equation (64) holds for any arbitrary state s and because each state is mapped to a one of the one-hot vectors {e1, ..., en},
+
+∀i ∈ {1, ..., n}, ei F a = ei (I + γM aF π)
+
+⇐⇒
+
+F a = I + γM aF π.
+
+Lemma 4. Consider a state representation φ : S → {e1, ..., en}, an arbitrary abstract policy π ∈ Πφ, an LSFM {F a, wa}a∈A and LAM {M a, wa}a∈A where each transition matrix M a is stochastic. Then,
+
+F a = I + γM aF π =⇒ ∃ (F π)−1 and (F π)−1 = I − γM π,
+
+(65)
+
+where the matrix M π is constructed as described in Lemma 2.
+
+Proof of Lemma (4). By Lemma 2, one can write for any arbitrary i
+
+ei F π = Eπ ei F a
+ei F π = Eπ ei (I + γM aF π)
+ei F π = eiI + γEπ ei M a F π ei F π = eiI + γei M πF π ei F π = ei (I + γM πF π)
+
+⇐⇒ ⇐⇒ (by Lemma 3) ⇐⇒ ⇐⇒ (by Lemma 2)
+(66)
+
+37
+
+Lehnert and Littman
+
+Because Equation (66) holds for every i,
+
+F π = I + γM πF π
+
+⇐⇒
+
+F π − γM πF π = I
+
+⇐⇒
+
+(I − γM π)F π = I .
+
+Because M π is stochastic, it has a spectral radius of at most one and all its eigenvalues λj ≤ 1. Thus the matrix I − γM π is invertible because
+
+det(I − γM π) ≥ det(I ) + (−γ)n det(M π) ≥ 1 − γn det(M π) = 1 − γn λj > 0. (67)
+j
+≤1
+
+Hence F π = (I − γM π)−1 ⇐⇒ (F π)−1 = I − γM π.
+
+Using these lemmas, Theorem 2 can be proven.
+
+Proof of Theorem 2. The proof is by reducing Equation (18) to Equation (16) using the previously established lemmas and then applying Theorem 1. Equation (18) can be rewritten as follows:
+
+φs F a = φs + γEp,π [φs F a |s, a] φs F a = φs + γEp [φs |s, a] F π φs F a(I − γM π) = φs (I − γM π) + γEp [φs |s, a] F π(I − γM π) φs F a(I − γM π) = φs (I − γM π) + γEp [φs |s, a] F π (F π)−1 φs F a(I − γM π) = φs (I − γM π) + γEp [φs |s, a] φs (I + γM aF π)(I − γM π) = φs (I − γM π) + γEp [φs |s, a] φs γM aF π(I − γM π) = γEp [φs |s, a]
+φs γM a = γEp [φs |s, a]
+φs M a = Ep [φs |s, a]
+
+⇔ ⇔(Lem. 2) ⇔(Lem. 4) ⇔(Lem. 4) ⇔ ⇔(Lem. 3) ⇔ ⇔(Lem. 4)
+(68)
+
+Using the reward condition stated in Equation (18) and Equation (68) Theorem 1 can be applied to conclude the proof.
+To prove the last claim of Theorem 2, assume that
+
+φs F a = φs + γEp,π [φs F a |s, a]
+
+(69)
+
+38
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+for some policy π ∈ Πφ. Consider an arbitrary distinct policy π˜ ∈ Πφ, then the ﬁxed-point Eq. (69) can be re-stated in terms of then policy π˜:
+
+φs F a = φs + γEp,π [φs F a |s, a]
+
+⇔
+
+(70)
+
+φs M a = Ep [φs |s, a] γφs M aF π˜ = γEp [φs |s, a] F π˜ φs + γφs M aF π˜ = φs + γEp [φs |s, a] F π˜ φs (I + γM aF π˜) = φs + γEp [φs |s, a] F π˜
+φs F a = φs + γEp [φs |s, a] F π˜
+
+⇔(Eq. (68))
+
+(71)
+
+⇔(multiply with F π˜ and γ) (72)
+
+⇔(add φs)
+
+(73)
+
+⇔
+
+(74)
+
+⇔(Lem. 3)
+
+(75)
+
+φs F a = φs + γEp,π˜ [φs F a|s, a]
+
+⇔(Lem. 2)
+
+(76)
+
+This argument shows that if Eq. (69) holds for a policy π, then Eq. (76) also holds for other arbitrary policy π˜.
+
+A.2 Approximate Reward-Predictive State Representations
+
+This section presents formal proofs for Theorem 3 and 4. While the following proofs assume that the matrix F is deﬁned as stated in Equation (25), these proofs could be generalized to diﬀerent deﬁnitions of F , assuming that the matrix F is not a function of the state s and only depends on the matrices {F a}a∈A.
+
+Lemma 5. For an MDP, a state representation φ, a LSFM {F a, wa}a∈A and a LAM
+
+{M a, wa}a∈A where ∆ = 0,
+
+1 + γM
+
+εp ≤ εψ γ .
+
+(77)
+
+Proof of Lemma 5. The proof is by manipulating the deﬁnition of εψ and using the fact
+
+that
+
+∆
+
+=
+
+0
+
+and
+
+Fa
+
+=I
+
++ γM aF .
+
+Let
+
+M
+
+=
+
+1 |A|
+
+a∈A M a, then
+
+F = I + γM F ⇐⇒ I = (I − γM )F
+
+(78)
+
+Hence the square matrix I − γM is a left inverse of the square matrix F . By associativity of matrix multiplication, I + γM is also a right inverse of F and F (I − γM ).8 Consequently, the norm of F −1 can be bounded with
+
+F −1 = (I − γF ) ≤ 1 + γM.
+
+(79)
+
+For an arbitrary state and action pair s, a,
+
+δs,a = φs + γEp φs F s, a − φs F a
+
+(80)
+
+= φs + γEp φs F s, a − γφs M aF + γφs M aF − φs F a
+
+(81)
+
+= φs + γ Ep φs s, a − φs M a F + γφs M aF − φs F a
+
+(82)
+
+8. If F −1F = I then F = F I = F (F −1F ) = (F F −1)F . If F −1F = I were true, then it would contradict
+
+−1
+
+−1
+
+F = (F F )F . Hence F F = I and the right inverse exists.
+
+39
+
+Lehnert and Littman
+
+Let εs,a = Ep φs s, a − φs M a. Re-arranging the identity in (82) results in
+
+γεs,aF = δs,a − φs − γφs M aF + φs F a γεs,a = δs,aF −1 − φs F −1 − γφs M a + φs F aF −1 γεs,a = δs,aF −1 − φs F −1 − γφs M a + φs (I + γM aF )F −1 γεs,a = δs,aF −1 − φs F −1 − γφs M a + φs F −1 + γφs M a γεs,a = δs,aF −1
+γ εs,a ≤ δs,a F −1
+γ εs,a ≤ εψ F −1
+εs,a ≤ εψ(1 + γM )/γ
+
+⇐⇒ ⇐⇒ (by (78)) ⇐⇒ (by ∆ = 0) ⇐⇒ ⇐⇒ ⇐⇒ ⇐⇒ (by (26)) ⇐⇒ (by (79)) (83)
+
+Note that the bound in Equation (83) does not depend on the state and action pair s, a and thus
+
+∀s, a, Ep φs s, a − φs M a ≤ εψ(1 + γM )/γ =⇒ εp ≤ εψ(1 + γM )/γ.
+
+(84)
+
+The following lemma is a restatement of Lemma 1 in the main paper.
+
+Lemma 6. For an MDP, a state representation φ, a LSFM {F a, wa}a∈A and a LAM {M a, wa}a∈A where ∆ ≥ 0,
+
+1 + γM
+
+εp ≤ εψ γ + Cγ,M,N ∆,
+
+(85)
+
+where
+
+Cγ,M,N
+
+=
+
+(1+γ)(1+γM )N γ(1−γM )
+
+Proof. The proof reuses and extends the bound shown in Lemma 5. Using the LAM
+
+{M
+
+a, wa}a∈A,
+
+construct
+
+an
+
+LSFM
+
+{F
+
+∗ a
+
+,
+
+w
+
+∗ a
+
+}a∈A
+
+such
+
+that
+
+F
+
+∗ a
+
+=
+
+I
+
++
+
+γM
+
+a
+
+1 |A|
+
+F
+
+∗ a
+
+.
+
+a∈A
+
+=F ∗
+
+(86)
+
+If
+
+ε∗ψ = sup φs + γEp
+
+φs F ∗ s, a
+
+−
+
+φ
+
+s
+
+F
+
+∗ a
+
+,
+
+(87)
+
+s,a
+
+then
+
+εp
+
+≤
+
+ε∗ψ
+
+1
+
++ γM γ
+
+,
+
+(88)
+
+40
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+by Lemma 5. By linearity of the expectation operator, the SF-error for the LSFM {F ∗a, w∗a}a∈A and LSFM {F a, wa}a∈A can be founded for any arbitrary state and action pair s, a with
+
+φs + γEp φs F ∗ s, a
+
+−
+
+φs
+
+F
+
+∗ a
+
+−
+
+φs + γEp
+
+φs F s, a
+
+− φs F a
+
+(89)
+
+=δ
+
+∗ s,a
+
+δ s,a
+
+≤ γN
+
+F∗ −F
+
++
+
+N
+
+(F
+
+∗ a
+
+−
+
+F
+
+a)
+
+.
+
+(90)
+
+As stated in Equation (89), the SF errors for the LSFM {F a, wa}a∈A are deﬁned as δs,a and for the LSFM {F ∗a, w∗a}a∈A as δ∗s,a. Because the LSFM {F a, wa}a∈A has a ∆ > 0, we deﬁne
+
+1
+
+∆= |A|
+
+I + γM aF − F a
+
+(91)
+
+a
+
+= I + γMF − F .
+
+(92)
+
+By
+
+Equation
+
+(91),
+
+||∆||
+
+≤
+
+1 |A|
+
+a ||I + γM aF − F a|| ≤ ∆ (by triangle inequality). Reusing
+
+Equation (92) one can write,
+
+F ∗ − F = I + γM F ∗ − I − γM F + ∆
+
+(93)
+
+= γM (F ∗ − F ) + ∆
+
+(94)
+
+⇐⇒ ||F ∗ − F || ≤ γM ||F ∗ − F || + ∆
+
+(95)
+
+⇐⇒ ||F ∗ − F || ≤ ∆
+
+(96)
+
+1 − γM
+
+Similarly, deﬁne
+
+∆a = I + γM aF − F a,
+
+(97)
+
+then,
+
+F
+
+∗ a
+
+−Fa
+
+=
+
+I
+
++
+
+γM aF ∗
+
+−I
+
+−
+
+γM aF
+
++ ∆a
+
+= γM a(F ∗ − F ) + ∆a
+
+⇐⇒
+
+||F
+
+∗ a
+
+−
+
+F
+
+a||
+
+≤
+
+γ
+
+M
+
+||F
+
+∗
+
+−
+
+F
+
+||
+
++
+
+∆
+
+∆
+
+≤ γM
+
++∆
+
+1 − γM
+
+∆ =
+1 − γM
+
+(98) (99) (100) (101)
+(102)
+
+Substituting lines (96) and (102) into (90),
+
+δ
+
+∗ s,a
+
+−
+
+δ
+
+s,a
+
+(1 + γ)N ∆
+
+≤
+
+.
+
+1 − γM
+
+(103)
+
+For both LSFM {F a, wa}a∈A and {F ∗a, w∗a}a∈A, the worst case SF prediction errors εψ and
+
+ε∗ψ are deﬁned as
+
+εψ = sup ||δs,a|| and ε∗ψ = sup ||δ∗s,a||.
+
+(104)
+
+s,a
+
+s,a
+
+41
+
+Lehnert and Littman
+
+To ﬁnd a bound on |εψ − ε∗φ|, the maximizing state and action pairs are deﬁned as
+
+ssup, asup
+
+=
+
+arg sup ||δs,a||
+
+and
+
+s∗sup, a∗sup
+
+=
+
+arg
+
+sup
+
+||δ
+
+∗ s,a
+
+||.
+
+s,a
+
+s,a
+
+(105)
+
+If (ssup, asup) = (s∗sup, a∗sup) then
+
+εψ − ε∗ψ
+
+(1 + γ)N ∆
+
+≤
+
+.
+
+1 − γM
+
+If (ssup, asup) = (s∗sup, a∗sup) and εψ ≥ ε∗ψ, then
+
+εψ − ε∗ψ =
+
+δ ssup,asup
+
+−
+
+δ∗
+s∗sup ,a∗sup
+
+≤
+
+δ ssup,asup
+
+−
+
+δ∗
+ssup ,asup
+
+≤
+
+δ ssup,asup
+
+−
+
+δ
+
+∗ ssup ,asup
+
+(1 + γ)N ∆
+
+≤
+
+.
+
+1 − γM
+
+If (ssup, asup) = (s∗sup, a∗sup) and ε∗ψ ≥ εψ, then
+
+ε∗ψ − εψ =
+
+δ∗
+s∗sup ,a∗sup
+
+−
+
+δ ssup,asup
+
+≤ δ − δ ∗
+s∗sup ,a∗sup
+
+s∗sup ,a∗sup
+
+≤ δ − δ ∗
+s∗sup ,a∗sup
+
+s∗sup ,a∗sup
+
+(1 + γ)N ∆
+
+≤
+
+.
+
+1 − γM
+
+(by (103))
+
+(106)
+
+(by (105)) (by inv. triangle in eq.)
+(by (103))
+
+(107) (108) (109)
+(110)
+
+(by (105)) (by inv. triangle ineq.)
+(by (103))
+
+(111) (112) (113)
+(114)
+
+By lines (106), (110), and (114),
+
+εψ − ε∗ψ
+
+(1 + γ)N ∆ ≤
+1 − γM
+
+=⇒
+
+ε∗ψ
+
+≤
+
+εψ
+
++
+
+(1 + γ)N ∆ .
+1 − γM
+
+(115)
+
+Substituting (115) into (88) results in the desired bound:
+
+εp
+
+≤
+
+ε∗ψ
+
+1
+
++γ γ
+
+M
+
+≤
+
+(1 + γ)N ∆ εψ + 1 − γM
+
+1 + γM
+
+1 + γM (1 + γ)(1 + γM )N
+
+γ
+
+= εψ γ +
+
+∆. γ(1 − γM )
+
+(116)
+
+Using these lemmas, Theorem 3 can be proven. Proof of Theorem 3. The proof is by induction on the sequence length T . Base Case: For T = 1,
+φs wa1 − Ep [r1|s, a1] = φs wa1 − r(s, a1) ≤ εr.
+42
+
+(117)
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Induction Step: Assume that the bound (29) holds for T , then for T + 1,
+
+φs M a1 · · · M aT waT +1 − Ep [rT +1|s, a1, ..., aT +1]
+
+= φs M a1 · · · M aT waT +1 − Ep φs2M a2 · · · M aT waT +1 s, a1
+
++ Ep φs2M a2 · · · M aT waT +1 s, a1 − Ep [rT +1|s, a1, ..., aT +1]
+
+≤ φs M a1 − Ep φs2 s, a1 M a2 · · · M aT waT +1
+
++ Ep φs2M a2 · · · M aT waT +1 s, a1 − Ep [rT +1|s, a1, ..., aT +1]
+
+≤ φs M a1 − Ep φs2 s, a1 · M a2 · · · M w aT aT +1
+
++ Ep φs2M a2 · · · M aT waT +1 s, a1 − Ep [rT +1|s, a1, ..., aT +1]
+
+≤ φs M a1 − Ep φs2 s, a1 · M a2 · · · M w aT aT +1
+
++ Ep φs2M a2 · · · M aT waT +1 − Ep [rT +1|s1, a2..., aT +1] s, a1
+
+≤ εpM T −1W
+
+T −1
++ εp M tW + εr
+
+t=1
+
+(T +1)−1
+
+= εp
+
+M tW + εr.
+
+t=1
+
+(118) (119) (120)
+(121) (122) (123)
+
+Theorem 5. For an MDP, state representation φ : S → Rn, and for all T ≥ 1, s, a1, ..., aT ,
+
+φs M a1 · · · M aT −1waT − Ep [rT |s, a1, ..., aT ] ≤
+
+1 + γM εψ γ + Cγ,M,N ∆
+
+T −1
+M tW + εr.
+
+t=1
+
+Proof of Theorem 5. The proof is by reusing the bound in Theorem 3 and substituting εp with the bound presented in Lemma 1.
+
+Theorem 4, which is stated in the main paper, can be proven as follows.
+
+Proof of Theorem 4. The value error term can be upper-bounded with
+V π(s) − φs vπ ≤ π(s, a) r(s, a) + γEp V π(s ) s, a − φs wa − γφs M avπ
+a∈A
+≤ π(s, a) r(s, a) − φs wa + γ Ep V π(s ) s, a − φs M avπ
+a∈A
+
+(124) (125)
+
+43
+
+Lehnert and Littman
+
+The second term in Equation (125) is bounded by
+Ep V π(s ) s, a − φs M avπ = Ep V π(s ) s, a − Ep φs vπ s, a + Ep φs vπ s, a − φs M avπ = sup V π(s) − φs vπ + Ep φs vπ s, a − φs M avπ
+s
+= sup V π(s) − φs vπ + Ep φs s, a − φs M a ||vπ||
+s
+= sup V π(s) − φs vπ + εp ||vπ||
+s
+Substituting (126) into (125) results in
+
+(126)
+
+V π(s) − φs vπ ≤ π(s, a) r(s, a) − φs wa + γ
+a∈A
+Let B = sups V π(s) − φs vπ , then
+
+sup V π(s) − φs vπ + εp ||vπ|| .
+s
+(127)
+
+V π(s) − φs vπ ≤ π(s, a)(εr + γ (B + εp ||vπ||))
+a∈A
+= εr + γB + γεp ||vπ||
+
+(128)
+
+The bound in Equation (128) does not depend on any particular state and action pair s, a and thus
+
+∀s, a,
+
+V π(s) − φs vπ ≤ εr + γB + γεp ||vπ|| =⇒ B ≤ εr + γB + γεp ||vπ|| =⇒ B ≤ εr + γεψ ||vπ|| . 1−γ
+
+(129)
+
+To bound the Q-value function,
+
+Qπ(s, a) − φs qa ≤ r(s, a) + γEp V π(s ) s, a − φs wa − γφs M avπ ,
+
+(130)
+
+which is similar to Equation (125) and the proof proceeds in the same way. The LSFM
+
+bound
+
+εr + γεp ||vπ|| ≤ εr + εψ(1 + γM ) ||vπ|| + γCγ,M,N ∆ ||vπ||
+
+1−γ
+
+1−γ
+
+(131)
+
+follows by Lemma 1.
+
+A.3 Bound on Error Term ∆
+
+The following proposition formally proofs the bound presented in Equation (32).
+
+Proposition 2. For a data set D = {(si, ai, ri, si)}Di=1,
+
+∆
+
+≤
+
+max
+a
+
+||Φ+a ||22Lψ,
+
+(132)
+
+where each row of Φa is set to a row-vector φs for a transition (s, a, r, s ) ∈ D that uses action a, and Φ+a is the pseudo-inverse of Φa.
+
+44
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Proof of Proposition 2. For a data set D = {(si, ai, ri, si)}Di=1, construct the matrix Φa and similarly construct the matrix Φa where each row of Φa is set to a row-vector φs for a transition (s, a, r, s ) ∈ D that uses action a. The transition matrix of a LAM can be
+obtained using a least squares regression and
+
+Ma
+
+=
+
+arg
+
+min
+M
+
+||ΦaM
+
+−
+
+Φa||22
+
+=⇒
+
+M a = Φ+a Φa,
+
+where Φ+a is the pseudo-inverse of Φa. Using this notation, one can write
+
+(133)
+
+Φa + γΦaF − ΦaF a = La Φ+a Φa + γΦ+a ΦaF − Φ+a ΦaF a = Φ+a La
+I + γM aF − F a = Φ+a La ||I + γM aF − F a||22 ≤ ||Φ+a ||22||La||22.
+
+⇐⇒
+
+(134)
+
+⇐⇒
+
+(135)
+
+⇐⇒
+
+(136)
+
+(137)
+
+Note that Lψ =
+
+a∈A La, and thus
+
+∆
+
+=
+
+max ||I
+a
+
++ γM aF
+
+− F a||22
+
+≤
+
+max
+a
+
+||Φ+a
+
+||22Lψ
+
+.
+
+(138)
+
+Appendix B. Connection Between Q-learning and SF-learning
+Proof of Proposition 1. Before proving the main statement, we ﬁrst make the following observation. Assuming that for some t, θt = F tw, then
+
+w ys,a,r,s = w ξ s,a + γ
+
+b(s
+
+,
+
+a
+
+)ψ
+
+π s
+
+,a
+
+a
+
+= r(s, a) + γ
+
+b(s , a )w
+
+ψ
+
+π s
+
+,a
+
+a
+
+= r(s, a) + γ b(s , a )w F tξs ,a
+a
+
+= r(s, a) + γ b(s , a )θt ξs ,a
+a
+= ys,a,r,s .
+
+(139) (140) (141) (142) (143)
+
+Equation (141) follows by substitution with Equation (45). The proof of the main statement is by induction on t. Base Case: For t = 1, assume θ0 = F 0w. Then
+
+w F 1 = w F 0 + αψ F 0ξ s,a − ys,a,r,s ξ s,a
+
+(144)
+
+= w F 0 + αψ w F 0ξ s,a − w ys,a,r,s ξ s,a
+= θ0 + αψ θ0 ξ s,a − ys,a,r,s ξ s,a = θ1.
+
+(145) (146) (147)
+
+45
+
+Lehnert and Littman
+
+Equation (146) us obtained by substituting the identity in Equation (143) for t = 0. Equation (147) is obtained by substituting the linear TD iterate from Equation (42). Induction Step: Assuming the hypothesis w F t = θt holds for t and proceeding as in the base case, then
+
+w F t+1 = w F t + αψ F tξ s,a − ys,a,r,s ξ s,a
+
+(148)
+
+= w F t + αψ w F tξ s,a − w ys,a,r,s ξ s,a
+
+(149)
+
+= θt + αψ θt ξ s,a − ys,a,r,s ξ s,a = θt+1.
+
+(150) (151)
+
+Hence for all t, w F t = θt, as desired. Note that this proof assumes that both iterates are applied for exactly the same tran-
+sitions. This assumption is not restrictive assuming that control policies are constructed using the current parameters θt in the case for TD-learning or the parameters F t and w in the case for SF-learning. Even in the control case, where an ε-greedy exploration strategy is used, for example, both algorithms will produce an identical sequence of value functions and will chose actions with equal probability.
+
+Appendix C. Experiment Design
+
+The presented experiments are conducted on ﬁnite MDPs and use a state representation
+
+function
+
+φ : s → Φ(s, :),
+
+(152)
+
+where Φ is a S × n matrix and Φ(s, :) is a row with state index s. The feature dimension n is a ﬁxed hyper parameter for each experiment.
+
+C.1 Matrix Optimization in Column World
+
+The column world experiment (Figure 5) learns a state representation using the full transition and reward tables. Assume that the transition table of the column world task is stored as a set of stochastic transition matrices {P a}a∈A and the reward table as a set of reward vectors {ra}a∈A. The one-step reward prediction errors and linear SF prediction errors are minimized for the LSFM {F a, wa}a∈A using the loss objective
+
+LLSFM-mat = ||Φwa − ra||22 + αψ||Φ + γP aΦF − ΦF a||22.
+a∈A
+
+(153)
+
+For αψ = 1, the loss objective LLSFM-mat is optimized with respect to all free parameters {F a, wa}a∈A and Φ. Similarly, a LAM {M a, wa}a∈A is computed using the loss objective
+
+LLAM-mat = ||Φwa − ra||22 + ||ΦM a − P aΦ||22.
+a∈A
+
+(154)
+
+This loss objective is optimized with respect to all free parameters {M a, wa}a∈A and Φ. Both experiments used the Adam optimizer (Kingma and Ba, 2014) with a learning rate of
+
+46
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Hyper-Parameter
+Learning Rate αψ αp αN Feature Dimension Batch Size Number of Training Transitions Number of Gradient Steps
+
+LAM
+0.0005 1.0 0.1 80 50 10000 50000
+
+LSFM
+0.0005 0.01 0.0 80 50 10000 50000
+
+Tested Values
+0.0001, 0.0005, 0.001, 0.005 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0 0.0, 0.0001, 0.001, 0.01, 0.1
+
+Table 2: Hyper-Parameter for Puddle-World Experiment
+
+0.1 and Tensorﬂow (Abadi et al., 2015) default parameters. Optimization was initialized by sampling entries for Φ uniformly from the interval [0, 1]. The LAM {M a, wa}a∈A or LSFM {F a, wa}a∈A was initialized using a least squares solution for the initialization of Φ.
+
+C.2 Puddle-World Experiment
+In the puddle world MDP transitions are probabilistic, because with a 5% chance, the agent does not move after selecting any action. The partition maps presented in Figures 6(b) and 6(c) were obtained by clustering latent state vectors using agglomerative clustering. A ﬁnite data set of transitions D = {(si, ai, ri, si)}Di=1 was collected by selecting actions uniformly as random. Given such a data set D, the loss objective
+
+D
+
+2
+
+D
+
+2
+
+D
+
+LLAM =
+
+φsiwai − ri +αp
+
+φsiM a − φsi
+
++αN
+2
+
+i=1
+
+i=1
+
+i=1
+
+=Lr
+
+=Lp
+
+2
+
+2
+
+φsi
+
+−1
+2
+
+,
+
+=LN
+
+is used to approximate a reward-predictive state representation using a LAM. Optimization was initialized by each entry of the matrix Φ uniformly at random and then ﬁnding a LAM {M a, wa}a∈A for this initialized representation using least squares regression.
+For the LSFM experiment, the matrix Φ was also initialized using values sampled uniformly at random. The LSFM {F a, wa}a∈A was set to zero matrices and vectors at initialization. Both loss objective functions were optimized using the Adam optimizer with Tensorﬂow’s default parameters. Table 2 lists the hyper-parameter that were found to work best for each model. Figures 6(h) and 6(i) are plotted by ﬁrst evaluating an ε-greedy policy using the full transition and reward tables of the task. Then the state representation is used to ﬁnd an approximation of the value functions for each ε setting using least-squares linear regression. Each curve then plots the maximum value prediction error.
+
+C.3 Transfer Experiments
+For the transfer experiment presented in Section 5.2, a training data set of 10000 transitions was collected from Task B. The LSFM was trained using the hyper-parameter listed in Table 3.
+
+47
+
+Lehnert and Littman
+
+Hyper-Parameter
+Learning Rate αψ αN Feature Dimension Batch Size Number of Training Transitions Number of Gradient Steps
+
+LSFM
+0.001 0.0001 0.0 50 50 10000 50000
+
+Tested Values
+0.0001, 0.0005, 0.001, 0.005 0.001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0 0.0, 0.0001, 0.001, 0.01, 0.1
+
+Table 3: Hyper-Parameter for LSFM on Task A
+
+Value-predictive state representations are learned using a modiﬁed version of Neural Fitted Q-iteration (Riedmiller, 2005). The Q-value function is computed with
+
+Q(s, a; Φ, {qa}a∈A) = φs qa,
+
+(155)
+
+where the state features φs are computed as shown in Equation (152). To ﬁnd a valuepredictive state representation, the loss function
+
+D
+Lq(Φ, {qa}a∈A) = (Q(si, ai; Φ, {qa}a∈A) − ysi,ai,ri,si )2
+i=1
+
+(156)
+
+is minimized using stochastic gradient descent on a transition data set D = {(si, ai, ri, si)}Di=1. When diﬀerentiating the loss objective Lq with respect to its free parameters Φ, {qa}a∈A,
+the prediction target
+
+ys,a,r,s = r + γ max Q(s , a ; Φ, {qa}a∈A)
+a
+
+(157)
+
+is considered a constant and no gradient of ys,a,r,s is computed. A value-predictive state representation is learned for Task A by optimizing over all free parameters Φ, {qa}a∈A. Table 4 lists the used hyper-parameter. For Task A the best hyper-parameter setting was obtained by testing the learned state representation on Task A and using the model that produced the shortest episode length, averaged over 20 repeats.
+On Task B, a previously learned state representation is evaluated using the same implementation of Fitted Q-iteration, but the previously learned state representation is re-used and considered a constant. At transfer, gradients of Lq are only computed with respect to the vector set {qa}a∈A and the feature matrix Φ is held constant.
+The tabular model ﬁrst compute a partial transition and reward table of Task B by averaging diﬀerent transitions and reward using the given data set. If no transition is provided for a particular state and action pair, uniform transitions are assumed. If no reward is provided for a particular state and action pair, a reward value is sampled uniformly at random from the interval [0, 1]. Augmenting a partial transition and reward table is equivalent to providing the agent with a uniform prior over rewards and transitions. The tabular model’s optimal policy is computed using value iteration.
+To plot the right panel in Figure 8(c), twenty diﬀerent transition data sets of a certain ﬁxed size were collected and the Fitted Q-iteration algorithm was used to approximate the optimal value function. For both tested state representations and data sets, a small
+
+48
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+
+Hyper-Parameter
+Learning Rate Feature Dimension Batch Size Training Transitions Gradient Steps
+
+Fitted Q-iteration, learning on Task A
+0.001 50 50 10000 50000
+
+Fitted Q-iteration, evaluation on Task B
+0.00001 50 50 Varies 20000
+
+Tested Values 0.00001, 0.0001, 0.001, 0.01
+
+Table 4: Hyper-Parameter used for Fitted Q-iteration
+
+enough learning rate was found to guarantee that Fitted Q-iteration converges. The found solutions were evaluated twenty times, and if all evaluation completed the navigation task within 22 time steps (which is close to optimal), then this data set is considered to be optimally solved. Note that all tested evaluation runs either complete within 22 time steps or hit the timeout threshold of 5000 time steps. Table 4 lists the hyper-parameters used for Fitted Q-iteration to obtain the right panel in Figure 8(c). For transfer evaluation, the hyper-parameter setting was used that approximated the Q-values optimal in Task B with the lowest error.
+C.4 Combination Lock Experiment
+For the combination lock simulations presented in Figure 9, each Q-learning conﬁguration was tested independently on each task with learning rates 0.1, 0.5, and 0.9. Because Qvalues were initialized optimistically with a value of 1.0, each plot in Figure 9 uses a learning rate of 0.9.
+To ﬁnd a reward-predictive state representation, the LSFM loss objective LLSFM-mat (Equation (153)) was optimized 100000 iterations using Tensorﬂow’s Adam optimizer with a learning rate of 0.005 and αψ = 0.01.
+References
+Mart´ın Abadi, Ashish Agarwal, Paul Barham, Eugene Brevdo, Zhifeng Chen, Craig Citro, Greg S. Corrado, Andy Davis, Jeﬀrey Dean, Matthieu Devin, Sanjay Ghemawat, Ian Goodfellow, Andrew Harp, Geoﬀrey Irving, Michael Isard, Yangqing Jia, Rafal Jozefowicz, Lukasz Kaiser, Manjunath Kudlur, Josh Levenberg, Dandelion Man´e, Rajat Monga, Sherry Moore, Derek Murray, Chris Olah, Mike Schuster, Jonathon Shlens, Benoit Steiner, Ilya Sutskever, Kunal Talwar, Paul Tucker, Vincent Vanhoucke, Vijay Vasudevan, Fernanda Vi´egas, Oriol Vinyals, Pete Warden, Martin Wattenberg, Martin Wicke, Yuan Yu, and Xiaoqiang Zheng. TensorFlow: Large-scale machine learning on heterogeneous systems, 2015. URL https://www.tensorflow.org/. Software available from tensorﬂow.org.
+David Abel, David Hershkowitz, and Michael Littman. Near optimal behavior via approximate state abstraction. In Proceedings of The 33rd International Conference on Machine Learning, pages 2915–2923, 2016.
+49
+
+Lehnert and Littman
+David Abel, Dilip Arumugam, Lucas Lehnert, and Michael Littman. State abstractions for lifelong reinforcement learning. In Jennifer Dy and Andreas Krause, editors, Proceedings of the 35th International Conference on Machine Learning, volume 80 of Proceedings of Machine Learning Research, pages 10–19, Stockholmsm¨assan, Stockholm Sweden, 10–15 Jul 2018. PMLR. URL http://proceedings.mlr.press/v80/abel18a.html.
+David Abel, Dilip Arumugam, Kavosh Asadi, Yuu Jinnai, Michael L. Littman, and Lawson L.S. Wong. State abstraction as compression in apprenticeship learning. In Proceedings of the AAAI Conference on Artiﬁcial Intelligence, 2019.
+Kavosh Asadi, Dipendra Misra, and Michael Littman. Lipschitz continuity in model-based reinforcement learning. In Jennifer Dy and Andreas Krause, editors, Proceedings of the 35th International Conference on Machine Learning, volume 80 of Proceedings of Machine Learning Research, pages 264–273, Stockholmsm¨assan, Stockholm Sweden, 10–15 Jul 2018. PMLR. URL http://proceedings.mlr.press/v80/asadi18a.html.
+Mohammad Gheshlaghi Azar, Ian Osband, and R´emi Munos. Minimax regret bounds for reinforcement learning. In Proceedings of the 34th International Conference on Machine Learning-Volume 70, pages 263–272. JMLR.org, 2017.
+Andr´e Barreto, R´emi Munos, Tom Schaul, and David Silver. Successor features for transfer in reinforcement learning. CoRR, abs/1606.05312, 2016. URL http://arxiv.org/abs/ 1606.05312.
+Andr´e Barreto, Will Dabney, R´emi Munos, Jonathan J Hunt, Tom Schaul, Hado P van Hasselt, and David Silver. Successor features for transfer in reinforcement learning. In Advances in Neural Information Processing Systems, pages 4055–4065, 2017a.
+Andr´e Barreto, Will Dabney, R´emi Munos, Jonathan J Hunt, Tom Schaul, Hado P van Hasselt, and David Silver. Successor features for transfer in reinforcement learning. In Advances in Neural Information Processing Systems, pages 4055–4065, 2017b.
+Andre Barreto, Diana Borsa, John Quan, Tom Schaul, David Silver, Matteo Hessel, Daniel Mankowitz, Augustin Zidek, and Remi Munos. Transfer in deep reinforcement learning using successor features and generalised policy improvement. In Jennifer Dy and Andreas Krause, editors, Proceedings of the 35th International Conference on Machine Learning, volume 80 of Proceedings of Machine Learning Research, pages 501–510, Stockholmsm¨assan, Stockholm Sweden, 10–15 Jul 2018. PMLR. URL http://proceedings.mlr.press/v80/barreto18a.html.
+Richard E Bellman. Adaptive Control Processes: A Guided Tour, volume 2045. Princeton University Press, 1961.
+Dimitri P Bertsekas. Dynamic programming and optimal control 3rd edition, volume ii. Belmont, MA: Athena Scientiﬁc, 2011.
+Justin A Boyan and Andrew W Moore. Generalization in reinforcement learning: Safely approximating the value function. In Advances in Neural Information Processing Systems, pages 369–376, 1995.
+50
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+Peter Dayan. Improving generalization for temporal diﬀerence learning: The successor representation. Neural Computation, 5(4):613–624, 1993.
+Eyal Even-Dar and Yishay Mansour. Approximate equivalence of Markov decision processes. In Learning Theory and Kernel Machines, pages 581–594. Springer, 2003.
+Norm Ferns, Prakash Panangaden, and Doina Precup. Metrics for ﬁnite markov decision processes. In Proceedings of the 20th Conference on Uncertainty in Artiﬁcial Intelligence, pages 162–169. AUAI Press, 2004.
+Norm Ferns, Prakash Panangaden, and Doina Precup. Bisimulation metrics for continuous Markov decision processes. SIAM Journal on Computing, 40(6):1662–1714, 2011.
+Vincent Fran¸cois-Lavet, Yoshua Bengio, Doina Precup, and Joelle Pineau. Combined reinforcement learning via abstract representations. In Proceedings of the AAAI Conference on Artiﬁcial Intelligence, volume 33, pages 3582–3589, 2019.
+Justin Fu, Katie Luo, and Sergey Levine. Learning robust rewards with adverserial inverse reinforcement learning. In International Conference on Learning Representations, 2018. URL https://openreview.net/forum?id=rkHywl-A-.
+Carles Gelada, Saurabh Kumar, Jacob Buckman, Oﬁr Nachum, and Marc G Bellemare. DeepMDP: Learning continuous latent space models for representation learning. In International Conference on Machine Learning, pages 2170–2179, 2019.
+Robert Givan, Thomas Dean, and Matthew Greig. Equivalence notions and model minimization in Markov decision processes. Artiﬁcial Intelligence, 147(1):163–223, 2003.
+Thomas Jaksch, Ronald Ortner, and Peter Auer. Near-optimal regret bounds for reinforcement learning. Journal of Machine Learning Research, 11(Apr):1563–1600, 2010.
+Chi Jin, Zeyuan Allen-Zhu, Sebastien Bubeck, and Michael I Jordan. Is Q-learning provably eﬃcient? In Advances in Neural Information Processing Systems, pages 4863–4873, 2018.
+Diederik P. Kingma and Jimmy Ba. Adam: A method for stochastic optimization. CoRR, abs/1412.6980, 2014. URL http://arxiv.org/abs/1412.6980.
+George Konidaris, Sarah Osentoski, and Philip Thomas. Value function approximation in reinforcement learning using the Fourier basis. Proceedings of the Twenty-Fifth AAAI Conference on Artiﬁcial Intelligence, pages pages 380–385, August 2011.
+Tejas D Kulkarni, Ardavan Saeedi, Simanta Gautam, and Samuel J Gershman. Deep successor reinforcement learning. arXiv preprint arXiv:1606.02396, 2016.
+Lucas Lehnert, Stefanie Tellex, and Michael L Littman. Advantages and limitations of using successor features for transfer in reinforcement learning. arXiv preprint arXiv:1708.00102, 2017.
+Lucas Lehnert, Michael J Frank, and Michael L Littman. Reward predictive representations generalize across tasks in reinforcement learning. BioRxiv, page 653493, 2019.
+51
+
+Lehnert and Littman
+Lihong Li, Thomas J Walsh, and Michael L Littman. Towards a uniﬁed theory of state abstraction for MDPs. In ISAIM, 2006.
+Mehryar Mohri, Afshin Rostamizadeh, and Ameet Talwalkar. Foundations of Machine Learning. MIT Press, 2018.
+Ida Momennejad, Evan M Russek, Jin H Cheong, Matthew M Botvinick, ND Daw, and Samuel J Gershman. The successor representation in human reinforcement learning. Nature Human Behaviour, 1(9):680, 2017.
+Junhyuk Oh, Satinder Singh, and Honglak Lee. Value prediction network. arXiv preprint arXiv:1707.03497, 2017.
+Ian Osband, Daniel Russo, and Benjamin Van Roy. (More) eﬃcient reinforcement learning via posterior sampling. In Advances in Neural Information Processing Systems, pages 3003–3011, 2013.
+Ronald Parr, Lihong Li, Gavin Taylor, Christopher Painter-Wakeﬁeld, and Michael L Littman. An analysis of linear models, linear value-function approximation, and feature selection for reinforcement learning. In Proceedings of the 25th International Conference on Machine Learning, pages 752–759. ACM, 2008.
+Martin Riedmiller. Neural ﬁtted Q iteration–ﬁrst experiences with a data eﬃcient neural reinforcement learning method. In European Conference on Machine Learning, pages 317–328. Springer, 2005.
+Sherry Shanshan Ruan, Gheorghe Comanici, Prakash Panangaden, and Doina Precup. Representation discovery for mdps using bisimulation metrics. In AAAI, pages 3578–3584, 2015.
+Evan M Russek, Ida Momennejad, Matthew M Botvinick, Samuel J Gershman, and Nathaniel D Daw. Predictive representations can link model-based reinforcement learning to model-free mechanisms. PLoS computational biology, 13(9):e1005768, 2017.
+Julian Schrittwieser, Ioannis Antonoglou, Thomas Hubert, Karen Simonyan, Laurent Sifre, Simon Schmitt, Arthur Guez, Edward Lockhart, Demis Hassabis, Thore Graepel, et al. Mastering atari, go, chess and shogi by planning with a learned model. arXiv preprint arXiv:1911.08265, 2019.
+David Silver, Hado Hasselt, Matteo Hessel, Tom Schaul, Arthur Guez, Tim Harley, Gabriel Dulac-Arnold, David Reichert, Neil Rabinowitz, Andre Barreto, et al. The predictron: End-to-end learning and planning. In International Conference on Machine Learning, pages 3191–3199. PMLR, 2017.
+Zhao Song, Ronald E Parr, Xuejun Liao, and Lawrence Carin. Linear feature encoding for reinforcement learning. In Advances in Neural Information Processing Systems, pages 4224–4232, 2016.
+Kimberly L Stachenfeld, Matthew M Botvinick, and Samuel J Gershman. The hippocampus as a predictive map. Nature Neuroscience, 20(11):1643, 2017.
+52
+
+Successor Features Combine Model-based and Model-Free Reinforcement Learning
+Richard S Sutton. Generalization in reinforcement learning: Successful examples using sparse coarse coding. Advances in Neural Information Processing Systems, pages 1038– 1044, 1996.
+Richard S. Sutton and Andrew G. Barto. Reinforcement Learning: An Introduction. A Bradford Book. MIT Press, Cambridge, MA, 1 edition, 1998.
+Richard S Sutton and Andrew G Barto. Reinforcement Learning: An Introduction. MIT Press, 2018.
+Richard S. Sutton, Csaba Szepesv´ari, Alborz Geramifard, and Michael Bowling. Dyna-style planning with linear function approximation and prioritized sweeping. In Proceedings of the 24th Conference on Uncertainty in Artiﬁcial Intelligence, 2008.
+Erik Talvitie. Learning the reward function for a misspeciﬁed model. In Jennifer Dy and Andreas Krause, editors, Proceedings of the 35th International Conference on Machine Learning, volume 80 of Proceedings of Machine Learning Research, pages 4838– 4847, Stockholmsm¨assan, Stockholm Sweden, 10–15 Jul 2018. PMLR. URL http: //proceedings.mlr.press/v80/talvitie18a.html.
+Christopher J.C.H. Watkins and Peter Dayan. Q-learning. Machine Learning, 8(3):279–292, May 1992.
+Th´eophane Weber, S´ebastien Racani`ere, David P Reichert, Lars Buesing, Arthur Guez, Danilo Jimenez Rezende, Adria Puigdom`enech Badia, Oriol Vinyals, Nicolas Heess, Yujia Li, et al. Imagination-augmented agents for deep reinforcement learning. arXiv preprint arXiv:1707.06203, 2017.
+Hengshuai Yao and Csaba Szepesv´ari. Approximate policy iteration with linear action models. In AAAI, 2012.
+Jingwei Zhang, Jost Tobias Springenberg, Joschka Boedecker, and Wolfram Burgard. Deep reinforcement learning with successor features for navigation across similar environments. In 2017 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS), pages 2371–2378. IEEE, 2017.
+53
+

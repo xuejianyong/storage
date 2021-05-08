@@ -1,0 +1,1677 @@
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+The hippocampus as a predictive map
+Kimberly L. Stachenfeld1,2,*, Matthew M. Botvinick1,3, and Samuel J. Gershman4
+1DeepMind, London, UK 2Princeton Neuroscience Institute, Princeton University, Princeton, NJ, USA 3Gatsby Computational Neuroscience Unit, University College London, London, UK 4Department of Psychology and Center for Brain Science, Harvard University, Cambridge, MA, USA *stachenfeld@google.com
+ABSTRACT
+A cognitive map has long been the dominant metaphor for hippocampal function, embracing the idea that place cells encode a geometric representation of space. However, evidence for predictive coding, reward sensitivity, and policy dependence in place cells suggests that the representation is not purely spatial. We approach this puzzle from a reinforcement learning perspective: what kind of spatial representation is most useful for maximizing future reward? We show that the answer takes the form of a predictive representation. This representation captures many aspects of place cell responses that fall outside the traditional view of a cognitive map. Furthermore, we argue that entorhinal grid cells encode a low-dimensional basis set for the predictive representation, useful for suppressing noise in predictions and extracting multiscale structure for hierarchical planning.
+Introduction
+Learning to predict long-term reward is fundamental to the survival of many animals. Some species may go days, weeks or even months before attaining primary reward, during which time aversive states must be endured. Evidence suggests that the brain has evolved multiple solutions to this reinforcement learning (RL) problem1. One solution is to learn a model or “cognitive map” of the environment2, which can then be used to generate long-term reward predictions through simulation of future states1. However, this solution is computationally intensive, especially in real-world environments where the space of future possibilities is virtually inﬁnite. An alternative “model-free” solution is to learn, from trial-and-error, a value function mapping states to long-term reward predictions3. However, dynamic environments can be problematic for this approach, because changes in the distribution of rewards necessitates complete relearning of the value function.
+Here, we argue that the hippocampus supports a third solution: learning of a “predictive map” that represents each state in terms of its successor states4,5. This representation is sufﬁcient for long-term reward prediction, is learnable using a simple, biologically plausible algorithm, and explains a wealth of data from studies of the hippocampus.
+Our primary focus is on understanding the computational function of hippocampal place cells, which respond selectively when an animal occupies a particular location in space6. A classic and still inﬂuential view of place cells is that they collectively furnish an explicit map of space7,8. This map can then be employed as the input to a model-based9–11 or model-free12, 13 RL system for computing the value of the animal’s current state. In contrast, the predictive map theory views place cells as encoding predictions of future states, which can then be combined with reward predictions to compute values. This theory can account for why the ﬁring of place cells is modulated by variables like obstacles, environment topology, and direction of travel. It also generalizes to hippocampal coding in non-spatial tasks. Beyond
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+the hippocampus, we argue that entorhinal grid cells14, which ﬁre periodically over space, encode a low-dimensional decomposition of the predictive map, useful for stabilizing the map and discovering subgoals.
+
+Results
+The successor representation We consider the problem of RL in a Markov decision process consisting of the following elements15: a set of states (e.g., spatial locations), a set of actions, a transition distribution P(s |s, a) specifying the probability of transitioning to state s from state s after taking action a, a reward function R(s) specifying the expected immediate reward in state s, and a discount factor γ ∈ [0, 1] that down-weights distal rewards. An agent chooses actions according to a policy π(a|s) and collects rewards as it moves through the state space. The value of a state is deﬁned formally as the expected discounted cumulative future reward under policy π:
+
+∞
+
+V (s) = Eπ ∑ γtR(st) | s0 = s ,
+
+(1)
+
+t=0
+
+where st is the state visited at time t. Our focus here is on policy evaluation (computing V ). In our simulations we feed the agent the optimal policy; in the Supplemental Methods we discuss algorithms
+for policy improvement. To simplify notation, we assume implicit dependence on π and deﬁne the state transition matrix T , where T (s, s ) = ∑a π(a|s)P(s |s, a).
+The value function can be decomposed into the inner product of the reward function with a predictive state representation known as the successor representation (SR)4, denoted by M:
+
+V (s) = ∑ M(s, s )R(s ),
+
+(2)
+
+s
+
+The SR encodes the expected discounted future occupancy of state s along a trajectory initiated in state s:
+
+M(s, s ) = E [∑t∞=0 γtI(st = s ) | s0 = s] ,
+
+(3)
+
+where I(·) = 1 if its argument is true, and 0 otherwise. An estimate of the SR (denoted Mˆ ) can be incrementally updated using a form of the temporal
+difference learning algorithm4,16. After observing a transition st → st+1, the estimate is updated according
+to:
+
+Mˆt+1(s, s ) = Mˆt(st, s ) + η I(st = s ) + γMˆt(st+1, s ) − Mˆt(st, s ) ,
+
+(4)
+
+where η is a learning rate (unless speciﬁed otherwise, η = 0.1 in our simulations). The form of this update is identical to the temporal difference learning rule for value functions15, except that in this case the reward prediction error is replaced by a successor prediction error (the term in brackets). Note that these prediction errors are distinct from state prediction errors used to update an estimate of the transition function17; the SR predicts not just the next state but a superposition of future states over a possibly inﬁnite horizon. The transition and SR functions only coincide when γ = 0.
+The SR combines some of the advantages of model-free and model-based algorithms. Like model-free algorithms, policy evaluation is computationally efﬁcient with the SR. However, factoring the value function into a state dynamics SR term and a reward term confers some of the ﬂexibility usually associated
+
+2/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+with model-based methods. Separate terms for state dynamics and reward permit rapid recomputation of new value functions when reward is changed independently of state dynamics, as demonstrated in Fig. 1. As the animal toggles between hunger and thirst, or when food is redistributed about the environment, the animal can immediately recompute a new value function based on its expected state transitions. A model-free agent would have to relearn value estimates for each location in order to make value predictions, while a model-based agent would need to aggregate the results of time-consuming searches through its model1,4. This advantage is demonstrated in Fig. S1, in which we demonstrate that while changing the reward function completely disrupts model free learning of a value function in a 2-step tree maze, SR learning can quickly adjust. Thus, the SR combines the efﬁciency of model-free control with some of the ﬂexibility of model-based control.
+For an agent trying to optimize expected discounted future reward, two states that predict similar successor states are necessarily similarly valuable, and can be safely grouped together18. This makes the SR a good metric space for generalizing value. Since adjacent states will frequently lead to each other, the SR will naturally represent adjacent states similarly and therefore be smooth over time and space in spatial tasks. Since the SR is well deﬁned for any Markov decision process, we can use the same architecture for many kinds of tasks, not just spatial ones.
+Hippocampal encoding of the successor representation We now turn to our main theoretical claim: that the SR is encoded by the hippocampus. This hypothesis is Based on the central role of the hippocampus in representing space and context19, as well as its contribution to sequential decision making20,21. Although the SR can be applied to arbitrary state spaces, we focus on spatial domains where states index locations.
+Place cells in the hippocampus have traditionally been viewed as encoding an animal’s current location. In contrast, the predictive map theory views these cells as encoding an animal’s future locations. Crucially, an animal’s future locations depend on its policy, which is constrained by a variety of factors such as the environmental topology and the locations of rewards. We demonstrate that these factors shape place cell receptive ﬁeld properties in a manner consistent with a predictive map.
+To build some intuition for this idea, Fig. 2 illustrates the differences between our SR model (Fig. 2C) and two alternative models (Fig. 2A-B). As examples, we implement the three models for a 2D room containing an obstacle and for a 1D track with an established preferred direction of travel. The ﬁrst alternative model is a Gaussian place ﬁeld in which ﬁring is related to the Euclidean distance from the ﬁeld center (Fig. 2A), usually invoked for modelling place ﬁeld activity in open spatial domains22,23. The second alternative model is a topologically sensitive place ﬁeld in which ﬁring is related to the average path length from the ﬁeld center, where paths cannot pass through obstacles13 (Fig. 2A). Like the topological place ﬁelds and unlike the Gaussian place ﬁelds, the SR place ﬁelds respect obstacles in the 2D environment. Since states on opposite sides of a barrier do not frequently occur nearby in time, SR place ﬁelds will tend to be active on only one side of a barrier.
+On the 1D track, the SR place ﬁelds skew opposite the direction of travel. This backward skewing arises because upcoming states can be reliably predicted further in advance when traveling repeatedly in a particular direction. Neither of the control models provide ways for a directed behavioral policy to interact with state representation, and therefore cannot show this effect. Evidence for predictive skewing comes from experiments in which animals traveled repeatedly in a particular direction along a linear track24,25. In Fig. 3, we explain how a future-oriented representation evokes a forward-skewing representation in the population at any given point in time but implies that receptive ﬁelds for any individual cell should skew backwards. In order for a given cell to ﬁre predictively, it must begin ﬁring before its encoded state is visited, causing a backward-skewed receptive ﬁeld. Figure 4 compares the predicted and experimentally
+3/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+observed backward skewing, demonstrating that the model captures the qualitative pattern of skewing observed when the animal has a directional bias.
+Consistent with the SR model, experiments have shown that place ﬁelds become distorted around barriers26–28. In Figure 5, we explore the effect of placing obstacles in a Tolman detour maze on the SR place ﬁelds and compare to experimental results obtained by Alvernhe et al.28. When a barrier is placed in a maze such that the animal is forced to take a detour, the place ﬁelds engage in “local remapping.” Place ﬁelds near the barrier change their ﬁring ﬁelds signiﬁcantly more than those further from the barrier (Fig. 5A-C). When barriers are inserted, SR place ﬁelds change their ﬁelds near the path blocked by the barrier and less so at more distal locations where the optimal policy is unaffected (Fig. 5D-F). This locality is imposed by the discount factor.
+The SR model can be used to explain how hippocampal place ﬁeld clustering depends on factors such as reward, punishment, and boundaries (Fig. 6). The center of mass of place ﬁelds near the wall under a random walk policy will retreat away from the walls of a rectangular room (Fig. 6A). For any model of place cell ﬁring, the centers of mass will be biased away from boundaries, since no ﬁring will be recorded outside of the room26. However, this bias should be more pronounced under the SR model because successor states will also necessarily lie within the environment, shifting the ﬁelds asymmetrically away from walls. In fragmented, multi-compartment environments, this has the effect of causing place ﬁelds within the same compartment to cluster (Fig. 6B,C). We explore the implications of this clustering in more detail toward the end of this section, accompanied by the illustration in Fig. S2.
+The SR model predicts that ﬁring ﬁelds centered near rewarded locations will expand to include the surrounding locations and increase their ﬁring rate under the optimal policy, as has been observed experimentally29,30. The animal is likely to spend time in the vicinity of the reward, meaning that states with or near reward are likely to be common successors. SR place ﬁelds in and near the rewarded zone will cluster because it is likely that states near the reward were anticipated by other states near the reward (Fig. 6D,E). For place ﬁelds centered further from the reward, the model predicts that ﬁelds will skew opposite the direction of travel toward the reward, due to the effect illustrated in Fig. 3: a state will only be predicted when the animal is approaching reward from some more distant state. Given a large potentially rewarded zone or a noisy policy, these somewhat contradictory effects are sufﬁcient to produce clustering of place ﬁelds near the rewarded zone, as has been observed experimentally in certain tasks31,32 (Fig. 6D,E), We predict that punished locations will induce the opposite effect, causing ﬁelds near the punished location to spread away from the rarely-visited punished locations (Fig. 6F).
+In addition to the inﬂuence of experimental factors, changes in parameters of the model will have systematic effects on the structure of SR place ﬁelds. Motivated by data showing a gradient of increasing ﬁeld sizes along the hippocampal longitudinal axis33,34, we explored the consequences of modifying the discount factor γ in Figure S2. Hosting a range of discount factors along the hippocampal longitudinal axis provides a multi-timescale representation of space. It also circumvents the problem of having to assume the same discount parameter for each problem or adaptively computing a new discount. Another consequence is that larger place ﬁelds reﬂect the community structure of the environment. A gradient of discount factors might therefore be useful for decision making at multiple levels of temporal abstraction18,35,36.
+An appealing property of the SR model is that it can be applied to non-spatial state spaces. Fig. 7A-D shows the SR embedding of an abstract state space used in a study by Schapiro and colleagues18,37. Human subjects viewed sequences of fractals drawn from random walks on the graph while brain activity was measured using fMRI. We compared the similarity between SR vectors for pairs of states with pattern similarity in the hippocampus. The key experimental ﬁnding was that hippocampal pattern similarity mirrored the community structure of the graph: states with similar successors were represented similarly37. The SR model recapitulates this ﬁnding, since states in the same community tend to be visited nearby in
+4/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+time, making them predictive of one another (Fig. 7E-G). To demonstrate further how the SR model can integrate spatial and temporal coding in the hippocampus,
+we simulated results from a recent study38 in which subjects were asked to navigate among pairs of locations to retrieve associated objects in a virtual city (8A). Since it was possible to “teleport” between certain location pairs, while others were joined only by long, winding paths, spatial Euclidean distance was decoupled from travel time. The authors found that objects associated with locations that were nearby in either space or time increased their hippocampal pattern similarity (Fig. 8B). Both factors (spatial and temporal distance) had a signiﬁcant effect when the other was regressed out (Fig. 8C). The SR predicts this integrated representation of spatiotemporal distance: when a short path is introduced between distant states, such as by a teleportation hub, those states come predict one another.
+Dimensionality reduction of the predictive map by entorhinal grid cells Because the ﬁring ﬁelds of entorhinal grid cells are spatially periodic, it was originally hypothesized that grid cells might represent a Euclidean spatial metric to enable dead reckoning8,14. Other theories have suggested that these ﬁring patterns might arise from a low-dimensional embedding of the hippocampal map5,23,39. Combining this idea with the SR hypothesis, we argue that grid ﬁelds reﬂect a low-dimensional eigendecomposition of the SR. A key implication of this hypothesis is that grid cells will respond differently in environments with different boundary conditions.
+The boundary sensitivity of grid cells was recently highlighted by a study that manipulated boundary geometry40. In square environments, different grid modules had the same alignment of the grid relative to the boundaries (modulo 60◦, likely due to hexagonal symmetry in grid ﬁelds), whereas in a circular environment grid ﬁeld alignment was more variable, with a qualitatively different pattern of alignment (Fig. 9A-C). Krupic et al. performed a “split-halves” analysis, in which they compared grid ﬁelds in square versus trapezoidal mazes, to examine the effect of breaking an axis of symmetry in the environment (Fig 9D,E). They found that moving the animal to a trapezoidal environment, in which the left and right half of the environment had asymmetric boundaries, caused the grid parameters to be different on the two sides of the environment40. In particular, the spatial autocorrelegrams – which reveal the layout of spatial displacement at which the grid ﬁeld repeats itself – were relatively dissimilar over both halves of the trapezoidal environment. The grid ﬁelds in the trapezoid could not be attributed to linearly warping the square grid ﬁeld into a trapezoid, raising the question of how else boundaries could interact with grid ﬁelds.
+According to the SR eigenvector model, these effects arise because the underlying statistics of the transition policy changes with the geometry. We simulated grid ﬁelds in a variety of geometric environments used by Krupic and colleagues (Fig. 9F-H). In agreement with the empirical results, the orientation of eigenvectors in the circular environment tend to be highly variable, while those recorded in square environments are almost always aligned to either the horizontal or vertical boundary of the square (Fig. 9G,J). The variability in the circular environment arises because the eigenvectors are subject to the rotational symmetry of the circular task space. SR eigenvectors also emulate the ﬁnding that grids on either side of a square maze are more similar than those on either side of a trapezoid, because the eigenvectors capture the effect of these irregular boundary conditions on transition dynamics.
+Another main ﬁnding of Krupic et al.40 was that when a square environment is rotated, grids remain aligned to the boundaries as opposed to distal cues. SR eigenvectors inherently reproduce this effect, since a core assumption of the theory is that grid ﬁring is anchored to state in a transition structure, which is itself constrained by boundaries.
+A different manifestation of boundary effects is the fragmentation of grid ﬁelds in a hairpin maze41. Consistent with the empirical data, SR eigenvector ﬁelds tend to align with the arms of the maze, and
+5/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+frequently repeat across alternating arms (Figure 10)41. While patterns at many timescales can be found in the eigenvector population, those at alternating intervals are most common and therefore replicate the checkerboard pattern observed in the experimental data (Fig. S8).
+To further explore how compartmentalized environments could affect grid ﬁelds, we simulated a recent study42 that characterized how grid ﬁelds evolve over several days’ exposure to a multi-compartment environment (Fig. 11). While grid cells initially represented separate compartments with identical ﬁelds (repeated grids), several days of exploration caused ﬁelds to converge on a more globally coherent grid (Fig. 11D-F). With more experience, the grid regularity of the ﬁelds simultaneously decreased, as did the similarity between the grid ﬁelds recorded in the two rooms (Fig. 11C). The authors conclude that grid cells will tend to a regular, globally coherent grid to serve as a Euclidean metric over the full expanse of the enclosure.
+Our model suggests that the ﬁelds are tending not toward a globally regular grid, but to a predictive map of the task structure, which is shaped in part by the global boundaries but also by the multi-compartment structure. We simulated this experiment by initializing grid ﬁelds to a local eigenvector model, in which the animal has not yet learned how the compartments ﬁt together. After the SR eigenvectors have been learned, we relax the constraint that representations be the same in both rooms and let eigenvectors and the SR be learned for the full environment. As the learned eigenvectors converge, they increasingly resemble a global grid and decreasingly match the predictions of the local ﬁt (Fig. 11H-L; Fig. S10). As with the recorded grid cells, the similarity of the ﬁelds in the two rooms drops to an average value near zero (Fig. 11I). They also have less regular grids compared to a single-compartment rectangular enclosure, explaining the drop in grid regularity observed by Carpenter et al. as the grid ﬁelds became more “global”42. Since separating barriers between compartments perturb the task topology from an uninterrupted 2D grid.
+A normative motivation for invoking low-dimensional projections as a principle for grid cells is that they can be used to smooth or “regularize” noisy updates of the SR. When the projection is based on an eigendecomposition, this constitutes a form of spectral regularization43. For example, a smoothed version of the SR can be obtained by reconstructing the SR from its eigendecomposition using only low-frequency (high eigenvalue) components, thereby ﬁltering out high-frequency noise (see Methods). Importantly, the regularization is topologically sensitive, meaning that smoothing respects boundaries of the environment. This property is not shared by regularization using a Fourier decomposition (Fig. S3). The regularization hypothesis is consistent with data suggesting that although grid cell input is not required for the emergence of place ﬁelds, place ﬁeld stability and organization depends crucially on input from grid cells44–46. These eigenvectors also provide a useful partitioning of the task space, as discussed in the following section.
+Subgoal discovery using grid ﬁelds In structured environments, planning can be made more efﬁcient by decomposing the task into subgoals, but the discovery of good subgoals is an open problem. The SR eigenvectors can be used for subgoal discovery by identifying “bottleneck states” that bridge large, relatively isolated clusters of states, and group together states that fall on opposite sides of the bottlenecks47,48. Since these bottleneck states are likely to be traversed along many optimal trajectories, they are frequently convenient waypoints to visit. Navigational strategies that exploit bottleneck states as subgoals have been observed in human navigation49. It is also worth noting that accompanying the neural results displayed in Fig. 7, the authors found that when subjects were asked to parse sequences of stimuli into events, stimuli found at topological bottlenecks were frequent breakpoints18.
+The formal problem of identifying these bottlenecks is known formally as the k-way normalized min-cut problem. An approximate solution can be obtained using spectral graph theory50. First, the top log k eigenvectors of a matrix known as the graph Laplacian are thresholded such that negative elements of
+6/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+each eigenvector go to zero and positive elements go to one. Edges that connect between these two labeled groups of states are “cut” by the partition, and nodes adjacent to these edges are a kind of bottleneck subgoal. The ﬁrst subgoals that emerge will be the cut from the lowest-frequency eigenvector, and these subgoals will approximately lie between the two largest, most separable clusters in the partition (see Supplemental Methods for more detail). A prioritized sequence of subgoals is obtained by incorporating increasingly higher frequency eigenvectors that produce partition points nearer to the agent.
+The SR shares its eigenvectors with the graph Laplacian (see Supplemental Methods)5, making SR eigenvectors equally suitable for this process of subgoal discovery. We show in Fig. S4 that the subgoals that emerge in a 2-step decision task and in a multicompartment environment tend to fall near doorways and decision points: natural subgoals for high-level planning. It is worth noting that SR matrices parameterized by larger discount factors γ will project predominantly on the large-spatial-scale grid components. The relationship between more temporally diffuse, abstract SRs, in which states in the same room are all encoded similarly (Fig. S2), and the subgoals that join those clusters can therefore be captured by which eigenvalues are large enough to consider.
+The fact that large SR ﬁelds project predominantly onto eigenvectors with large spatial scales, whereas smaller SR ﬁelds project more strongly onto ﬁner scale grid ﬁelds, is consistent with the smooth longitudinal gradient in connectivity between MEC and hippocampus34. Hippocampal cells with larger place ﬁelds are more densely wired to the entorhinal cells with larger spatial scales in their grids, and vice versa. It has also been shown experimentally that entorhinal lesions impair performance on navigation tasks and disrupt the temporal ordering of sequential activations in hippocampus while leaving performance on location recognition tasks intact45,51. This suggests a role of grid cells in spatial planning, and encourages us to speculate about a more general role for grid cells in hierarchical planning.
+Discussion
+The hippocampus has long been thought to encode a cognitive map, but the precise nature of this map is elusive. The traditional view that the map is essentially spatial7,8 is not sufﬁcient to explain some of the most striking aspects of hippocampal representation, such as the dependence of place ﬁelds on an animal’s behavioral policy and the environment’s topology. We argue instead that the map is essentially predictive, encoding expectations about an animal’s future state. This view resonates with earlier ideas about the predictive function of the hippocampus20,52–54. Our main contribution is a formalization of this predictive function in a reinforcement learning framework, offering a new perspective on how the hippocampus supports adaptive behavior.
+Our theory is connected to earlier work by Gustafson and Daw13 showing how topologically-sensitive spatial representations recapitulate many aspects of place cells and grid cells that are difﬁcult to reconcile with a purely Euclidean representation of space. They also showed how encoding topological structure greatly aids reinforcement learning in complex spatial environments. Earlier work by Foster and colleagues12 also used place cells as features for RL, although the spatial representation did not explicitly encode topological structure. While these theoretical precedents highlight the importance of spatial representation, they leave open the deeper question of why particular representations are better than others. We showed that the SR naturally encodes topological structure in a format that enables efﬁcient RL.
+The work is also related to work done by Dordek et al.23, who demonstrated that gridlike activity patterns from principal components of the population activity of simulated Gaussian place cells. As we mentioned in the Results, one point of departure between empirically observed grid cells data and SR eigenvector account is that in rectangular environments, SR eigenvector grid ﬁelds can have different
+7/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+spatial scales aligned to the horizontal and vertical axis (see Fig. S8)14. In grid cells, the spatial scales tend to be approximately constant in all directions unless the environment changes55. The principal components of Gaussian place ﬁeld activity are mathematically related to the SR eigenvectors, and naturally also have grid ﬁelds that scale independently along the perpendicular boundaries of a rectangular room. However, Dordek et al. found that when the components were constrained to have non-negative values and the constraint that components be orthogonal was relaxed, the scaling became uniform in all directions and the lattices became more hexagonal23. This suggests that the difference between SR eigenvectors and recorded grid cells is not fundamental to the idea that grid cells are applying a spectral dimensionality reduction. Rather, additional constraints such as non-negativity are required.
+The SR can be viewed as occupying a middle ground between model-free and model-based learning. Model-free learning requires storing a look-up table of cached values estimated from the reward history1,56. Should the reward structure of the environment change, the entire look-up table must be re-estimated. By decomposing the value function into a predictive representation and a reward representation, the SR allows an agent to ﬂexibly recompute values when rewards change, without sacriﬁcing the computational efﬁciency of model-free methods4. Model-based learning is robust to changes in the reward structure, but requires inefﬁcient algorithms like tree search to compute values1,15.
+Certain behaviors often attributed to a model-based system can be explained by a model in which predictions based on state dynamics and the reward function are learned separately. For instance, the context preexposure facilitation effect refers to the ﬁnding that contextual fear conditioning is acquired more rapidly if the animal has the chance to explore the environment for several minutes before the ﬁrst shock57. The facilitation effect is classically believed to arise from the development of a conjunctive representation of the context in the hippocampus, though areas outside the hippocampus may also develop a conjunctive representation in the absence of the hippocampus, albeit less efﬁciently58. The SR provides a somewhat different interpretation: over the course of preexposure, the hippocampus develops a predictive representation of the context, such that subsequent learning is rapidly propagated across space. Figure S5 shows a simulation of this process and how it accounts for the facilitation effect.
+Recent work has elucidated connections between models of episodic memory and the SR. Speciﬁcally, Gershman et al. demonstrated that the SR is closely related to the Temporal Context Model (TCM) of episodic memory16,19. The core idea of TCM is that items are bound to their temporal context (a running average of recently experienced items), and the currently active temporal context is used to cue retrieval of other items, which in turn cause their temporal context to be retrieved. The SR can be seen as encoding a set of item-context associations. The connection to episodic memory is especially interesting given the crucial mnemonic role played by the hippocampus and entorhinal cortex in episodic memory. Howard and colleagues59 have laid out a detailed mapping between TCM and the medial temporal lobe (including entorhinal and hippocampal regions).
+Spectral graph theory provides insight into the topological structure encoded by the SR. We showed speciﬁcally that eigenvectors of the SR can be used to discover a hierarchical decomposition of the environment for use in hierarchical RL. Mahadevan et al. demonstrated that the related Laplacian eigenvectors are useful as a representational basis for approximating value functions, dubbing these eigenvectors “protovalue functions”60. Spectral analysis has frequently been invoked as a computational motivation for entorhinal grid cells (e.g., by Krupic and colleagues61). The fact that any function can be reconstructed by sums of sinusoids suggests that the entorhinal cortex implements a kind of Fourier transform of space. However, Fourier analysis is not the right mathematical tool when dealing with spatial representations in a topologically structured environment, since we do not expect functions to be smooth over boundaries in the environment. This is precisely the purpose of spectral graph theory: Instead of being maximally smooth over Euclidean space, the eigenvectors of the graph Laplacian embed the smoothest
+8/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+approximation of a function that respects the graph topology60. In conclusion, the SR provides a unifying framework for a wide range of observations about the
+hippocampus and entorhinal cortex. The multifaceted functions of these brain regions can be understood as serving a superordinate goal of prediction.
+
+Methods
+Task simulation Environments were simulated by discretizing the plane into points, and connecting these points along a triangular lattice. The adjacency matrix A was constructed such that A(i, j) = 1 wherever it is possible to transition between states i and j, and 0 otherwise. The transition probability matrix T was deﬁned so that T (i, j) is the probability of transitioning from state i to j. Under a random walk policy, the transition probability distribution is uniform over allowable transitions.
+
+SR computation To solve for the successor representation, we used the convergence of the geometric sum of transition matrices, T , discounted by γ ∈ [0, 1]:
+
+∞
+
+M = ∑ γtT t = (I − γT )−1
+
+(5)
+
+t=0
+
+To simulate the long-term effect of rewards and punishments in the environment, the optimal policy was found using value iteration15, and the SR was computed analytically under this policy. When demonstrating learning dynamics, the SR was estimated using the TD-learning (Fig. 11, Supp. Fig. 1, Supp. Fig. 3). Noise was injected into the location signal by adding uniform random noise with mean 0 to the state indicator vector.
+
+Eigenvector computation and Spectral Regularization For Figure 11, eigenvectors were computed incrementally using a Candid Covariance-free Incremental PCA (CCIPCA), an algorithm that efﬁciently implements stochastic gradient descent to compute principal components62 (eigenvectors and principal components are equivalent in this and many domains). All eigenvectors were thresholded because ﬁring rates cannot be negative. Spectral regularization was implemented by reconstructing the SR from the truncated eigendecomposition (Fig. S3). Details can be found in the Supplemental Methods.
+In generating the grid cells shown, we assume random walk policy, which is the maximum entropy prior for policies (see63 for why maximum entropy priors can be good priors for regularization). However, since the learned eigenvectors are sensitive to the sampling statistics, our model predicts that regions of the task space more frequently visited would come to be over-represented in the grid space (see Figure S6 for examples).
+
+Quantifying place and grid ﬁelds To quantify place ﬁeld clustering, center of mass (CoM) of SR place ﬁelds was computed by summing the locations of ﬁring, weighted by the ﬁring rate at that location (normalized so that the total ﬁring summed to 1):
+
+CoM(s)
+
+=
+
+∑s
+
+M(s, s
+
+)p(s
+
+) ,
+
+(6)
+
+∑s M(s, s )
+
+9/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+where p(s ) is the (X,Y ) coordinate of the place ﬁeld centered at state s . Grid ﬁeld quantiﬁcations paralleled the analyses of Krupic et al.40: an ellipse was ﬁt to the 6 peaks
+closest to the central peak, “orientation” refers to the orientation of the main axes (a,b). “Correlation” always refers to the Pearson correlation, “spatial correlation” refers to the Pearson correlation computed over points in space (as opposed to points in a vector), and spatial autocorrelation refers to the 2D auto-convolution.
+To measure similarity between halves of the environment in Figure 9, we 1) computed the spatial autocorrelation for each half, 2) selected a circular window in the center of the autocorrelation, and 3) computed the correlation between autocorrelations of the two halves in the window. This paralleled the analysis taken by Krupic et al.40 and provides a measure of grid similarity across halves of the environment. The circular window is used to control for the fact that the boundaries of the square and trapezoid in the two halves of the respective environments differ.
+In evaluating our simulations of the grid ﬁelds reported by Carpenter et al.42 (Fig. 11), the local model consisted of the set of 2D Fourier components bounded by the size of the compartment and the global model consisted of the set of 2D Fourier components bounded by the size of the environment. “Model ﬁt” was measured for each eigenvector by ﬁnding maximum correlation over all model components between the eigenvector and model component.
+References
+1. Daw, N. D., Niv, Y. & Dayan, P. Uncertainty based competition between prefrontal and dorsolateral striatal systems for behavioral control. Nature Neuroscience 8, 1704–1711 (2005).
+2. Tolman, E. C. Cognitive maps in rats and men. Psychological Review 55, 189–208 (1948).
+3. Schultz, W., Dayan, P. & Montague, P. A neural substrate of prediction and reward. Science 275, 1593–1599 (1997).
+4. Dayan, P. Improving generalization for temporal difference learning: The successor representation. Neural Computation 5, 613–624 (1993).
+5. Stachenfeld, K. L., Botvinick, M. & Gershman, S. J. Design principles of the hippocampal cognitive map. In Advances in Neural Information Processing Systems 27, 2528–2536 (MIT Press, 2014).
+6. O’Keefe, J. & Dostrovsky, J. The hippocampus as a spatial map. preliminary evidence from unit activity in the freely-moving rat. Brain Research 34, 171–175 (1971).
+7. O’Keefe, J. & Nadel, L. The Hippocampus as a Cognitive Map (Oxford: Clarendon Press, 1978).
+8. McNaughton, B. L., Battaglia, F. P., Jensen, O., Moser, E. I. & Moser, M. B. Path integration and the neural basis of the ‘cognitive map’. Nature Reviews Neuroscience 7, 663–678 (2006).
+9. Muller, R. U., Stead, M. & Pach, J. The hippocampus as a cognitive graph. The Journal of General Physiology 107, 663–694 (1996).
+10. Penny, W., Zeidman, P. & Burgess, N. Forward and backward inference in spatial cognition. PLoS Computational Biology 9, e1003383 (2013).
+11. Rueckert, E., Kappel, D., Tanneberg, D., Pecevski, D. & Peters, J. Recurrent spiking networks solve planning tasks. Scientiﬁc reports 6 (2016).
+12. Foster, D., Morris, R. & Dayan, P. A model of hippocampally dependent navigation, using the temporal difference learning rule. Hippocampus 10, 1–16 (2000).
+10/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+13. Gustafson, N. J. & Daw, N. D. Grid cells, place cells, and geodesic generalization for spatial reinforcement learning. PLoS Computational Biology 7, e1002235 (2011).
+14. Hafting, T., Fyhn, M., Molden, S., Moser, M. B. & Moser, E. I. Microstructure of a spatial map in the entorhinal cortex. Nature 436, 801–806 (2005).
+15. Sutton, R. & Barto, A. Reinforcement Learning: An Introduction (MIT Press, 1998).
+16. Gershman, S., Moore, C., Todd, M., Norman, K. & Sederberg, P. The successor representation and temporal context. Neural Computation 24, 1553–1568 (2012).
+17. Gla¨scher, J., Daw, N., Dayan, P. & O’Doherty, J. States versus rewards: dissociable neural prediction error signals underlying model-based and model-free reinforcement learning. Neuron 66, 585–595 (2010).
+18. Schapiro, A. C., Rogers, T. T., Cordova, N. I., Turk-Browne, N. B. & Botvinick, M. M. Neural representations of events arise from temporal community structure. Nature neuroscience 16, 486–492 (2013).
+19. Howard, M. & Kahana, M. A distributed representation of temporal context. Journal of Mathematical Psychology 46, 269–299 (2002).
+20. Lisman, J. & Redish, A. D. Prediction, sequences and the hippocampus. Philosophical Transactions of the Royal Society of London B: Biological Sciences 364, 1193–1201 (2009).
+21. Pfeiffer, B. E. & Foster, D. J. Hippocampal place-cell sequences depict future paths to remembered goals. Nature 497, 74–79 (2013).
+22. Burgess, N., Recce, M. & O’Keefe, J. A model of hippocampal function. Neural Networks 7, 1065–1081 (1994).
+23. Dordek, Y., Meir, R. & Derdikman, D. Extracting grid characteristics from spatially distributed place cell inputs using non-negative PCA. eLife (2015).
+24. Mehta, M. R., Barnes, C. A. & McNaughton, B. L. Experience-dependent, asymmetric expansion of hippocampal place ﬁelds. Proceedings of the National Academy of Sciences 94, 8918–8921 (1997).
+25. Mehta, M., Quirk, M. & Wilson, M. Experience-dependent asymmetric shape of hippocampal receptive ﬁelds. Neuron 25, 707–715 (2000).
+26. Muller, R. U. & Kubie, J. L. The effects of changes in the environment on the spatial ﬁring of hippocampal complex-spike cells. The Journal of Neuroscience 7, 1951–1968 (1987).
+27. Skaggs, W. & McNaughton, B. Spatial ﬁring properties of hippocampal CA1 populations in an environment containing two visually identical regions. The Journal of Neuroscience 18, 8455–8466 (1998).
+28. Alvernhe, A., Save, E. & Poucet, B. Local remapping of place cell ﬁring in the Tolman detour task. European Journal of Neuroscience 33, 1696–1705 (2011).
+29. Fenton, A., Zinyuk, L. & Bures, J. Place cell discharge along search and goal-directed trajectories. European Journal of Neuroscience 12, 3450 (2001).
+30. Kobayashi, T., Tran, A., Nishijo, H., Ono, T. & Matsumoto, G. Contribution of hippocampal place cell activity to learning and formation of goal-directed navigation in rats. Neuroscience 117, 1025–35 (2003).
+11/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+31. Hollup, S., Molden, S., Donnett, J., Moser, M. & Moser, E. Accumulation of hippocampal place ﬁelds at the goal location in an annular watermaze task. Journal of Neuroscience 21, 1635–1644 (2001).
+32. Hok, V. et al. Goal-related activity in hippocampal place cells. The Journal of Neuroscience 27, 472–82 (2007).
+33. Kjelstrup, K. et al. Finite scale of spatial representation in the hippocampus. Science 321, 140–143 (2008).
+34. Strange, B., Witter, M., Lein, E. & Moser, E. Functional organization of the hippocampal longitudinal axis. Nature Reviews Neuroscience 15, 655–669 (2014).
+35. Sutton, R. Td models: Modeling the world at a mixture of time scales. In Proceedings of the 12th International Conference on Machine Learning (1995).
+36. Modayil, J., White, A. & Sutton, R. Multi-timescale nexting in a reinforcement learning robot. arXiv:1112.1133 [cs] (2011).
+37. Schapiro, A. C., Turk-Browne, N., Norman, K. & Botvinick, M. Statistical learning of temporal community structure in the hippocampus. Hippocampus 26, 3–8 (2016).
+38. Deuker, L., Bellmund, J., Schro¨der, T. & Doeller, C. An event map of memory space in the hippocampus. eLife 5, e16534 (2016).
+39. Franzius, M., Sprekeler, H. & Wiskott, L. Slowness and sparseness lead to place, head-direction, and spatial-view cells. PLoS Computational Biology 3, 3287–3302 (2007).
+40. Krupic, J., Bauza, M., Burton, S., Barry, C. & O’Keefe, J. Grid cell symmetry is shaped by environmental geometry. Nature 518, 232–235 (2015).
+41. Derdikman, D. et al. Fragmentation of grid cell maps in a multicompartment environment. Nature Neuroscience 12, 1325–1332 (2009).
+42. Carpenter, F., Manson, D., Jeffery, K., Burgess, N. & Barry, C. Grid cells form a global representation of connected environments. Current Biology 25, 1176–1182 (2015).
+43. Mazumder, R., Hastie, T. & Tibshirani, R. Spectral regularization algorithms for learning large incomplete matrices. Journal of Machine Learning Research 11, 2287–2322 (2010).
+44. Bonnevie, T. et al. Grid cells require excitatory drive from the hippocampus. Nature Neuroscience 16, 309–317 (2013).
+45. Hales, J. et al. Medial entorhinal cortex lesions only partially disrupt hippocampal place cells and hippocampus-dependent place memory. Cell Reports 9, 893–901 (2014).
+46. Muessig, L., Hauser, J., Wills, T. & Cacucci, F. A developmental switch in place cell accuracy coincides with grid cell maturation. Neuron 86, 1167–1173 (2015).
+47. S¸ ims¸ek, O¨ ., Wolfe, A. & Barto, A. Identifying useful subgoals in reinforcement learning by local graph partitioning. In Proceedings of the 22nd International Conference on Machine Learning, 816–823 (ACM, 2005).
+48. Solway, A. et al. Optimal behavioral hierarchy. PLoS Computational Biology 559 (2014). 49. Ribas-Fernandes, J. et al. A neural signature of hierarchical reinforcement learning. Neuron 71,
+370–379 (2011). 50. Shi, J. & Malik, J. Normalized cuts and image segmentation. In Pattern Analysis and Machine
+Intelligence, IEEE Transactions on, vol. 22, 888–905 (IEEE, 2000).
+12/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+51. Schlesiger, M. et al. The medial entorhinal cortex is necessary for temporal organization of hippocampal neuronal activity. Nature Neuroscience 18, 1123–1132 (2015).
+52. Blum, K. & Abbott, L. A model of spatial map formation in the hippocampus of the rat. Neural Computation 8, 85–93 (1996).
+53. Levy, W. B., Hocking, A. B. & Wu, X. Interpreting hippocampal function as recoding and forecasting. Neural Networks 18, 1242–1264 (2005).
+54. Buckner, R. L. The role of the hippocampus in prediction and imagination. Annual Review of Psychology 61, 27–48 (2010).
+55. Barry, C., Hayman, R., Burgess, N. & Jeffery, K. Experience-dependent rescaling of entorhinal grids. Nature Neuroscience 10, 682–684 (2007).
+56. Dolan, R. J. & Dayan, P. Goals and habits in the brain. Neuron 80, 312–25 (2013). 57. Fanselow, M. From contextual fear to a dynamic view of memory systems. Trends in Cognitive
+Sciences 14, 7–15 (2010). 58. Wiltgen, B. J., Sanders, M. J., Anagnostaras, S., Sage, J. & Fanselow, M. S. Context fear learning in
+the absence of the hippocampus. The Journal of Neuroscience 26, 5484–5491 (2006). 59. Howard, M., Fotedar, M., Datey, A. & Hasselmo, M. The temporal context model in spatial navigation
+and relational learning: toward a common explanation of medial temporal lobe function across domains. Psychological Review 112, 75–116 (2005). 60. Mahadevan, S. & Maggioni, M. Proto-value functions: A Laplacian framework for learning representation and control in markov decision processes. Journal of Machine Learning Research 8, 2169–2231 (2007). 61. Krupic, J., Burgess, N. & O’Keefe, J. Neural representations of location composed of spatially periodic bands. Science 337, 853–857 (2012). 62. Weng, J., Zhang, Y. & Hwang, W. Candid covariance-free incremental principal component analysis. IEEE Trans. Pattern Anal. Mach. Intell. 25, 1034–1040 (2003). 63. Bialek, W. Biophysics: Searching for Principles (Princeton University Press, 2012).
+Acknowledgments
+We are grateful to Tim Behrens, Ida Mommenejad, and Kevin Miller for helpful discussions, and to Alexander Mathis and Honi Sanders for comments on an earlier draft of the paper. This research was supported by the NSF Collaborative Research in Computational Neuroscience (CRCNS) Program Grant IIS-120 7833 and The John Templeton Foundation. The opinions expressed in this publication are those of the authors and do not necessarily reﬂect the views of the funding agencies.
+Author contributions statement
+All authors conceived the model and wrote the manuscript. Simulations were carried out by K.S.
+Additional information
+The authors declare no competing ﬁnancial interests.
+13/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+SR at s4
+E[visits to si | s4]
+
+Reward 1
+water reward at 1
+
+A Recomputing value for changing reward
+
+1.5
+
+1.5
+
+0.7
+
+0.7
+
+0.4 0.1
+
+0.4 0.1
+
+0 s1
+
+s2
+
+s3
+
+s4
+
+s5
+
+s6
+
+s7
+
+B
+
+1
+
+V(s4)
+
+=
+
+7
+Σ
+i=1
+
+E[si|s4]
+
+R1(si)
+
+=
+
+0.1
+
+0
+
+0
+
+0
+
+0
+
+0
+
+0
+
+r1
+
+r2
+
+r3
+
+r4
+
+r5
+
+r6
+
+r7
+
+C
+
+V(s4)
+
+=
+
+7
+Σi=1
+
+E[si|s4]
+
+R2(si)
+
+=
+
+0.4
+
+1
+
+0
+
+0
+
+0
+
+0
+
+0
+
+0
+
+r1
+
+r2
+
+r3
+
+r4
+
+r5
+
+r6
+
+r7
+
+Reward 3
+multiple rewards
+
+D
+
+0.7
+
+V(s4)
+
+=
+
+7
+Σ
+i=1
+
+E[si|s4]
+
+R3(si)
+
+=
+
+1.78
+
+0.9
+
+0.6
+
+0.5
+
+0.1
+
+0.1
+
+0.1
+
+r1
+
+r2
+
+r3
+
+r4
+
+r5
+
+r6
+
+r7
+
+Reward 2
+food reward at 6
+
+Figure 1. Updating value following change in reward. Since the representations of state and reward are decoupled, value functions can be rapidly recomputed for new reward functions without changing the SR. Panels A-D show how the value of s4 changes under different reward functions.
+
+14/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Firing rate
+
+Track (1D) Firing rate (norm)
+
+A Gaussian
+1
+
+B Geodesic
+1
+
+C Successor representation
+1
+
+00
+
+Distance
+
+1
+
+1 00 1
+
+Distance
+
+1
+
+00
+
+1
+
+Distance
+
+1
+
+1
+
+Barrier (2D) Distance
+
+00
+
+Distance
+
+1 00
+
+Distance
+
+1 00
+
+Distance
+
+1
+
+0
+
+Figure 2. Comparison of place cell models. (Top) 1D track with left-to-right preferred direction of travel, red line marking ﬁeld center; (bottom) 2D environment with a barrier indicated by gray line. (A) Gaussian place ﬁeld. Firing of place cells decays with Euclidean distance from the center of the ﬁeld regardless of experience and environmental topology. (B) Topological place ﬁeld. Firing rate decays with geodesic distance from the center of the ﬁeld, which respects boundaries in the environment but is invariant to the direction of travel13. (C) SR place ﬁeld. Firing rate is proportional to the discounted expected number of visits to other states under the current policy. On the directed track, ﬁelds will skew opposite the direction of motion to anticipate the upcoming successor state. Since the policy will not permit traversing walls, successor ﬁelds warp around obstacles.
+
+15/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+E[visits to s | s1]
+
+A Predictive representation over population
+
+s2
+
+s3
+
+s4
+
+s5 goal
+
+E[visits to s | s5]
+
+s1
+
+s2
+
+s3
+
+s4
+
+goal
+
+B Retrodictive place ﬁeld
+
+E[visits to s5 | s]
+
+s5
+
+goal
+
+Figure 3. Illustration of retrodictive cells. (A) A neural population encodes a prospective representation such that the ﬁring rate of each cell is proportional to the discounted expected number of times its preferred state will be visited in the future. This population code is skewed toward upcoming states. Each colored bump represents the ﬁring rate of a different place ﬁeld located along the track. (B) The place ﬁeld for a single cell skews retrodictively toward past states that predict the cell’s preferred state. When the blue state is visited, it becomes automatically associated with all past states that predicted it. This automatically assigns credit for upcoming reward to preceding states.
+
+16/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Successor Representation
+
+A Mehta et al. (2000)
+New to track Trained to run right
+
+B Simulated SR Place cells
+
+No directional
+
+2
+
+bias
+
+Directional bias (90% right)
+
+1
+
+0
+
+0.3
+
+0.7
+
+Distance along track (norm)
+
+Figure 4. Predictive skewing of place ﬁelds. (A) As a rat is trained to run repeatedly in a preferred direction along a narrow track, initially symmetric place cells (red) begin to skew (blue) opposite the direction of travel25. (B) When transitions in either direction are equally probable, SR place ﬁelds are symmetric (red). Under a policy in which transitions to the right are more probable than to the left, simulated SR place ﬁelds skew opposite the direction of travel toward states predicting the preferred state (blue).
+
+17/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Alvernhe et al. (2011) recordings from Tolman detour maze
+
+A Tolman detour B maze
+
+CA1 Place ﬁelds C Near
+
+Spatial similarity to no-detour condition
+
+1
+2
+Far
+
+Spatial similarity
+
+SR simulations
+
+D
+
+Simulated maze
+
+E
+
+reward
+far
+
+1 near
+2
+
+far
+
+Place ﬁelds Near
+Far
+
+Near
+
+Far
+
+F
+1
+
+Spatial similarity to no-detour condition
+2
+
+Spatial correlation
+
+Norm ﬁring rate
+
+1
+
+0
+
+0
+
+Near
+
+Far
+
+Figure 5. Place ﬁelds near detour. (A) Maze used by Alvernhe and colleagues28 for studying how place cell ﬁring is affected by the insertion of barriers in a Tolman detour maze. Reward is delivered at location B. “Near” and “Far” zones are deﬁned. In “early” and “late” detour conditions, a clear barrier blocks the shortest path, forcing the animal to take the take the short detour to the left or the longer detour to the right. (B) Example CA1 place ﬁelds recorded from a rat navigating the maze. (C) Over the population, place ﬁelds near the barrier changed their shape, while the rest remained unperturbed. This is shown by computing the spatial correlation between place ﬁeld activity maps with and without barriers present. (D) The environment used to simulate the experimental results. (E) Example SR place ﬁelds near to and far from the barrier, before and after barrier insertion. (F) When barriers are inserted, SR place ﬁelds change their ﬁelds near the path blocked by the barrier and less so at more distal locations where policy is unaffected. The effect is more pronounced in the early detour condition because the detour appears closer to the start.
+
+18/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A Rectangular room
+
+B Multi-compartment I
+
+C Multi-compartment II
+
+1
+
+Max ﬁring rate (norm)
+
+D Single reward
+
+E Double reward
+
+F Single punishment
+
+0
+
+boundary
+
+reward (+1)
+
+punishment (-1)
+
+Figure 6. Clustering of place ﬁelds. Points in each plot mark centers of mass (CoMs) of SR place ﬁelds. CoMs are skewed towards locations with higher visitation probability. Each point is colored according to maximum ﬁring rate of its ﬁeld (the maximum number of expected visitations). (A) Under a random walk, CoMs will be uniformly arranged near the center. Near boundaries, CoMs shift towards the center of the room because the boundaries repel the animal’s motion. (B,C) Similarly, CoMs tend to cluster within compartments of a multi-compartment environment. (D,E) When rewards are introduced, nearby place ﬁelds shift their CoMs toward the rewarded locations (pink), because the animal tends to traverse those locations. In contrast, other ﬁelds shift their CoMs away from the rewarded location, because they tend only to be visited when the animal approaches from a more distal location en route to the reward. (F) Punishments (green) repel the animal, and accordingly shift the CoMs of nearby place ﬁelds away from the punished location.
+
+19/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Schapiro et al. (2015)
+
+A
+
+Task
+
+B Searchlight within
+hippocampus
+
+C Bilateral hippocampus
+MDS
+
+Mean correlation
+
+D Pattern analysis across
+hippocampus
+0.7 0.6 0.5 0.4 0.3 0.2 0.1
+0
+Bilateral Right Left
+
+SR Simulations
+
+E
+
+Successor representation
+
+F
+
+Successor representation
+
+G SR similarity analysis
+
+1
+
+1
+
+MDS
+
+Within
+
+0.2
+
+community
+
+Between
+
+community 0.1
+
+Mean correlation
+
+MSDS dim 2
+
+Starting states
+
+Discounted expected visits
+
+0
+
+0
+
+-0.1
+
+Visited states
+
+0
+
+-1-1
+
+-0.5
+
+0
+
+0.5
+
+1
+
+-0.2
+
+MSDS dim 1
+
+Figure 7. Hippocampal representations in non-spatial task. (A) Schapiro et al.37 showed subjects sequences of fractal stimuli drawn from the task graph shown, which has clusters of interconnected nodes (or “communities”). Nodes of the same color fall within the same community, with the lighter colored nodes connecting to adjacent communities. (B) A searchlight within hippocampus showed a stronger within-community similarity effect in anterior hippocampus. (C, D) States within the same cluster had a higher degree of representational similarity in hippocampus, and multidimensional scaling (MDS) of the hippocampal BOLD dissimilarity matrix captured the community structure of the task graph37. (E) The SR matrix learned on the task. The block diagonal structure means that states in the same cluster predict each other with higher probability. (F) Multidimensional scaling of dissimilarity between rows of the SR matrix reveals the community structure of the task graph. (G) Consistent with this, the average within-community SR state similarity is consistently higher than the average between-community SR state similarity.
+
+20/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A Spatiotemporal Learning Task
+
+B
+
+Pattern Similarity Increase C Control Analysis
+
+Other factor removed
+
+Increase in Correlation between SR pairs
+Mean effect (z)
+
+D Spatiotemporal Learning Task
+
+E
+
+Pattern Similarity Increase
+
+9
+
+1
+
+4
+
+5
+
+Teleport ends
+
+Start/end points
+
+1
+
+Points along route
+
+2
+
+6
+
+3
+
+0
+
+F Control Analysis
+Other factor removed 0
+
+8 7
+
+-1
+
+low high distance
+
+low high distance
+
+low high distance
+
+-1
+
+10
+
+Figure 8. Hippocampal representations in spatio-temporal task. (A) Deuker et al.38 trained subjects on a spatio-temporal navigation task. Subjects were told to objects scattered about the map. It is possible to take a “teleportation” shortcut between certain pairs of states (pink and purple), and other pairs of states are sometimes joined only by a long, winding path. Nearness in time is therefore partially decoupled from nearness in space. (B) The authors ﬁnd signiﬁcant increase in hippocampal representational similarity between nearby states and a decrease for distant states. This effect holds when states are nearby in space, time, or both. (C) Since spatial and temporal proximity are correlated, the authors controlled for the each factor and measured the effect of the remaining factor on the residual. (D-F) Simulation of experimental results in panels A-C.
+
+21/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Krupic et al. (2015) Effects of enviromental geometries
+
+A
+Square
+
+Grid Cell Firing Rate Histograms
+
+Trapezoid
+
+Hexagon
+
+Circle
+
+B Orientation in Square
+
+C Orientation in Circle
+
+D Mean grid similarity E Autocorrelation across halves
+
+tr
+
+sq
+
+Effects of enviromental geometries on SR eigenvectors
+
+F Square
+
+SR Eigenvector Grid Fields
+
+Trapezoid
+
+Hexagon
+
+Circle
+
+G Orientation in
+
+J
+
+Square
+
+120°
+
+60° 0.008
+
+Orientation in Circle
+
+120°
+
+60° 0.004
+
+180°
+
+0° 180°
+
+0°
+
+G Mean grid similarity across halves 1
+0.5
+
+H Autocorrelation
+Left Right
+tr
+
+Similarity
+
+240°
+
+300°
+
+Orientation φ (deg)
+
+240°
+
+300°
+
+Orientation φ (deg)
+
+0
+
+tr
+
+sq sq
+
+Figure 9. Grid ﬁelds in geometric environments. (A) Grid ﬁelds recorded in a variety of geometric environments40. Grid ﬁelds in trapezoid and square environments are split at the dividing line shown for split-halves analysis. (B,C) Grid ﬁelds in the square environment had more consistent orientations with respect to boundaries and distal cues than in the square environment. (D) While grid ﬁelds tend to be similar on both halves of a square (sq) environment, they tend to be less similar across halves of the irregular trapezoidal (tr) environment. (E) Autocorrelograms for different halves of trapezoidal and square environments in circular windows used for split-halves anal. (F-H) Simulations of experimental results in panels A-E.
+
+22/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Derdikman et al. (2009) Hairpin Maze
+
+A
+
+Fragmented grid ﬁelds
+
+B Correlation between
+
+different arms
+
+Eigenvectors in Hairpin Maze
+
+C
+
+Eigenvector grid ﬁelds
+
+D Correlation between
+different arms
+
+Arm number
+
+2 4 6
+8
+10 2 4 6 8 10 Arm number
+
+r
+0.1+ 0 -0.1
+
+Figure 10. Grid fragmentation in compartmentalized maze. (A) Barriers in the hairpin maze cause grid ﬁelds to fragment repetitively across arms41. (B) Spatial correlation between activity in different arms. The checkerboard pattern emerges because grid ﬁelds frequently repeat themselves in alternating arms. (C-D) Simulations of the experimental results in panels A-B.
+
+23/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Carpenter et al. (2015) Grid ﬁelds in multi-compartment environment
+
+A
+
+Spatial Environment
+
+B
+
+Early
+
+Grid Fields
+
+Late
+
+C
+
+Spatial Correlation between Compartments
+
+D
+
+Local Fit
+
+E
+
+Global Fit
+
+F
+
+Global Fit - Local Fit
+
+Eigenvector Grid ﬁelds learned in multi-compartment environment
+
+G Discretized Spatial
+Simulation Environment
+
+A
+
+B
+
+J
+1
+0.8
+0.6 0.4
+
+Local Fit
+
+Mean Spatial Correlation
+
+H
+
+Grid Fields
+
+I
+
+Early
+
+Late
+
+Spatial Correlation: 1.0 Spatial Correlation: 0.8701
+
+Spatial Correlation between Compartments
+1.2
+0.8
+
+0.4
+
+0
+
+K
+
+Global Fit
+
+0.9
+
+0.7
+
+L
+0.8
+0.6 0.4
+
+-0.4 -0.8
+0
+
+Mean corr Std. err.
+100 200 300 400 500
+Epoch Number
+
+Global Fit - Local Fit
+
+Sample ﬁt Mean ﬁt Std. err. LoBF
+
+0.2 0.5
+0
+
+Global Fit - Local Fit
+
+Local Correlation Fit Global Correlation Fit
+
+0.2
+0 0 100 200 300 400 500 Epoch Number
+
+0.3
+0.10 100 200 300 400 500 Epoch Number
+
+-0.2 -0.4 -0.6 0
+
+100 200 300 400 500 Epoch Number
+
+Figure 11. Grid ﬁelds in multi-compartment environment. (A) Multi-compartment environment employed by Carpenter and colleagues42. (B) Example grid ﬁelds early and late in training. (C) Spatial correlation between grid ﬁelds in compartments A and B across sessions. (D-F) To explain this decline in inter-compartment similarity, Carpenter and colleagues ﬁt a local model (grid constrained to replicate between the two compartments) and a global model (single continuous grid spanning both compartments). They found that the local ﬁt decreased across sessions, while the global ﬁt increased, and correspondingly the difference between the two models increased. (G-L) Simulation of experimental results in panels A-F. In I-J, the blue circles indicate individual samples, the thick red line denotes the mean, the thin red lines denote one standard deviation from the mean, and the thick gray lines are lines of best ﬁt.
+
+24/24
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Supplementary information for “The hippocampus as a predictive map”
+Kimberly L. Stachenfeld, Matthew M. Botvinick, Samuel J. Gershman
+
+Learning eigenvectors by stochastic gradient descent The problem of computing the K largest eigenvectors of the successor representation is equivalent to choosing the embedding matrix Y that minimizes the following cost function:
+
+C(Y ) = ∑ ∑ E(ys, ys )T (s, s ),
+
+(1)
+
+ss
+
+where ys ∈ RK is the embedding of state s and E(ys, ys ) = γ||ys −ys ||2. Intuitively, this cost function favors embeddings that are similar for states that are likely to be visited sequentially. The optimal embedding can
+
+be viewed as the solution to a kernel PCA problem with M as the kernel.
+
+The cost function can also be viewed as an expectation under the Markov chain induced by the
+
+transition function T :
+
+C(Y ) = Es ∼T (s,·) [E(ys, ys )] .
+
+(2)
+
+We can therefore minimize the cost function online by sampling transitions (s → s ) from the Markov chain and stochastically following the gradient:
+
+yni +1 = yni − αn∇yiE(yns , yns ),
+
+(3)
+
+where αn is the step-size (learning rate) at time n, and the gradient is given by:
+
+∇yi
+
+E
+
+(yns
+
+,
+
+yns
+
+)
+
+=
+
+2η
+
+γ
+
+yns ||yns
+
+− −
+
+yns yns
+
+||
+
+,
+
+(4)
+
+
+1 if i = s 
+
+η = −1 if i = s
+
+(5)
+
+0 otherwise.
+
+In addition, the embedding vectors are subject to a normalization constraint such that ys = 1 for every state.
+
+Smoothing with Spectral Regularization For Fig. S3, spectral regularization was implemented by reconstructing the SR, Mt, from the truncated k-dimensional eigendecomposition at each timestep (Fig. S3). This means that we set projections along all but the eigenvectors with the k highest eigenvalues to 0. To be more precise, the SR M can be eigendecomposed as:
+
+M = UΛUT
+
+(6)
+
+Where U is a matrix with the eigenvectors of M as its columns and Λ is a diagonal matrix with eigenvalues
+
+along the diagonal. The SR M can be approximately reconstructed using only the ﬁrst k eigenvectors and
+
+eigenvalues, which we will denote as Uk and Λk respectively.
+
+Mk = UkMtkUkT
+
+(7)
+
+We implemented spectral regularization online by projecting Mt onto the eigenvectors of M and then reconstructing Mtk from the k components with largest eigenvectors:
+
+Mtk = UkT UkMtkUkT Uk
+
+(8)
+
+1/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Partitioning the state space into subgoals with normalized min-cut The eigendecomposition of the SR can be written as:
+
+M = UΛUT
+
+(9)
+
+where eigenvectors and eigenvalues are ordered such that λi ≥ λi+1. The normalized min-cut can be approximated by taking the second eigenvector, u2, and thresholding
+it such that states i for which u2i < 0 − ε go to 0, and states for which u2i > 0 + ε go to 1 for some very small ε. States such that −ε ≤ u2i ≤ ε will go to 0.5 and will comprise your subgoals. These subgoals will separate nodes so that there are as few edges as possible going between nodes labeled 0 and 1, while keeping these groups as large as possible1. Ideally, ε will be sufﬁciently small that this selects only the nodes that connect the partitioned groups.
+Partial group membership can be implemented by rescaling the eigenvector to the [0,1] range rather than thresholding. Subgoals then can be found at the states nearest 0.5.
+An increasingly ﬁne partition of the task space can emerge by including more thresholded eigenvectors. Thresholding eigenvectors 2 − k will return a maximum of 2k−1. Eigenvectors can be added until a sufﬁciently ﬁne partition is obtained.
+An iterative method is to use the initially identiﬁed subgoal to partition the environment, and then compute a new set of eigenvectors over the partitioned subspace. This recursive cutting leads to a segmentation of the task, but requires multiple computations of a ﬁrst eigenvector (although the complexity of the problem is reduced by half each time).
+Traditionally, the eigenvectors of the normalized graph Laplacian, a matrix frequently invoked in spectral graph theory2, are used in spectral methods such as this one (rather than the eigenvectors of the SR). However, the eigenvectors of the normalized graph Laplacian matrix and the random walk SR matrix are approximately equivalent in cases where most nodes have the same degree, such as in spatial domains. We sketch a very informal proof below.
+Given an undirected graph with symmetric weight matrix W and given D is a diagonal degree matrix with D(s, s) = ∑s W (s, s ), the graph Laplacian is given by L = D −W . The normalized graph Laplacian is given by L = I − D−1/2W D−1/2.
+For a random walk over this graph, the transition matrix is given by T = D−1W . If φ is an eigenvector of the matrix I − γT and the degree is constant for all nodes, then φ is an un-normalized eigenvector of the normalized graph Laplacian. In a spatial domain, where the degree is constant everywhere except boundaries (almost everywhere as the discretization of the environment approaches continuity), the eigenvectors of I − γT will approach those of the normalized Laplacian. Since the SR, M, is equal to (I − γT )−1 and a matrix shares its eigenvectors with its inverse, the eigenvectors of the SR will also be similar to the eigenvectors of the normalized graph Laplacian.
+
+Parameters The parameters used for each simulation are described below, organized by ﬁgure (both main text and supplement).
+Figure 1: Updating value following change in reward
+A. Discount γ = 0.75. B. Discretized to 15 × 15 grid. Discount γ = 0.998.
+Figure 2: Comparison of place cell models
+Tracks discretized to 500 states. 2D barrier environments discretized with 40 × 40. Parameters described below as fraction of boundary length, so 0.5 refers to a half of the track or wall length.
+
+2/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+A. µtrack = 0.75, σtrack = 0.04; µbarr = 0.50, 0.45 , σbarr = 0.066. B. µtrack = 0.75, σtrack = 0.04; µbarr = (0.50, 0.45), σbarr = 0.066. C. xtrack(s) = 0.75, γtrack = 0.084; xbarr(s) = (0.50, 0.45), γbarr = 0.13.
+Figure 3: Illustration of retrodictive place ﬁelds
+None.
+Figure 4: Predictive skewing of place ﬁelds3
+Discretized to 300 states. γ = 0.9, pright = 0.66, pleft = 0.34.
+Figure 5: Place ﬁelds near detour 4
+Discretized maze enclosed by 20 × 10 box, channel width = 1, discount γ = 0.95, softmax inverse temperature parameter β = 5.
+Figure 6: Clustering of place ﬁelds
+Discretization 32 × 30, discount γ = 0.99. A. Random walk policy. B. Random walk policy with no transition through boundaries. C. Random walk policy with no transition through boundaries. D. Rewarded location = [14, 18] × [13, 17], softmax policy given inverse temperature parameter β = 1. E. Rewarded location 1 = [20, 24] × [10, 14], rewarded location 2 = [5, 10] × [20, 25], softmax policy given inverse temperature parameter β = 1. F. Punished location 1 = [20, 24] × [10, 14], softmax policy given inverse temperature parameter β = 1.
+Figure 7: Hippocampal representations in non-spatial task 5
+SR learned by TD learning with 104 step random walk, learning rate η = 0.01, discount γ = 0.9.
+Figure 8: Hippocampal representations in spatio-temporal task 6
+Discount γ = 0.98. Similarity between states computed as the correlation between pairs of successor representations. Spatial pairs Low distance: [5,1; 5,4; 10,7; 6,5; 4,1] High distance: [9,3; 10,1; 10,4; 7,3; 10,3] Temporal pairs Low distance: [5,1; 5,4; 8,1; 9,3; 4,1] High distance: [5,2; 4,2; 6,2; 3,2; 9,2] Both pairs Low distance: [5,1; 5,4; 4,1; 6,5; 10,7] High distance: [5,2; 6,2; 4,2; 3,2; 9,2]
+SR learned by TD learning with 104 step random walk, learning rate η = 0.01, discount γ = 0.9.
+Figure 9: Grid cells in different geometric environments
+Square. Discretization 40 × 42. Eigenvector 37 shown. Split in half down the slightly longer edge (between 21 and 22) for the split halves analysis. Hexagon. Diameter (distance between opposite vertices) 40. Eigenvector 51 shown. Circle. Diameter 40. Eigenvector 31 shown.
+3/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Trapezoid. Base 40, height 80, top 8. Eigenvector 52 shown. Split two thirds of the way between the short edge and long edge of the trapezoid (between 53 and 54) for the split halves analysis to match results to Krupic et al. (2015). Histograms. Includes all ﬁrst 120 eigenvectors for which ellipses could be ﬁt to the 6 central peaks of the spatial autocorrelation (deﬁned as the 6 peaks nearest the center). This eliminated ﬁelds with very large scales (not enough peaks) or ﬁelds where the ﬁt ellipse was a degenerate line (all peaks in a row). To compute grid similarity, the spatial autocorrelation was computed for both halves. The circular window used to compare autocorrelations had radius of 15 (since the dimensions of the autocorrelation are twice that of the grid ﬁeld, the window never went off the edge of the autocorrelation map). The autocorrelation outside this window was set to zero for similarity comparisons. “Similarity” between two halves of a grid ﬁeld refers to the Pearson correlation coefﬁcient of the windowed autocorrelations on each half of the maze.
+
+Figure 10: Grid fragmentation in compartmentalized maze7
+Discretization 40 × 40, 10 alternating channels of width 4. Eigenvectors (top row) 32, 13, (bottom row) 14, 22 shown. Eigenvectors 20 through 120 used for similarity matrix to exclude low-frequency, non-grid eigenvectors.
+
+Figure 11: Grid ﬁelds in multi-compartment environment8
+Discretization 16 × 12 with the two square compartments each discretized at 8 × 8, the connecting passageway at 16 × 4, and the opening to the passageway 6 nodes wide. Local model initialization. Corresponding states in the different rooms were mapped to the same index in the adjacency matrix to simulate local state aliasing as the initial condition. SR discount γ = .9, SR learning rate α = 0.1 for the ﬁrst 500 pre-training epochs and 0.01 for the next 500, SGD learning rate 0.0005, 1000 epochs total of 50 timesteps each. Global model initialization. The SR was initialized to the local SR model learned, then constraint that corresponding states in the different rooms be the same was removed so that the rooms could slowly differentiate. SR discount γ = .9, SR learning rate α = 0.01, SGD learning rate 0.0005, 1000 epochs total of 50 timesteps each.
+
+Figure S1: Model Free versus SR
+Channel width 1, channel lengths 4. Discount γ = 0.98, learning rate η = 0.01, noise ε ∈ [−0.05, −0.05], 100 epochs of 500 timesteps for each reward change, random walk policy.
+
+Figure S2: Multiscale representations
+Discretization 20 × 20. Multicompartment environments have same discretization parameters as described for Figure S1. Points mapped to 2D using multidimensional scaling.
+
+Figure S3: Spectral Regularization
+
+Discretization 12 × 12, discount γ = 0.95, learning rate η = 0.1, noise ε ∈ [−0.1, −0.1], 20 epochs of 500
+
+timesteps,
+
+k
+
+=
+
+3 4
+
+nstates
+
+=
+
+108
+
+components
+
+used
+
+for
+
+spectral
+
+and
+
+Fourier
+
+regularization.
+
+Figure S4: Subgoals for hierarchical RL
+Circles marking subgoals were placed where the eigenvector with the corresponding color was 0. Lines were drawn when a whole contour was equal to zero. A. Multicompartment environment I. Discretized at 20 × 20. Doorways placed at: (10,10), (5,8), (5,14). Doorway width 2.
+
+4/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+B. Multicompartment environment II. Discretized at 20 × 20. Doorways placed at: (10,4), (10,16), (5,8), (5,14). Doorway width 2. C. 2-Step tree maze. Channel width 5, ﬁrst channel length 10, other channel lengths 5.
+Figure S5: Context Preexposure Facilitation
+Discretization 10 × 10, punished location R(5, 5) = −1, discount γ = .9; 10 simulation trials shown, 2 × 104 timesteps.
+Figure S6: SR Place ﬁelds
+See parameters for Figure 5. Shown are place cells for the following states in the 32 × 30 = 960 state environment: 178 464 422 611 418 363 728 755 665 303 907 33 266 45 94 789.
+Figure S7: Effects of rewarded policy on SR eigenvectors
+Discretization 32 × 30, rewarded location R(16, 15) = 1, discount γ = .98, softmax inverse temperature parameter β = 3 for optimal policy. First 64 eigenvectors shown.
+Figure S8: Additional grid ﬁelds
+See parameters for Figures 7, 8, and 9.
+Figure S9: Additional grid ﬁelds
+See parameters for Figure 8.
+Figure S10: Ground truth and learned eigenvectors
+See parameters for Figure 9.
+5/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+References
+1. Shi, J. & Malik, J. Normalized cuts and image segmentation. In Pattern Analysis and Machine Intelligence, IEEE Transactions on, vol. 22, 888–905 (IEEE, 2000).
+2. Belkin, M. & Niyogi, P. Laplacian eigenmaps and spectral techniques for embedding and clustering. In Dietterich, T., Becker, S. & Ghahramani, Z. (eds.) Advances in Neural Information Processing Systems 14, 585–591 (MIT Press, 2002).
+3. Mehta, M., Quirk, M. & Wilson, M. Experience-dependent asymmetric shape of hippocampal receptive ﬁelds. Neuron 25, 707–715 (2000).
+4. Alvernhe, A., Save, E. & Poucet, B. Local remapping of place cell ﬁring in the Tolman detour task. European Journal of Neuroscience 33, 1696–1705 (2011).
+5. Schapiro, A. C., Turk-Browne, N., Norman, K. & Botvinick, M. Statistical learning of temporal community structure in the hippocampus. Hippocampus 26, 3–8 (2016).
+6. Deuker, L., Bellmund, J., Schro¨der, T. & Doeller, C. An event map of memory space in the hippocampus. eLife 5, e16534 (2016).
+7. Derdikman, D. et al. Fragmentation of grid cell maps in a multicompartment environment. Nature Neuroscience 12, 1325–1332 (2009).
+8. Carpenter, F., Manson, D., Jeffery, K., Burgess, N. & Barry, C. Grid cells form a global representation of connected environments. Current Biology 25, 1176–1182 (2015).
+6/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Supplemental Figures
+
+Model-Free and SR value computations with changing reward and noise
+
+150 reward1
+
+Value function % difference
+
+reward2
+
+reward3
+
+MF
+
+True value functions
+
+MF noise
+
+SR
+
+SR noise
+
+100
+
+reward1
+
+% difference from true value
+
+50
+reward2
+
+00
+
+5
+
+10
+
+Timestep
+
+1×5104
+
+reward3
+
+Figure S1. (A) Comparison between learning a value function with model-free (MF) TD learning and with SR TD learning under a random walk policy with changing reward location. For an MF agent, the value function must be entirely relearned each time the reward changes location. For an SR agent, the error will jump with reward change but quickly drop as soon as the new reward is found. Furthermore, the SR provides a slight advantage over MF learning when there is noise in the state signal. The error is more than 100% when the animal has neither learned the current value function nor unlearned the previous value function. The value functions corresponding to each reward location are shown on the right.
+
+7/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A Multiscale representations in multi-compartment environment I
+Maze Graph
+
+γ = 0.5
+
+γ = 0.8
+
+γ = 0.95
+
+B Multiscale representations in multicompartment environment II
+
+Maze Graph
+
+γ = 0.995
+
+γ = 0.5
+
+γ = 0.8
+
+γ = 0.95
+
+γ = 0.995
+
+Figure S2. Multi-dimensional scaling projections of the SRs for different states in multicompartment environments. The two environments feature the same compartments connected in different ways. These plots show a 2D projection that maximally preserves Euclidean distances among SR vectors for each state. From left to right, we increase the discount factor γ used to compute the SR. The larger planning horizon (γ = 0.995) causes states that predict each other on long time scales to cluster. This exposes the long-timescale, low-dimensional organization of the environment. The shorter time horizons capture With small values of the discount parameter, the macroscale structure of the maze is not readily apparent in the low dimensional embedding; rather, states in the same compartment are represented distinctly. Simultaneously representing predictive representations over a range of planning horizons gives rise to a multiscale, hierarchical embedding of states. We can thus visualize how a range of discounts expressed along the hippocampal longitudinal axis may enable hierarchical planning and planning at different timescales.
+
+8/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+Mean squared value difference (% of true)
+
+A Regularized value computation in rectangular environment
+
+Value function approximation
+
+100
+
+SR (no reg)
+
+90
+
+SR (spectral reg)
+
+SR (no reg) + noise
+
+80
+
+SR (spectral reg) + noise
+
+Learned value function
+
+No noise
+
+Noisy (ε = 0.1)
+
+No regularizer
+
+70
+
+2
+
+60 50
+True value function
+40 30
+
+1
+
+Spectral/Fourier regularizer
+
+0
+
+200
+
+.5 Timestep
+
+1×104
+
+B Regularized value computation in multicompartment environment
+
+Value function approximation
+
+100
+
+SR (no reg)
+
+90
+
+SR (spectral reg)
+
+SR (Fourier reg)
+
+80
+
+SR (no reg) + noise SR (spectral reg) + noise
+
+SR (Fourier reg) + noise
+70
+
+Learned value function
+
+No noise
+
+Noisy (ε = 0.1)
+
+No regularizer
+
+2
+
+Mean squared value difference (% of true)
+
+60 50 True value function 40 30
+
+1
+
+Spectral regularizer
+
+0
+
+200
+
+.5 Timestep
+
+1×104
+
+Fourier regularizer
+
+Figure S3. (A) Comparison between SR TD learning of the value function with and without spectral regularization in a rectangular environment. The value converges slightly faster with the smoothing effects of the regularizer, especially when noise is injected into the state signal. On the right are value functions for each condition. We can see that the regularized value functions are smoother. (B) Comparison between SR TD learning of the value function with different types of regularization in a multi-compartment environment. We once again see that learning is facilitated by spectral regularization, especially in the noisy condition. We also explored the effects of using a Fourier regularizer that is insensitive to the topology of the particular environment. This provides an improvement over no regularization, but is still inferior to spectral regularization.
+9/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A Multi-compartment environment I
+
+1 eigenvector
+
+2 eigenvectors
+
+B Multi-compartment environment II
+
+Subgoals 1-way partition 2-way partition 3-way partition
+
+1 eigenvector
+
+2 eigenvectors
+
+C Normalized cuts on 2-step tree maze
+
+3 eigenvectors
+
+1 eigenvector
+
+2 eigenvectors
+
+3 eigenvectors
+
+Figure S4. Subgoals for hierarchical RL. (A) The eigenvectors with largest eigenvalues can be used to partition the task space, with boundaries between the partitions producing useful subgoals. In compartmentalized environments, subgoal partitions tend to fall at or near doorways. The environment is colored by setting the RGB values of each point in the maze to the corresponding value of the 1st, 2nd, and 3rd eigenvectors used in the illustrated partition. (B) Different environment topologies give rise to different subgoals. The partition is not as clean when compartments are connected in a loop instead of hierarchically (as in A), but the doorways are still identiﬁed by the top 3 eigenvectors. (C) Extracted subgoals correspond to major decision points in a 2-step maze.
+
+10/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A Fanselow (1986)
+Fear conditioned response
+
+B Simulated SR pre-exposure facilitation
+
+Mean of value function as proxy for conditioned response
+
+Conditioned response early and late in exposure
+
+True Value
+
+0.1
+
+Lesion (mean) No Lesion (mean)
+
+No Lesion
+
+True Value
+
+0.1
+Pre-exposure No Pre-exposure
+
+Freezing (%) Mean negative value Mean negative value
+
+Intact
+
+Lesion
+
+00
+
+1
+Training time
+
+2
+
+0
+
+x10 4
+
+Intact
+
+Lesion
+
+Figure S5. (A) Fear-related freezing response in rats following fear conditioning has been shown to be stronger if the animal is “pre-exposed” to the conditioning environment. This effect is much weaker following hippocampal lesions. (B) Under an SR interpretation, exploring the environment allows the hippocampus to learn a predictive representation. Since value is computed by multiplying the SR by the reward function, an under-developed SR will produce an underestimate of the negative value in the room. As the animal learns a model of how states in the environment predict each other, the value signal can be approximated more fully. Model-free learning does not predict this, since the reward signal cannot propagate through the environment without experience preceding the time of shock.
+
+11/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A
+
+Rectangular room
+
+B
+
+Multi-compartment I
+
+C Multi-compartment II
+
+D
+
+Single reward
+
+E
+
+Double reward
+
+F
+
+Single punishment
+
+Rectangular room
+
+Multi-compartment I
+
+Boundaries and Reward
+
+Multi-compartment II
+
+Single reward
+
+Double reward
+
+Single punishment
+
+boundary
+
+reward (+1)
+
+punishment (-1)
+
+Figure S6. Example SR place ﬁelds corresponding to environments and reward conﬁgurations described in Figure 5 of main document. (A) SR ﬁelds are radially symmetric, gradually decaying circles under a random walk. (B,C) SR ﬁelds are constrained to remain within the compartments of the environment. (D,E) Place ﬁelds near the rewarded locations swell to include the many states that predict them, those further away skew backwards. (F) Most place ﬁelds are unaffected, those near the punished region skew slightly towards it to account for ﬂeeing from the punished area.
+
+12/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A
+
+Random walk policy
+
+B
+
+Reward in center
+
+Figure S7. (A) SR eigenvectors under random walk policy and (B) under optimal softmax policy with reward in center of room. The attractor state induced in the policy by the rewarded location warps the SR eigenvectors.
+13/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A
+
+Square
+
+B
+
+Hairpin Maze
+
+C
+
+Multi-compartment I
+
+D
+
+Multicompartment II
+
+Square
+
+Boundaries
+
+Hairpin
+
+Multi-comp I Multi-comp II
+
+Figure S8. Additional eigenvector grids ﬁelds in rectangular and multi-compartment environments (see Fig. 9, 10 in main document and Fig. S3, S4).
+
+14/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A
+
+Square
+
+B
+
+Hairpin Maze
+
+C
+
+Trapezoid
+
+Figure S9. Additional eigenvector grid ﬁelds in non-rectangular geometric environments (see Fig. 9 in main document).
+15/16
+
+bioRxiv preprint doi: https://doi.org/10.1101/097170; this version posted December 28, 2016. The copyright holder for this preprint (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made available
+under aCC-BY-ND 4.0 International license.
+
+A
+
+Ground Truth Eigenvectors
+
+B
+
+Learned Eigenvectors
+
+Boundaries and task space
+
+A
+
+B
+
+Figure S10. Additional (A) ground truth SR eigenvector grid ﬁelds and (B) learned SR eigenvector grid ﬁelds for two compartment environment described in Fig. 11 in the main text.
+
+16/16
+

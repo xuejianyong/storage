@@ -1,0 +1,306 @@
+Universal Option Models
+Hengshuai Yao, Csaba Szepesva´ri, Rich Sutton, Joseph Modayil Department of Computing Science University of Alberta Edmonton, AB, Canada, T6H 4M5
+hengshua,szepesva,sutton,jmodayil@cs.ualberta.ca
+Shalabh Bhatnagar Department of Computer Science and Automation
+Indian Institute of Science Bangalore-560012, India shalabh@csa.iisc.ernet.in
+Abstract
+We consider the problem of learning models of options for real-time abstract planning, in the setting where reward functions can be speciﬁed at any time and their expected returns must be efﬁciently computed. We introduce a new model for an option that is independent of any reward function, called the universal option model (UOM). We prove that the UOM of an option can construct a traditional option model given a reward function, and also supports efﬁcient computation of the option-conditional return. We extend the UOM to linear function approximation, and we show the UOM gives the TD solution of option returns and the value function of a policy over options. We provide a stochastic approximation algorithm for incrementally learning UOMs from data and prove its consistency. We demonstrate our method in two domains. The ﬁrst domain is a real-time strategy game, where the controller must select the best game unit to accomplish a dynamically-speciﬁed task. The second domain is article recommendation, where each user query deﬁnes a new reward function and an article’s relevance is the expected return from following a policy that follows the citations between articles. Our experiments show that UOMs are substantially more efﬁcient than previously known methods for evaluating option returns and policies over options.
+1 Introduction
+Conventional methods for real-time abstract planning over options in reinforcement learning require a single pre-speciﬁed reward function, and these methods are not efﬁcient in settings with multiple reward functions that can be speciﬁed at any time. Multiple reward functions arise in several contexts. In inverse reinforcement learning and apprenticeship learning there is a set of reward functions from which a good reward function is extracted [Abbeel et al., 2010, Ng and Russell, 2000, Syed, 2010]. Some system designers iteratively reﬁne their provided reward functions to obtain desired behavior, and will re-plan in each iteration. In real-time strategy games, several units on a team can share the same dynamics but have different time-varying capabilities, so selecting the best unit for a task requires knowledge of the expected performance for many units. Even article recommendation can be viewed as a multiple-reward planning problem, where each user query has an associated reward function and the relevance of an article is given by walking over the links between the articles [Page et al., 1998, Richardson and Domingos, 2002]. We propose to unify the study of such problems within the setting of real-time abstract planning, where a reward function can be speci-
+1
+
+ﬁed at any time and the expected option-conditional return for a reward function must be efﬁciently computed.
+Abstract planning, or planning with temporal abstractions, enables one to make abstract decisions that involve sequences of low level actions. Options are often used to specify action abstraction [Precup, 2000, Sorg and Singh, 2010, Sutton et al., 1999]. An option is a course of temporally extended actions, which starts execution at some states, and follows a policy in selecting actions until it terminates. When an option terminates, the agent can start executing another option. The traditional model of an option takes in a state and predicts the sum of the rewards in the course till termination, and the probability of terminating the option at any state. When the reward function is changed, abstract planning with the traditional option model has to start from scratch.
+We introduce universal option models (UOM) as a solution to this problem. The UOM of an option has two parts. A state prediction part, as in the traditional option model, predicts the states where the option terminates. An accumulation part, new to the UOM, predicts the occupancies of all the states by the option after it starts execution. We also extend UOMs to linear function approximation, which scales to problems with a large state space. We show that the UOM outperforms existing methods in two domains.
+2 Background
+A ﬁnite Markov Decision Process (MDP) is deﬁned by a discount factor γ ∈ (0, 1), the state set, S, the action set, A, the immediate rewards ⟨Ra⟩, and transition probabilities ⟨Pa⟩. We assume that the number of states and actions are both ﬁnite. We also assume the states are indexed by integers, i.e., S = {1, 2, . . . , N }, where N is the number of states. The immediate reward function Ra ∶ S × S → R for a given action a ∈ A and a pair of states (s, s′) ∈ S × S gives the mean immediate reward underlying the transition from s to s′ while using a. The transition probability function is a function Pa ∶ S × S → [0, 1] and for (s, s′) ∈ S × S, a ∈ A, Pa(s, s′) gives the probability of arriving at state s′ given that action a is executed at state s.
+A (stationary, Markov) policy π is deﬁned as π ∶ S × A → [0, 1], where ∑a∈A π(s, a) = 1 for any s ∈ S. The value of a state s under a policy π is deﬁned as the expected return given that one starts executing π from s:
+V π(s) = Es,π{r1 + γr2 + γ2r3 + ⋯} . Here (r1, r2 . . .) is a process with the following properties: s0 = s and for k ≥ 0, sk+1 is sampled from Pak (sk, ⋅), where ak is the action selected by policy π and rk+1 is such that its conditional mean, given sk, ak, sk+1 is Rak (sk, sk+1). The deﬁnition works also in the case when at any time step t the policy is allowed to take into account the history s0, a1, r1, s1, a2, r2, . . . , sk in coming up with ak. We will also assume that the conditional variance of rk+1 given sk, ak and sk+1 is bounded.
+The terminology, ideas and results in this section are based on the work of [Sutton et al., 1999] unless otherwise stated. An option, o ≡ o⟨π, β⟩, has two components, a policy π, and a continuation function β ∶ S → [0, 1]. The latter maps a state into the probability of continuing the option from the state. An option o is executed as follows. At time step k, when visiting state sk, the next action ak is selected according to π(sk, ⋅). The environment then transitions to the next state sk+1, and a reward rk+1 is observed.1 The option terminates at the new state sk+1 with probability 1 − β(sk+1). Otherwise it continues, a new action is chosen from the policy of the option, etc. When one option terminates, another option can start.
+The option model for option o helps with planning. Formally, the model of option o is a pair < Ro, po >, where Ro is the so-called option return and po is the so-called (discounted) terminal distribution of option o. In particular, Ro ∶ S → R is a mapping such that for any state s, Ro(s) gives the total expected discounted return until the option terminates:
+Ro(s) = Es,o[r1 + γr2 + ⋯ + γT −1rT ],
+where T is the random termination time of the option, assuming that the process (s0, r1, s1, r2, . . .) starts at time 0 at state s0 = s (initiation), and every time step the policy underlying o is followed to get the reward and the next state until termination. The mapping po ∶ S × S → [0, ∞) is a function
+1Here, sk+1 is sampled from Pak (sk, ⋅) and the mean of rk+1 is Rak (sk, sk+1).
+2
+
+that, for any given s, s′ ∈ S, gives the discounted probability of terminating at state s′ provided that the option is followed from the initial state s:
+
+po(s, s′) = Es,o[ γT I{sT =s′} ]
+
+∞
+= γk Ps,o{sT = s′, T = k} .
+
+(1)
+
+k=1
+
+Here, I{⋅} is the indicator function, and Ps,o{sT = s′, T = k} is the probability of terminating the option at s′ after k steps away from s.
+
+A semi-MDP (SMDP) is like an MDP, except that it allows multi-step transitions between states.
+A MDP with a ﬁxed set of options gives rise to an SMDP, because the execution of options lasts multiple time steps. Given a set of options O, an option policy is then a mapping h ∶ S × O → [0, 1] such that h(s, o) is the probability of selecting option o at state s (provided the previous option has terminated). We shall also call these policies high-level policies. Note that a high-level policy selects
+options which in turn select actions. Thus a high-level policy gives rise to a standard MDP policy (albeit one that needs to remember which option was selected the last time, i.e., a history dependent policy). Let ﬂat(h) denote the standard MDP policy of a high-level policy h. The value function underlying h is deﬁned as that of ﬂat(h): V h(s) = V ﬂat(h)(s), s ∈ S . The process of constructing ﬂat(h) given h and the options O is the ﬂattening operation. The model of options is constructed in such a way that if we think of the option return as the immediate reward obtained when following
+the option and if we think of the terminal distribution as transition probabilities, then Bellman’s equations will formally hold for the tuple ⟨γ = 1, S, O, ⟨Ro⟩, ⟨po⟩⟩.
+
+3 Universal Option Models (UOMs)
+
+In this section, we deﬁne the UOM for an option, and prove a universality theorem stating that the traditional model of an option can be constructed from the UOM and a reward vector of the option. The goal of UOMs is to make models of options that are independent of the reward function. We use the adjective “universal” because the option model becomes universal with respect to the rewards. In the case of MDPs, it is well known that the value function of a policy π can be obtained from the so-called discounted occupancy function underlying π, e.g., see [Barto and Duff, 1994]. This technique has been used in inverse reinforcement learning to compute a value function with basis reward functions [Ng and Russell, 2000]. The generalization to options is as follows. First we introduce the discounted state occupancy function, uo, of option o⟨π, β⟩:
+
+T −1
+
+uo(s, s′) = Es,o
+
+γk I{sk=s′} .
+
+(2)
+
+k=0
+
+Then,
+
+Ro(s) = rπ(s′) uo(s, s′) ,
+s′ ∈S
+where rπ is the expected immediate reward vector under π and ⟨Ra⟩, i.e., for any s ∈ S, rπ(s) = Es,π[r1]. For convenience, we shall also treat uo(s, ⋅) as a vector and write uo(s) to denote it as a vector. To clarify the independence of uo from the reward function, it is helpful to ﬁrst note that every MDP can be viewed as the combination of an immediate reward function, ⟨Ra⟩, and a reward-less MDP, M = ⟨γ, S, A, ⟨Pa⟩⟩.
+
+Deﬁnition 1 The UOM of option o in a reward-less MDP is deﬁned by ⟨uo, po⟩, where uo is the option’s discounted state occupancy function, deﬁned by (2), and po is the option’s discounted terminal state distribution, deﬁned by (1).
+
+The main result of this section is the following theorem. All the proofs of the theorems in this paper can be found in an extended paper.
+Theorem 1 Fix an option o = o⟨π, β⟩ in a reward-less MDP M, and let uo be the occupancy function underlying o in M. Let ⟨Ra⟩ be some immediate reward function. Then, for any state s ∈ S, the return of option o with respect to M and ⟨Ra⟩ is given by by Ro(s) = (uo(s))⊺rπ.
+
+3
+
+4 UOMs with Linear Function Approximation
+
+In this section, we introduce linear universal option models which use linear function approxima-
+tion to compactly represent reward independent option-models over a potentially large state space.
+In particular, we build upon previous work where the approximate solution has been obtained by
+solving the so-called projected Bellman equations. We assume that we are given a function φ ∶ S → Rn, which maps any state s ∈ S into its n-dimensional feature representation φ(s). Let Vθ ∶ S → R be deﬁned by Vθ(s) = θ⊺φ(s), where the vector θ is a so-called weight-vector.2 Fix an initial distribution µ over the states and an option o = o⟨π, β⟩. Given a reward function R = ⟨Ra⟩, the TD(0) approximation Vθ(TD,R) to Ro is deﬁned as the solution to the following projected Bellman equations [Sutton and Barto, 1998]:
+
+T −1
+
+Eµ,o
+
+{rk+1 + γVθ(sk+1) − Vθ(sk)} φ(sk) = 0 .
+
+(3)
+
+k=0
+
+Here s0 is sampled from µ, the random variables (r1, s1, r2, s2, . . .) and T (the termination time) are obtained by following o from this initial state until termination. It is easy to see that if γ = 0 then Vθ(TD,R) becomes the least-squares approximation Vf(LS,R) to the immediate rewards R under o given the features φ. The least-squares approximation to R is given by f (LS,R) = arg minf J(f ) = Eµ,o ∑Tk=−01 {rk+1 − f ⊺φ(sk)}2 . We restrict our attention to this TD(0) solution in this paper, and
+refer to f as an (approximate) immediate reward model.
+
+The TD(0)-based linear UOM (in short, linear UOM) underlying o (and µ) is a pair of n × n matrices (U o, M o), which generalize the tabular model (uo, po). Given the same sequence as used in deﬁning the approximation to Ro (equation 3), U o is the solution to the following system of linear equations:
+
+T −1
+
+Eµ,o
+
+{φ(sk) + γU oφ(sk+1) − U oφ(sk)} φ(sk)⊺ = 0.
+
+k=0
+
+Let (U o)⊺ = [u1, . . . , un], ui ∈ Rn. If we introduce an artiﬁcial “reward” function, r˘i = φi, which is the ith feature, then ui is the weight vector such that Vui is the TD(0)-approximation to the return of o for the artiﬁcial reward function. Note that if we use tabular representation, then ui,s = uo(s, i) holds for all s, i ∈ S. Therefore our extension to linear function approximation is backward consistent with the UOM deﬁnition in the tabular case. However, this alone would not be a satisfactory justiﬁcation
+of this choice of linear UOMs. The following theorem shows that just like the UOMs of the previous section, the U o matrix allows the separation of the reward from the option models without losing
+information.
+
+Theorem 2 Fix an option o = o⟨π, β⟩ in a reward-less MDP, M = ⟨γ, S, A, ⟨Pa⟩⟩, an initial state distribution µ over the states S, and a function φ ∶ S → Rn. Let U be the linear UOM of o w.r.t. φ and µ. Pick some reward function R and let Vθ(TD,R) be the TD(0) approximation to the return Ro. Then, for any s ∈ S,
+Vθ(TD,R) (s) = (f (LS,R))⊺ (U φ(s)) .
+
+The signiﬁcance of this result is that it shows that to compute the TD approximation of an option return corresponding to a reward function R, it sufﬁces to ﬁnd f (LS,R) (the least squares approximation of the expected one-step reward under the option and the reward function R), provided one is given the U matrix of the option. We expect that ﬁnding a least-squares approximation (solving a regression problem) is easier than solving a TD ﬁxed-point equation. Note that the result also holds for standard policies, but we do not explore this direction in this paper.
+The deﬁnition of M o. The matrix M o serves as a state predictor, and we call M o the transient matrix associated with option o. Given a feature vector φ, M oφ predicts the (discounted) expected feature vector where the option stops. When option o is started from state s and stopped at state sT in T time steps, we update an estimate of M o by
+M o ← M o + η(γT φ(sT ) − M oφ(s))φ(s)⊺.
+
+2Note that the subscript in V⋅ always means the TD weight vector throughout this paper.
+
+4
+
+Formally, M o is the solution to the associated linear system,
+
+Eµ,o[ γT φ(sT )φ(s)⊺ ] = M o Eµ,o[ φ(s)φ(s)⊺ ] .
+
+(4)
+
+Notice that M o is thus just the least-squares solution of the problem when γT φ(sT ) is regressed on φ(s), given that we know that option o is executed. Again, this way we obtain the terminal distribution of option o in the tabular case.
+
+A high-level policy h deﬁnes a Markov chain over S × O. Assume that this Markov chain has a unique stationary distribution, µh. Let (s, o) ∼ µh be a draw from this stationary distribution. Our goal is to ﬁnd an option model that can be used to compute a TD approximation to the value function of a high-level policy h (ﬂattened) over a set of options O. The following theorem shows that the value function of h can be computed from option returns and transient matrices.
+
+Theorem 3 Let Vθ(s) = φ(s)⊺θ. Under the above conditions, if θ solves
+
+Eµh [ (Ro(s) + (M oφ(s))⊺θ − φ(s)⊺θ)φ(s) ] = 0
+
+(5)
+
+then Vθ is the TD(0) approximation to the value function of h.
+
+Recall that Theorem 2 states that the U matrices can be used to compute the option returns given an arbitrary reward function. Thus given a reward function, the U and M matrices are all that one would need to solve the TD solution of the high-level policy. The merit of U and M is that they are reward independent. Once they are learned, they can be saved and used for different reward functions for different situations at different times.
+
+5 Learning and Planning with UOMs
+In this section we give incremental, TD-style algorithms for learning and planning with linear UOMs. We start by describing the learning of UOMs while following some high-level policy h, and then describe a Dyna-like algorithm that estimates the value function of h with learned UOMs and an immediate reward model.
+5.1 Learning Linear UOMs
+Assume that we are following a high-level policy h over a set of options O, and that we want to estimate linear UOMs for the options in O. Let the trajectory generated by following this high-level policy be . . . , sk, qk, ok, ak, sk+1, qk+1, . . .. Here, qk = 1 is the indicator for the event that option ok−1 is terminated at state sk and so ok ∼ h(sk, ⋅). Also, when qk = 0, ok = ok−1. Upon the transition from sk to sk+1, qk+1, the matrix U ok is updated as follows:
+Uko+k1 = Ukok + ηkok δk+1 φ(sk)⊺, where δk+1 = φ(sk) + γUkok φ(sk+1)I{qk+1=0} − Ukok φ(sk), and ηkok ≥ 0 is the learning-rate at time k associated with option ok. Note that when option ok is terminated the temporal difference δk+1 is modiﬁed so that the next predicted value is zero. The ⟨M o⟩ matrices are updated using the least-mean square algorithm. In particular, matrix M ok is updated when option ok is terminated at time k + 1, i.e., when qk+1 = 1. In the update we need the feature (φ˜⋅) of the state which was visited at the time option ok was selected and also the time elapsed since this time (τ⋅): Mko+k1 = Mkok + η˜kok I{qk+1=1} γτk φ(sk+1) − Mkok φ˜k φ˜⊺k, φ˜k+1 = I{qk+1=0}φ˜k + I{qk+1=1}φ(sk+1) , τk+1 = I{qk+1=0}τk + 1 . These variables are initialized to τ0 = 0 and φ˜0 = φ(s0). The following theorem states the convergence of the algorithm.
+
+5
+
+Theorem 4 Assume that the stationary distribution of h is unique, all options in O terminate with probability one and that all options in O are selected at some state with positive probability.3 If the step-sizes of the options are decreased towards zero so that the Robbins-Monro conditions hold for them, i.e., ∑i(k) ηio(k) = ∞, ∑i(k)(ηio(k))2 < ∞, and ∑j(k) η˜jo(k) = ∞, ∑j(k)(η˜jo(k))2 < ∞,4 then for any o ∈ O, Mko → M o and Uko → U o with probability one, where (U o, M o) are deﬁned in the previous section.
+5.2 Learning Reward Models
+In conventional settings, a single reward signal will be contained in the trajectory when following the high level policy, . . . , sk, qk, ok, ak, rk+1, sk+1, qk+1, . . .. We can learn for each option an immediate reward model for this reward signal. For example, f ok is updated using least mean squares rule:
+fko+k1 = fkok + η˜kok I{qk+1=0} rk+1 − f ok⊺φ(sk) φ(sk) .
+In other settings, immediate reward models can be constructed in different ways. For example, more than one reward signal can be of interest, so multiple immediate reward models can be learned in parallel. Moreover, such additional reward signals might be provided at any time. In some settings, an immediate reward model for a reward function can be provided directly from knowledge of the environment and features where the immediate reward model is independent of the option.
+5.3 Policy Evaluation with UOMs and Reward Models
+Consider the process of policy evaluation for a high-level policy over options from a given set of UOMs when learning a reward model. When starting from a state s with feature vector φ(s) and following option o, the return Ro(s) is estimated from the reward model f o and the expected feature occupancy matrix U o by Ro(s) ≈ (f o)⊺U oφ(s). The TD(0) approximation to the value function of a high-level policy h can then be estimated online from Theorem 3. Interleaving updates of the reward model learning with these planning steps for h gives a Dyna-like algorithm.
+6 Empirical Results
+In this section, we provide empirical results on choosing game units to execute speciﬁc policies in a simpliﬁed real-time strategy game and recommending articles in a large academic database with more than one million articles. We compare the UOM method with a method of Sorg and Singh (2010), who introduced the linear-option expectation model (LOEM) that is applicable for evaluating a high-level policy over options. Their method estimates (M o, bo) from experience, where bo is equal to (U o)⊺f o in our formulation. This term bo is the expected return from following the option, and can be computed incrementally from experience once a reward signal or an immediate reward model are available.
+A simpliﬁed Star Craft 2 mission. We examined the use of the UOMs and LOEMs for policy evaluation in a simpliﬁed variant of the real-time strategy game Star Craft 2, where the task for the player was to select the best game unit to move to a particular goal location. We assume that the player has access to a black-box game simulator. There are four game units with the same constant dynamics. The internal status of these units dynamically changes during the game and this affects the reward they receive in enemy controlled territory. We evaluated these units, when their rewards are as listed in the table below (the rewards are associated with the previous state and are not action-contingent). A game map is shown in Figure 1 (a). The four actions could move a unit left, right, up, or down. With probability 2 3, the action moved the unit one grid in the intended direction. With probability 1 3, the action failed, and the agent was moved in a random direction chosen uniformly from the other three directions. If an action would move a unit into the boundary, it remained in the original location (with probability one). The discount factor was 0.9. Features were a lookup table over the 11 × 11 grid. For all algorithms, only one step of planning was applied per action selection. The
+3Otherwise, we can drop the options in O which are never selected by h. 4 The index i(k) is advanced for ηio(k) when following option o, and the index j(k) is advanced for η˜jo(k) when o is terminated. Note that in the algorithm, we simply wrote as ηio(k) as ηko and η˜jo(k) as η˜ko.
+6
+
+o2 o8
+o1 o9 o5 B
+
+(11, 11)
+o7
+o3 G o6 o4
+
+(a)
+
+G
+(b)
+
+RMSE
+
+0.2 0.18 0.16 0.14 0.12
+0.1 0.08 0.06
+0
+
+UOM LOEM
+
+20
+
+40
+
+60
+
+80
+
+100
+
+Number of episodes
+
+(c)
+
+Figure 1: (a) A Star Craft local mission map, consisting of four bridged regions, and nine options for the mission. (b) A high-level policy h =< o1, o2, o3, o6 > initiates the options in the regions, with deterministic policies in the regions as given by the arrows: o1 (green), o2 (yellow), o3 (purple), and o6 (white). Outside these regions, the policies select actions uniformly at random. (c) The expected performance of different units can be learned by simulating trajectories (with the standard deviation
+shown by the bars), and the UOM method reduces the error faster than the LOEM method.
+
+planning step-size for each algorithm was chosen from 0.001, 0.01, 0.1, 1.0. Only the best one was reported for an algorithm. All data reported were averaged over 30 runs.
+
+We deﬁned a set of nine op-
+
+tions and their corresponding policies, shown in Fig-
+
+Enemy Locations
+
+Game Units Battlecruiser Reapers Thor SCV
+
+ure 1 (a), (b). These options
+
+fortress (yellow)
+
+0.3
+
+-1.0 1.0 -1.0
+
+are speciﬁed by the locations
+
+ground forces (green)
+
+1.0
+
+0.3
+
+1.0 -1.0
+
+where they terminate, and the
+
+viking (red)
+
+-1.0
+
+-1.0 1.0 -1.0
+
+policies. The termination location is the square pointed
+
+cobra (pink) minerals (blue)
+
+1.0
+
+0.5 -1.0 -1.0
+
+0
+
+0
+
+0 1.0
+
+to by each option’s arrows.
+
+Four of these are “bridges” between regions, and one is the position labeled “B” (which is the
+
+player’s base at position (1, 1)). Each of the options could be initiated from anywhere in the region
+
+in which the policy was deﬁned. The policies for these options were deﬁned by a shortest path
+
+traversal from the initial location to the terminal location, as shown in the ﬁgure. These policies
+
+were not optimized for the reward functions of the game units or the enemy locations.
+
+To choose among units for a mission in real time, a player must be able to efﬁciently evaluate many
+options for many units, compute the value functions of the various high-level policies, and select
+the best unit for a particular high-level goal. A high-level policy for dispatching the game units is
+deﬁned by initiating different options from different states. For example, a policy for moving units from the base “B” to position “G” can be, h =< o1, o2, o3 >. Another high-level policy could move another unit from upper left terrain to “G” by a different route with h′ =< o8, o5, o6 >.
+We evaluated policy h for the Reaper unit above using UOMs and LOEMs. We ﬁrst pre-learned the U o and M o models using the experience from 3000 trajectories. Using a reward function that is described in the above table, we then learned f o for the UOM and and bo for the LEOM over 100 simulated trajectories, and concurrently learned θ. As shown in Figure 1(c), the UOM model learns
+a more accurate estimate of the value function from fewer episodes, when the best performance is taken across the planning step size. Learning f o is easier than learning bo because the stochastic dynamics of the environment is factored out through the pre-learned U o. These constructed value
+functions can be used to select the best game unit for the task of moving to the goal location.
+
+This approach is computationally efﬁcient for multiple units. We compared the computation time
+of LOEMs and UOMs with linear Dyna on a modern PC with an Intel 1.7GHz processor and 8GB RAM in a MATLAB implementation. Learning U o took 81 seconds. We used a recursive leastsquares update to learn M o, which took 9.1 seconds. Thus, learning an LOEM model is faster than
+learning a UOM for a single ﬁxed reward function, but the UOM can produce an accurate option
+return quickly for each new reward function. Learning the value function incrementally from the 100
+
+7
+
+trajectories took 0.44 seconds for the UOM and 0.61 seconds for the LOEM. The UOM is slightly more efﬁcient as f o is more sparse than bo, but it is substantially more accurate, as shown in Figure 1(c). We evaluated all the units and the results are similar.
+Article recommendation. Recommending relevant articles for a given user query can be thought of as predicting an expected return of an option for a dynamically speciﬁed reward model. Ranking an article as a function of the links between articles in the database has proven to be a successful approach to article recommendation, with PageRank and other link analysis algorithms using a random surfer model [Page et al., 1998]. We build on this idea, by mapping a user query to a reward model and pre-speciﬁed option for how a reader might transition between articles. The ranking of an article is then the expected return from following references in articles according to the option. Consider the policy of performing a random-walk between articles in a database by following a reference from an article that is selected uniformly at random. An article receives a positive reward if it matches a user query (and is otherwise zero), and the value of the article is the expected discounted return from following the random-walk policy over articles. More focused reader policies can be speciﬁed as following references from an article with a common author or keyword.
+We experimented with a collection from DBLP that has about 1.5 million articles, 1 million authors, and 2 millions citations [Tang et al., 2008]. We assume that a user query q is mapped directly to an option o and an immediate reward model fqo. For simplicity in our experiment, the reward models are all binary, with three non-zero features drawn uniformly at random. In total we used about 58 features, and the discount factor was 0.9. There were three policies. The ﬁrst followed a reference selected uniformly at random, the second selected a reference written by an author of the current article (selected at random), and the third selected a reference with a keyword in common with the current article. Three options were deﬁned from these policies, where the termination probability beta was 1.0 if no suitable outgoing reference was available and 0.25 otherwise. High-level policies of different option sequences could also be applied, but were not tested here. We used bibliometric features for the articles extracted from the author, title, venue ﬁelds.
+We generated queries q at random, where each query speciﬁed an associated option o and an optionindependent immediate reward model fqo = fq. We then computed their value functions. The immediate reward model is naturally constructed for these problems, as the reward comes from the starting article based on its features, so it is not dependent on the action taken (and thus not the option). This approach is appropriate in article recommendation as a query can provide both terms for relevant features (such as the venue), and how the reader intends to follow references in the paper. For the UOM based approach we pre-learned U o, and then computed U ofqo for each query. For the LOEM approach, we learned a bq for each query by simulating 3000 trajectories in the database (the simulated trajectories were shared for all the queries). The computation time (in seconds) for the UOM and LOEM approaches are shown in the table below, which shows that UOMS are much more computationally efﬁcient than LOEM.
+
+Number of reward functions 10 100 500 1,000 10,000
+
+LOEM
+
+0.03 0.09 0.47 0.86 9.65
+
+UOM
+
+0.01 0.04 0.07 0.12 1.21
+
+7 Conclusion
+We proposed a new way of modelling options in both tabular representation and linear function approximation, called the universal option model. We showed how to learn UOMs and how to use them to construct the TD solution of option returns and value functions of policies, and prove their theoretical guarantees. UOMs are advantageous in large online systems. Estimating the return of an option given a new reward function with the UOM of the option is reduced to a one-step regression. Computing option returns dependent on many reward functions in large online games and search systems using UOMs is much faster than using previous methods for learning option models.
+
+Acknowledgment
+Thank the reviewers for their comments. This work was supported by grants from Alberta Innovates Technology Futures, NSERC, and Department of Science and Technology, Government of India.
+
+8
+
+References
+Abbeel, P., Coates, A., and Ng, A. Y. (2010). Autonomous helicopter aerobatics through apprenticeship learning. Int. J. Rob. Res., 29(13):1608–1639.
+Barto, A. and Duff, M. (1994). Monte carlo matrix inversion and reinforcement learning. NIPS, pages 687–694.
+Bertsekas, D. P. and Tsitsiklis, J. N. (1996). Neuro-dynamic Programming. Athena. Jaakkola, T., Jordan, M., and Singh, S. (1994). On the convergence of stochastic iterative dynamic
+programming algorithms. Neural Computation, 6(6):1185–1201. Ng, A. Y. and Russell, S. J. (2000). Algorithms for inverse reinforcement learning. ICML, pages
+663–670. Page, L., Brin, S., Motwani, R., and Winograd, T. (1998). The PageRank citation ranking: Bringing
+order to the web. Technical report, Stanford University. Precup, D. (2000). Temporal Abstraction in Reinforcement Learning. PhD thesis, University of
+Massachusetts, Amherst. Richardson, M. and Domingos, P. (2002). The intelligent surfer: Probabilistic combination of link
+and content information in PageRank. NIPS. Sorg, J. and Singh, S. (2010). Linear options. AAMAS, pages 31–38. Sutton, R. S. and Barto, A. G. (1998). Reinforcement Learning: An Introduction. MIT Press. Sutton, R. S., Precup, D., and Singh, S. (1999). Between MDPs and semi-MDPs: A framework for
+temporal abstraction in reinforcement learning. Artiﬁcial Intelligence, 112:181–211. Syed, U. A. (2010). Reinforcement Learning Without Rewards. PhD thesis, Princeton University. Tang, J., Zhang, J., Yao, L., Li, J., Zhang, L., and Su, Z. (2008). Arnetminer: extraction and mining
+of academic social networks. SIGKDD, pages 990–998.
+9
+

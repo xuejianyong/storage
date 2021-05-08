@@ -1,0 +1,1958 @@
+LETTER
+
+Communicated by Peter Dayan
+
+Reinforcement Learning in Continuous Time and Space
+Kenji Doya ATR Human Information Processing Research Laboratories, Soraku, Kyoto 619-0288, Japan
+This article presents a reinforcement learning framework for continuoustime dynamical systems without a priori discretization of time, state, and action. Based on the Hamilton-Jacobi-Bellman (HJB) equation for inﬁnitehorizon, discounted reward problems, we derive algorithms for estimating value functions and improving policies with the use of function approximators. The process of value function estimation is formulated as the minimization of a continuous-time form of the temporal difference (TD) error. Update methods based on backward Euler approximation and exponential eligibility traces are derived, and their correspondences with the conventional residual gradient, TD(0), and TD(λ) algorithms are shown. For policy improvement, two methods—a continuous actor-critic method and a value-gradient-based greedy policy—are formulated. As a special case of the latter, a nonlinear feedback control law using the value gradient and the model of the input gain is derived. The advantage updating, a model-free algorithm derived previously, is also formulated in the HJBbased framework.
+The performance of the proposed algorithms is ﬁrst tested in a nonlinear control task of swinging a pendulum up with limited torque. It is shown in the simulations that (1) the task is accomplished by the continuous actor-critic method in a number of trials several times fewer than by the conventional discrete actor-critic method; (2) among the continuous policy update methods, the value-gradient-based policy with a known or learned dynamic model performs several times better than the actor-critic method; and (3) a value function update using exponential eligibility traces is more efﬁcient and stable than that based on Euler approximation. The algorithms are then tested in a higher-dimensional task: cartpole swing-up. This task is accomplished in several hundred trials using the value-gradient-based policy with a learned dynamic model.
+1 Introduction
+The temporal difference (TD) family of reinforcement learning (RL) algorithms (Barto, Sutton, & Anderson, 1983; Sutton, 1988; Sutton & Barto, 1998) provides an effective approach to control and decision problems for which optimal solutions are analytically unavailable or difﬁcult to obtain. A num-
+Neural Computation 12, 219–245 (2000) c 2000 Massachusetts Institute of Technology
+
+220
+
+Kenji Doya
+
+ber of successful applications to large-scale problems, such as board games (Tesauro, 1994), dispatch problems (Crites & Barto, 1996; Zhang & Dietterich, 1996; Singh & Bertsekas, 1997), and robot navigation (Mataric, 1994) have been reported (see, e.g., Kaelbling, Littman, & Moore, 1996, and Sutton & Barto, 1998, for reviews). The progress of RL research so far, however, has been mostly constrained to the formulation of the problem in which discrete actions are taken in discrete time-steps based on the observation of the discrete state of the system.
+Many interesting real-world control tasks, such as driving a car or riding a snowboard, require smooth, continuous actions taken in response to high-dimensional, real-valued sensory input. In applications of RL to continuous problems, the most common approach has been ﬁrst to discretize time, state, and action and then to apply an RL algorithm for a discrete stochastic system. However, this discretization approach has the following drawbacks:
+• When a coarse discretization is used, the control output is not smooth, resulting in poor performance.
+• When a ﬁne discretization is used, the number of states and the number of iteration steps become huge, which necessitates not only large memory storage but also many learning trials.
+• In order to keep the number of states manageable, an elaborate partitioning of the variables has to be found using prior knowledge.
+Efforts have been made to eliminate some of these difﬁculties by using appropriate function approximators (Gordon, 1996; Sutton, 1996; Tsitsiklis & Van Roy, 1997), adaptive state partitioning and aggregation methods (Moore, 1994; Singh, Jaakkola, & Jordan, 1995; Asada, Noda, & Hosoda, 1996; Pareigis, 1998), and multiple timescale methods (Sutton, 1995).
+In this article, we consider an alternative approach in which learning algorithms are formulated for continuous-time dynamical systems without resorting to the explicit discretization of time, state, and action. The continuous framework has the following possible advantages:
+• A smooth control performance can be achieved.
+• An efﬁcient control policy can be derived using the gradient of the value function (Werbos, 1990).
+• There is no need to guess how to partition the state, action, and time. It is the task of the function approximation and numerical integration algorithms to ﬁnd the right granularity.
+There have been several attempts at extending RL algorithms to continuous cases. Bradtke (1993) showed convergence results for Q-learning algorithms for discrete-time, continuous-state systems with linear dynam-
+
+Reinforcement Learning in Continuous Time and Space
+
+221
+
+ics and quadratic costs. Bradtke and Duff (1995) derived a TD algorithm for continuous-time, discrete-state systems (semi-Markov decision problems). Baird (1993) proposed the “advantage updating” method by extending Q-learning to be used for continuous-time, continuous-state problems.
+When we consider optimization problems in continuous-time systems, the Hamilton-Jacobi-Bellman (HJB) equation, which is a continuous-time counterpart of the Bellman equation for discrete-time systems, provides a sound theoretical basis (see, e.g., Bertsekas, 1995, and Fleming & Soner, 1993). Methods for learning the optimal value function that satisﬁes the HJB equation have been studied using a grid-based discretization of space and time (Peterson, 1993) and convergence proofs have been shown for grid sizes taken to zero (Munos, 1997; Munos & Bourgine, 1998). However, the direct implementation of such methods is impractical in a highdimensional state-space. An HJB-based method that uses function approximators was presented by Dayan and Singh (1996). They proposed the learning of the gradients of the value function without learning the value function itself, but the method is applicable only to nondiscounted reward problems.
+This article presents a set of RL algorithms for nonlinear dynamical systems based on the HJB equation for inﬁnite-horizon, discounted-reward problems. A series of simulations are devised to evaluate their effectiveness when used with continuous function approximators.
+We ﬁrst consider methods for learning the value function on the basis of minimizing a continuous-time form of the TD error. The update algorithms are derived either by using a single step or exponentially weighed eligibility traces. The relationships of these algorithms with the residual gradient (Baird, 1995), TD(0), and TD(λ) algorithms (Sutton, 1988) for discrete cases are also shown. Next, we formulate methods for improving the policy using the value function: the continuous actor-critic method and a value-gradientbased policy. Speciﬁcally, when a model is available for the input gain of the system dynamics, we derive a closed-form feedback policy that is suitable for real-time implementation. Its relationship with “advantage updating” (Baird, 1993) is also discussed.
+The performance of the proposed methods is ﬁrst evaluated in nonlinear control tasks of swinging up a pendulum with limited torque (Atkeson, 1994; Doya, 1996) using normalized gaussian basis function networks for representing the value function, the policy, and the model. We test (1) the performance of the discrete actor-critic, continuous actor-critic, and valuegradient-based methods; (2) the performance of the value function update methods; and (3) the effects of the learning parameters, including the action cost, exploration noise, and landscape of the reward function. Then we test the algorithms in a more challenging task, cart-pole swing-up (Doya, 1997), in which the state-space is higher-dimensional and the system input gain is state dependent.
+
+222
+
+Kenji Doya
+
+2 The Optimal Value Function for a Discounted Reward Task
+
+In this article, we consider the continuous-time deterministic system,
+
+x˙(t) = f (x(t), u(t)),
+
+(2.1)
+
+where x ∈ X ⊂ Rn is the state and u ∈ U ⊂ Rm is the action (control input). We denote the immediate reward for the state and the action as
+
+r(t) = r(x(t), u(t)).
+
+(2.2)
+
+Our goal is to ﬁnd a policy (control law),
+
+u(t) = µ(x(t)),
+
+(2.3)
+
+that maximizes the cumulative future rewards,
+
+∞
+
+Vµ(x(t)) =
+
+e−
+
+s−t τ
+
+r(x(s),
+
+u(s))
+
+ds
+
+t
+
+(2.4)
+
+for any initial state x(t). Note that x(s) and u(s) (t ≤ s < ∞) follow the system dynamics (2.1) and the policy (2.3). Vµ(x) is called the value function of the state x, and τ is the time constant for discounting future rewards.
+An important feature of this inﬁnite-horizon formulation is that the value
+function and the optimal policy do not depend explicitly on time, which
+is convenient in estimating them using function approximators. The dis-
+counted reward makes it unnecessary to assume that the state is attracted
+to a zero-reward state. The value function V∗ for the optimal policy µ∗ is deﬁned as
+
+V∗(x(t)) = max
+
+∞
+
+e−
+
+s−t τ
+
+r(x(s),
+
+u(s))ds
+
+,
+
+u[t,∞) t
+
+(2.5)
+
+where u[t, ∞) denotes the time course u(s) ∈ U for t ≤ s < ∞. According to the principle of optimality, the condition for the optimal value function at time t is given by
+
+1 τ
+
+V∗(x(t))
+
+=
+
+max
+u(t)∈U
+
+r(x(t),
+
+u(t))
+
++
+
+∂ V∗ (x) ∂x
+
+f (x(t),
+
+u(t))
+
+,
+
+(2.6)
+
+which is a discounted version of the HJB equation (see appendix A). The optimal policy is given by the action that maximizes the right-hand side of the HJB equation:
+
+u(t) = µ∗(x(t)) = arg max
+u∈U
+
+r(x(t),
+
+u)
+
++
+
+∂ V∗ (x) ∂x
+
+f
+
+(x(t),
+
+u)
+
+.
+
+(2.7)
+
+Reinforcement Learning in Continuous Time and Space
+
+223
+
+Reinforcement learning can be formulated as the process of bringing the current policy µ and its value function estimate V closer to the optimal policy µ∗ and the optimal value function V∗. It generally involves two components:
+1. Estimate the value function V based on the current policy µ.
+2. Improve the policy µ by making it greedy with respect to the current estimate of the value function V.
+We will consider the algorithms for these two processes in the following two sections.
+
+3 Learning the Value Function
+
+For the learning of the value function in a continuous state-space, it is mandatory to use some form of function approximator. We denote the current estimate of the value function as
+
+Vµ(x(t)) V(x(t); w),
+
+(3.1)
+
+where w is a parameter of the function approximator, or simply, V(t). In the framework of TD learning, the estimate of the value function is updated using a self-consistency condition that is local in time and space. This is given by differentiating deﬁnition 2.4 by t as
+
+V˙ µ(x(t))
+
+=
+
+1 τ
+
+Vµ(x(t))
+
+−
+
+r(t).
+
+(3.2)
+
+This should hold for any policy, including the optimal policy given by equa-
+
+tion 2.7.
+
+If the current estimate V of the value function is perfect, it should satisfy
+
+the consistency condition V˙ (t)
+
+=
+
+1 τ
+
+V(t)−r(t).
+
+If
+
+this
+
+condition
+
+is
+
+not
+
+satisﬁed,
+
+the prediction should be adjusted to decrease the inconsistency,
+
+δ(t)
+
+≡
+
+r(t)
+
+−
+
+1 τ
+
+V(t)
+
++
+
+V˙ (t).
+
+(3.3)
+
+This is the continuous-time counterpart of the TD error (Barto, Sutton, & Anderson, 1983; Sutton, 1988).
+
+3.1 Updating the Level and the Slope. In order to bring the TD error (3.3) to zero, we can tune the level of the value function V(t), its time derivative V˙ (t), or both, as illustrated in Figures 1A–C. Now we consider the objective function (Baird, 1993),
+
+E(t) = 1 |δ(t)|2.
+
+(3.4)
+
+2
+
+224
+
+Kenji Doya
+
+A δ(t)
+
+B V^(t)
+
+t0
+
+t
+
+C V^(t)
+
+D V^(t)
+
+t0
+
+t
+
+Figure 1: Possible updates for the value function estimate Vˆ (t) for an instanta-
+
+neous
+
+TD
+
+error
+
+δ(t)
+
+=
+
+r(t)
+
+−
+
+1 τ
+
+V(t)
+
++
+
+V˙ (t).
+
+(A)
+
+A
+
+positive
+
+TD
+
+error
+
+at
+
+t
+
+=
+
+t0
+
+can
+
+be corrected by (B) an increase in V(t), or (C) a decrease in the time derivative
+
+V˙ (t), or (D) an exponentially weighted increase in V(t) (t < t0).
+
+From deﬁnition 3.3 and the chain rule V˙ (t)
+
+=
+
+∂V ∂x
+
+x˙ (t),
+
+the
+
+gradient
+
+of
+
+the
+
+objective function with respect to a parameter wi is given by
+
+∂ E(t) ∂ wi
+
+=
+
+δ(t)
+
+∂ ∂ wi
+
+r(t)
+
+−
+
+1 τ
+
+V(t)
+
++
+
+V˙ (t)
+
+= δ(t)
+
+− 1 ∂V(x; w) + ∂
+
+τ ∂wi
+
+∂ wi
+
+∂V(x; w) ∂x
+
+x˙(t) .
+
+Therefore, the gradient descent algorithm is given by
+
+w˙ i
+
+= −η ∂E ∂ wi
+
+=
+
+ηδ(t)
+
+1 ∂V(x; w) − ∂
+
+τ ∂wi
+
+∂ wi
+
+∂V(x; w) ∂x
+
+x˙(t) ,
+
+(3.5)
+
+where η is the learning rate. A potential problem with this update algorithm is its symmetry in time.
+Since the boundary condition for the value function is given at t → ∞, it would be more appropriate to update the past estimates without affecting the future estimates. Below, we consider methods for implementing the backup of TD errors.
+
+3.2 Backward Euler Differentiation: Residual Gradient and TD(0). One way of implementing the backup of TD errors is to use the backward Euler
+
+Reinforcement Learning in Continuous Time and Space
+
+225
+
+approximation of time derivative V˙ (t). By substituting V˙ (t) = (V(t) − V(t − t))/ t into equation 3.3, we have
+
+δ(t) = r(t) +
+
+1 t
+
+1−
+
+t τ
+
+V(t) − V(t −
+
+t) .
+
+(3.6)
+
+Then the gradient of the squared TD error (see equation 3.4) with respect to the parameter wi is given by
+
+∂ E(t) ∂ wi
+
+=
+
+δ(t)
+
+1 t
+
+1−
+
+t τ
+
+∂V(x(t); w) − ∂V(x(t − t); w) .
+
+∂ wi
+
+∂ wi
+
+A straightforward gradient descent algorithm is given by
+
+w˙ i = ηδ(t)
+
+−
+
+1−
+
+t τ
+
+∂V(x(t); w) + ∂V(x(t − t); w) .
+
+∂ wi
+
+∂ wi
+
+(3.7)
+
+An alternative way is to update only V(t − t) without explicitly changing V(t) by
+
+w˙ i
+
+=
+
+ηδ(t)
+
+∂V(x(t − ∂ wi
+
+t); w) .
+
+(3.8)
+
+The Euler discretized TD error, equation 3.6, coincides with the conventional TD error,
+
+δt = rt + γ Vt − Vt−1,
+
+by taking the discount factor γ
+
+= 1−
+
+t τ
+
+e−
+
+t τ
+
+and
+
+rescaling
+
+the
+
+values
+
+as Vt =
+
+1 t
+
+V(t).
+
+The
+
+update
+
+schemes,
+
+equations
+
+3.7
+
+and
+
+3.8,
+
+correspond
+
+to
+
+the residual-gradient (Baird, 1995; Harmon, Baird, & Klopf, 1996) and TD(0)
+
+algorithms, respectively. Note that time step t of the Euler differentiation
+
+does not have to be equal to the control cycle of the physical system.
+
+3.3 Exponential Eligibility Trace: TD(λ). Now let us consider how an instantaneous TD error should be corrected by a change in the value V as a function of time. Suppose an impulse of reward is given at time t = t0. Then, from deﬁnition 2.4, the corresponding temporal proﬁle of the value function is
+
+Vµ(t) =
+
+e−
+
+t0 −t τ
+
+t ≤ t0,
+
+0
+
+t > t0.
+
+Because the value function is linear with respect to the reward, the desired correction of the value function for an instantaneous TD error δ(t0) is
+
+Vˆ (t) =
+
+δ
+
+(t0
+
+)e−
+
+t0 −t τ
+
+t ≤ t0,
+
+0
+
+t > t0,
+
+226
+
+Kenji Doya
+
+as illustrated in Figure 1D. Therefore, the update of wi given δ(t0) should be made as
+
+w˙ i = η
+
+t0 −∞
+
+Vˆ (t)
+
+∂
+
+V(x(t); ∂ wi
+
+w)
+
+dt
+
+=
+
+ηδ(t0)
+
+t0 −∞
+
+e−
+
+t0 −t τ
+
+∂ V(x(t); ∂ wi
+
+w)
+
+dt.
+
+(3.9)
+
+We can consider the exponentially weighted integral of the derivatives as the eligibility trace ei for the parameter wi. Then a class of learning algorithms is derived as
+
+w˙ i = ηδ(t)ei(t),
+
+e˙i(t)
+
+=
+
+−
+
+1 κ
+
+ei
+
+(t)
+
++
+
+∂ V(x(t); ∂ wi
+
+w) ,
+
+(3.10)
+
+where 0 < κ ≤ τ is the time constant of the eligibility trace. If we discretize equation 3.10 with time step t, it coincides with the
+eligibility trace update in TD(λ) (see, e.g., Sutton & Barto, 1998),
+
+ei(t +
+
+t)
+
+=
+
+λγ
+
+ei(t)
+
++
+
+∂ Vt ∂ wi
+
+,
+
+with
+
+λ
+
+=
+
+1− 1−
+
+t/κ t/τ
+
+.
+
+4 Improving the Policy
+
+Now we consider ways for improving the policy u(t) = µ(x(t)) using its associated value function V(x). One way is to improve the policy stochastically using the actor-critic method, in which the TD error is used as the effective reinforcement signal. Another way is to take a greedy policy with respect to the current value function,
+
+u(t) = µ(x(t)) = arg max
+u∈U
+
+r(x(t),
+
+u)
+
++
+
+∂ V(x) ∂x
+
+f
+
+(x(t),
+
+u)
+
+,
+
+(4.1)
+
+using knowledge about the reward and the system dynamics.
+
+4.1 Continuous Actor-Critic. First, we derive a continuous version of the actor-critic method (Barto et al., 1983). By comparing equations 3.3 and 4.1, we can see that the TD error is maximized by the greedy action u(t). Accordingly, in the actor-critic method, the TD error is used as the reinforcement signal for policy improvement.
+We consider the policy implemented by the actor as
+
+u(t) = s A(x(t); wA) + σ n(t) ,
+
+(4.2)
+
+Reinforcement Learning in Continuous Time and Space
+
+227
+
+where A(x(t); wA) ∈ Rm is a function approximator with a parameter vector wA, n(t) ∈ Rm is noise, and s() is a monotonically increasing output func-
+tion. The parameters are updated by the stochastic real-valued (SRV) unit
+algorithm (Gullapalli, 1990) as
+
+w˙ iA
+
+=
+
+ηAδ(t)n(t)
+
+∂
+
+A(x(t); ∂ wiA
+
+wA)
+
+.
+
+(4.3)
+
+4.2 Value-Gradient Based Policy. In discrete problems, a greedy policy can be found by one-ply search for an action that maximizes the sum of the immediate reward and the value of the next state. In the continuous case, the right-hand side of equation 4.1 has to be minimized over a continuous set of actions at every instant, which in general can be computationally expensive. However, when the reinforcement r(x, u) is convex with respect to the action u and the system dynamics f (x, u) is linear with respect to the action u, the optimization problem in equation 4.1 has a unique solution, and we can derive a closed-form expression of the greedy policy.
+Here, we assume that the reward r(x, u) can be separated into two parts: the reward for state R(x), which is given by the environment and unknown, and the cost for action S(u), which can be chosen as a part of the learning strategy. We speciﬁcally consider the case
+
+m
+r(x, u) = R(x) − Sj(uj),
+j=1
+
+(4.4)
+
+where Sj() is a cost function for action variable uj. In this case, the condition for the greedy action, equation 4.1, is given by
+
+−Sj (uj )
+
++
+
+∂ V(x) ∂x
+
+∂ f (x, u) ∂ uj
+
+=
+
+0
+
+(j = 1, . . . , m),
+
+where
+
+∂ f (x,u) ∂ uj
+
+is
+
+the
+
+jth
+
+column
+
+vector
+
+of
+
+the
+
+n
+
+×
+
+m
+
+input
+
+gain
+
+matrix
+
+∂ f (x,u) ∂u
+
+of
+
+the
+
+system
+
+dynamics.
+
+We
+
+now
+
+assume
+
+that
+
+the
+
+input
+
+gain
+
+∂ f (x,u) ∂u
+
+is
+
+not
+
+dependent on u; that is, the system is linear with respect to the input and
+
+the action cost function Sj() is convex. Then the the above equation has a
+
+unique solution,
+
+uj = Sj−1
+
+∂V(x) ∂ f (x, u) ∂x ∂uj
+
+,
+
+where Sj() is a monotonic function. Accordingly, the greedy policy is represented in vector notation as
+
+u = S −1
+
+∂ f (x, u) T ∂V(x) T
+
+∂u
+
+∂x
+
+,
+
+(4.5)
+
+228
+
+Kenji Doya
+
+where
+
+∂V(x) T ∂x
+
+represents
+
+the
+
+steepest
+
+ascent
+
+direction
+
+of
+
+the
+
+value
+
+function,
+
+which
+
+is
+
+then
+
+transformed
+
+by
+
+the
+
+“transpose”
+
+model
+
+∂f
+
+(x,u) ∂u
+
+T
+
+into
+
+a
+
+direction
+
+in the action space, and the actual amplitude of the action is determined by
+
+gain function S −1().
+
+Note
+
+that
+
+the
+
+gradient
+
+∂ V(x) ∂x
+
+can
+
+be
+
+calculated
+
+by
+
+backpropagation
+
+when
+
+the value function is represented by a multilayer network. The assumption
+
+of linearity with respect to the input is valid in most Newtonian mechanical
+
+systems (e.g., the acceleration is proportional to the force), and the gain
+
+matrix
+
+∂ f (x,u) ∂u
+
+can
+
+be
+
+calculated
+
+from
+
+the
+
+inertia
+
+matrix.
+
+When
+
+the
+
+dynamics
+
+is linear and the reward is quadratic, the value function is also quadratic, and
+
+equation 4.5 coincides with the optimal feedback law for a linear quadratic
+
+regulator (LQR; see, e.g., Bertsekas, 1995).
+
+4.2.1 Feedback Control with a Sigmoid Output Function. A common con-
+straint in control tasks is that the amplitude of the action, such as the force
+or torque, is bounded. Such a constraint can be incorporated into the above
+policy with an appropriate choice of the action cost. Suppose that the amplitude of the action is limited as |uj| ≤ ujmax (j =
+1, . . . , m). We then deﬁne the action cost as
+
+uj
+Sj(uj) = cj s−1
+0
+
+u ujmax
+
+du,
+
+(4.6)
+
+where s() is a sigmoid function that saturates as s(±∞) = ±1. In this case, the greedy feedback policy, equation 4.5, results in feedback control with a sigmoid output function,
+
+uj = ujmaxs
+
+1 ∂ f (x, u) T ∂V(x) T
+
+cj ∂uj
+
+∂x
+
+.
+
+(4.7)
+
+In the limit of cj → 0, the policy will be a “bang-bang” control law,
+
+uj = ujmax sign
+
+∂ f (x, u) T ∂V(x) T
+
+∂ uj
+
+∂x
+
+.
+
+(4.8)
+
+4.3 Advantage Updating. When the model of the dynamics is not available, as in Q-learning (Watkins, 1989), we can select a greedy action by directly learning the term to be maximized in the HJB equation,
+
+r(x(t),
+
+u(t))
+
++
+
+∂ V∗ (x) ∂x
+
+f
+
+(x(t),
+
+u(t)).
+
+This idea has been implemented in the advantage updating method (Baird, 1993; Harmon et al., 1996), in which both the value function V(x) and the
+
+Reinforcement Learning in Continuous Time and Space
+
+229
+
+advantage function A(x, u) are updated. The optimal advantage function A∗(x, u) is represented in the current HJB formulation as
+
+A∗(x,
+
+u)
+
+=
+
+r(x,
+
+u)
+
+−
+
+1 τ
+
+V∗(x)
+
++
+
+∂ V∗ (x) ∂x
+
+f (x,
+
+u),
+
+(4.9)
+
+which takes the maximum value of zero for the optimal action u. The advantage function A(x, u) is updated by
+
+A(x,
+
+u)
+
+←
+
+max[A(x,
+u
+
+u)]
+
++
+
+r(x,
+
+u)
+
+−
+
+1 τ
+
+V∗(x)
+
++
+
+V˙ (x)
+
+= max[A(x, u)] + δ(t)
+u
+
+(4.10)
+
+under the constraint maxu[A(x, u)] = 0.
+
+The main difference between the advantage updating and the value-
+
+gradient-based policy described above is while the value V and the advan-
+
+tage A are updated in the former, the value V and the model f are updated
+
+and
+
+their
+
+derivatives
+
+are
+
+used
+
+in
+
+the
+
+latter.
+
+When
+
+the
+
+input
+
+gain
+
+model
+
+∂f
+
+(x,u) ∂u
+
+is known or easy to learn, the use of the closed-form policy, equation 4.5,
+
+in the latter approach is advantageous because it simpliﬁes the process of
+
+maximizing the right-hand side of the HJB equation.
+
+5 Simulations
+
+We tested the performance of the continuous RL algorithms in two nonlinear control tasks: a pendulum swing-up task (n=2, m=1) and a cart-pole swingup task (n=4, m=1). In each of these tasks, we compared the performance of three control schemes:
+
+1. Actor-critic: control by equation 4.2 and learning by equation 4.3
+
+2. Value-gradient-based policy, equation 4.7, with an exact gain matrix
+
+3. Value-gradient-based policy, equation 4.7, with concurrent learning of the input gain matrix
+
+The value functions were updated using the exponential eligibility trace
+
+(see equation 3.10) except in the experiments of Figure 6.
+
+Both the value and policy functions were implemented by normalized
+
+gaussian networks, as described in appendix B. A sigmoid output function
+
+s(x)
+
+=
+
+2 π
+
+arctan(
+
+π 2
+
+x)
+
+(Hopﬁeld,
+
+1984)
+
+was
+
+used
+
+in
+
+equations
+
+4.2
+
+and
+
+4.7.
+
+In order to promote exploration, we incorporated a noise term σ n(t) in
+
+both policies, equations 4.2 and 4.7 (see equations B.2 and B.3 in appendix B).
+
+We used low-pass ﬁltered noise τnn˙ (t) = −n(t) + N(t), where N(t) denotes normal gaussian noise. The size of the perturbation σ was tapered off as the
+
+performance improved (Gullapalli, 1990). We took the modulation scheme
+
+230
+
+Kenji Doya
+
+θ
+l T
+mg
+
+Figure 2: Control of a pendulum with limited torque. The dynamics were given by θ˙ = ω and ml2ω˙ = −µω + mgl sin θ + u. The physical parameters were m = l = 1, g = 9.8, µ = 0.01, and umax = 5.0. The learning parameters were τ = 1.0, κ = 0.1, c = 0.1, τn = 1.0, σ0 = 0.5, V0 = 0, V1 = 1, η = 1.0, ηA = 5.0, and ηM = 10.0, in the following simulations unless otherwise speciﬁed.
+
+σ
+
+=
+
+σ0
+
+min[1, max[0,
+
+V1 −V(t) V1 −V0
+
+]],
+
+where
+
+V0
+
+and
+
+V1
+
+are
+
+the
+
+minimal
+
+and
+
+max-
+
+imal levels of the expected reward.
+
+The physical systems were simulated by a fourth-order Runge-Kutta
+
+method, and the learning dynamics was simulated by a Euler method, both
+
+with the time step of 0.02 sec.
+
+5.1 Pendulum Swing-Up with Limited Torque. First, we tested the continuous-time RL algorithms in the task of a pendulum swinging upward with limited torque (see Figure 2) (Atkeson, 1994; Doya, 1996). The control of this one degree of freedom system is nontrivial if the maximal output torque umax is smaller than the maximal load torque mgl. The controller has to swing the pendulum several times to build up momentum and also has to decelerate the pendulum early enough to prevent the pendulum from falling over.
+The reward was given by the height of the tip of the pendulum, R(x) = cos θ. The policy and value functions were implemented by normalized gaussian networks with 15×15 basis functions to cover the two-dimensional state-space x = (θ, ω). In modeling the system dynamics, 15 × 15 × 2 bases were used for the state-action space (θ, ω, u).
+Each trial was started from an initial state x(0) = (θ (0), 0), where θ (0) was selected randomly in [−π, π]. A trial lasted for 20 seconds unless the pendulum was over-rotated (|θ | > 5π ). Upon such a failure, the trial was terminated with a reward r(t) = −1 for 1 second. As a measure of the swing-up performance, we deﬁned the time in which the pendulum stayed up (|θ | < π/4) as tup. A trial was regarded as “successful” when tup > 10 seconds. We used the number of trials made before achieving 10 successful trials as the measure of the learning speed.
+
+Reinforcement Learning in Continuous Time and Space
+
+231
+
+V
+
+1 0.5
+0 −0.5
+−1
+
+0
+
+π
+
+2π
+
+θ
+
+2π 0 −2π ω
+
+Figure 3: Landscape of the value function V(θ, ω) for the pendulum swing-up task. The white line shows an example of a swing-up trajectory. The state-space was a cylinder with θ = ±π connected. The 15 × 15 centers of normalized gaussian basis functions are located on a uniform grid that covers the area [−π, π] × [−5/4π, 5/4π].
+
+Figure 3 illustrates the landscape of the value function and a typical trajectory of swing-up using the value-gradient-based policy. The trajectory starts from the bottom of the basin, which corresponds to the pendulum hanging downward, and spirals up the hill along the ridge of the value function until it reaches the peak, which corresponds to the pendulum standing upward.
+5.1.1 Actor-Critic, Value Gradient, and Physical Model. We ﬁrst compared the performance of the three continuous RL algorithms with the discrete actor-critic algorithm (Barto et al., 1983). Figure 4 shows the time course of learning in ﬁve simulation runs, and Figure 5 shows the average number of trials needed until 10 successful swing-ups. The discrete actor-critic algorithm took about ﬁve times more trials than the continuous actor-critic. Note that the continuous algorithms were simulated with the same time step as the discrete algorithm. Consequently, the performance difference was due to a better spatial generalization with the normalized gaussian networks. Whereas the continuous algorithms performed well with 15 × 15 basis functions, the discrete algorithm did not achieve the task using 15×15, 20 × 20, or 25 × 25 grids. The result shown here was obtained by 30 × 30 grid discretization of the state.
+
+232
+
+Kenji Doya
+
+A
+20
+
+B
+20
+
+15
+
+15
+
+t_up
+
+t_up
+
+10
+
+10
+
+5
+
+5
+
+0 0
+C
+20
+
+500 1000 1500 2000 trials
+
+0 0
+D
+20
+
+50
+
+100
+
+150
+
+200
+
+trials
+
+15
+
+15
+
+t_up
+
+t_up
+
+10
+
+10
+
+5
+
+5
+
+0 0 20 40 60 80 100 trials
+
+0 0 20 40 60 80 100 trials
+
+Figure 4: Comparison of the time course of learning with different control
+schemes: (A) discrete actor-critic, (B) continuous actor-critic, (C) value-gradient-
+based policy with an exact model, (D) value-gradient policy with a learned
+model (note the different scales). tup: time in which the pendulum stayed up. In the discrete actor-critic, the state-space was evenly discretized into 30 ×30 boxes and the action was binary (u = ±umax). The learning parameters were γ = 0.98, λ = 0.8, η = 1.0, and ηA = 0.1.
+
+Trials
+
+400 350 300 250 200 150 100
+50 0 DiscAC ActCrit ValGrad PhysModel
+
+Figure 5: Comparison of learning speeds with discrete and continuous actorcritic and value-gradient-based policies with an exact and learned physical models. The ordinate is the number of trials made until 10 successful swing-ups.
+
+Reinforcement Learning in Continuous Time and Space
+
+233
+
+Among the continuous algorithms, the learning was fastest with the value-gradient-based policy using an exact input gain. Concurrent learning of the input gain model resulted in slower learning. The actor-critic was the slowest. This was due to more effective exploitation of the value function in the gradient-based policy (see equation 4.7) compared to the stochastically improved policy (see equation 4.2) in the actor-critic.
+
+5.1.2 Methods of Value Function Update. Next, we compared the methods of value function update algorithms (see equations 3.7, 3.8, and 3.10) using the greedy policy with an exact gain model (see Figure 6). Although the three algorithms attained comparable performances with the optimal settings for
+t and κ, the method with the exponential eligibility trace performed well in the widest range of the time constant and the learning rate. We also tested the purely symmetric update method (see equation 3.5), but its performance was very unstable even when the learning rates for the value and its gradient were tuned carefully.
+
+5.1.3 Action Cost, Graded Reward, and Exploration. We then tested how the performance depended on the action cost c, the shape of the reward function R(x), and the size of the exploration noise σ0. Figure 7A compares the performance with different action costs c = 0, 0.01, 0.1, and 1.0. The learning was slower with a large cost for the torque (c = 1) because of the weak output in the early stage. The results with bang-bang control (c = 0) tended to be less consistent than with sigmoid control with the small costs (c = 0.01, 0.1).
+Figure 7B summarizes the effects of the reward function and exploration noise. When binary reward function,
+
+R(x) =
+
+1 0
+
+|θ| < π/4 otherwise,
+
+was used instead of cos(θ), the task was more difﬁcult to learn. However, a better performance was observed with the use of negative binary reward function,
+
+R(x) =
+
+0 −1
+
+|θ | < π/4 otherwise.
+
+The difference was more drastic with a ﬁxed initial state x(0) = (π, 0) and no noise σ = 0, for which no success was achieved with the positive binary reward. The better performance with the negative reward was due to the initialization of the value function as V(x) = 0. As the value function near θ = π is learned as V(x) −1, the value-gradient-based policy drives the state to unexplored areas, which are assigned higher values V(x) 0 by default.
+
+234
+
+Kenji Doya
+
+Figure 6: Comparison of different value function update methods with different settings for the time constants. (A) Residual gradient (see equation 3.7). (B) Single-step eligibility trace (see equation 3.8). (C) Exponential eligibility (see equation 3.10). The learning rate η was roughly optimized for each method and each setting of time step t of the Euler approximation or time constant κ of the eligibility trace. The performance was very unstable, with t = 1.0 in the discretization-based methods.
+
+Reinforcement Learning in Continuous Time and Space
+
+235
+
+A 100
+
+80
+
+60
+
+Trials
+
+40
+
+20
+
+0
+B 100
+
+0.
+
+0.01
+
+0.1
+
+1.0
+
+control cost coef.
+
+80
+
+60
+
+Trials
+
+40
+
+20
+
+0
+
+cosθ {0,1} {-1,0} cosθ {0,1} {-1,0}
+
+σ0 = 0.5
+
+σ0 = 0.0
+
+Figure 7: Effects of parameters of the policy. (A) Control-cost coefﬁcient c. (B) Reward function R(x) and perturbation size σ0.
+
+5.2 Cart-Pole Swing-Up Task. Next, we tested the learning schemes in a more challenging task of cart-pole swing-up (see Figure 8), which is a strongly nonlinear extension to the common cart-pole balancing task (Barto et al., 1983). The physical parameters of the cart pole were the same as in Barto et al. (1983), but the pole had to be swung up from an arbitrary angle and balanced. Marked differences from the previous task were that the dimension of the state-space was higher and the input gain was state dependent.
+The state vector was x = (x, v, θ, ω), where x and v are the position and the velocity of the cart. The value and policy functions were implemented
+
+236 A
+B
+C
+
+Kenji Doya
+
+Figure 8: Examples of cart-pole swing-up trajectories. The arrows indicate the
+initial position of the pole. (A) A typical swing-up from the bottom position. (B) When a small perturbation ω > 0 is given, the cart moves to the right and
+keeps the pole upright. (C) When a larger perturbation is given, the cart initially
+tries to keep the pole upright, but then brakes to avoid collision with the end of
+the track and swings the pole up on the left side. The learning parameters were τ = 1.0, κ = 0.5, c = 0.01, τn = 0.5, σ0 = 0.5, V0 = 0, V1 = 1, η = 5.0, ηA = 10.0, and ηM = 10.0.
+
+Reinforcement Learning in Continuous Time and Space
+
+237
+
+by normalized gaussian networks with 7×7×15×15 bases. A 2×2×4×2×2
+
+basis network was used for modeling the system dynamics. The reward was
+
+given by
+
+R(x)
+
+=
+
+cos θ 2
+
+−1
+
+.
+
+When the cart bumped into the end of the track or when the pole over-
+
+rotated (|θ| > 5π ), a terminal reward r(t) = 1 was given for 0.5 second.
+
+Otherwise a trial lasted for 20 seconds. Figure 8 illustrates the control per-
+
+formance after 1000 learning trials with the greedy policy using the value
+
+gradient and a learned input gain model.
+
+Figure 9A shows the value function in the 4D state-space x = (x, v, θ, ω).
+
+Each of the 3 × 3 squares represents a subspace (θ, ω) with different values
+
+of (x, v). We can see the ∞-shaped ridge of the value function, which is
+
+similar to the one seen in the pendulum swing-up task (see Figure 3). Also
+
+note the lower values with x and v both positive or negative, which signal
+
+the danger of bumping into the end of the track.
+
+Figure 9B shows the most critical components of the input gain vector
+
+∂ ω˙ ∂u
+
+.
+
+The
+
+gain
+
+represents
+
+how
+
+the
+
+force
+
+applied
+
+to
+
+the
+
+cart
+
+is
+
+transformed
+
+as the angular acceleration of the pole. The gain model could successfully
+
+capture the change of the sign with the upward (|θ | < π/2) orientation and
+
+the downward (|θ| > π/2) orientation of the pole.
+
+Figure 10 is a comparison of the number of trials necessary for 100 suc-
+
+cessful swing-ups. The value-gradient-based greedy policies performed
+
+about three times faster than the actor-critic. The performances with the
+
+exact and learned input gains were comparable in this case. This was be-
+
+cause the learning of the physical model was relatively easy compared to
+
+the learning of the value function.
+
+6 Discussion
+
+The results of the simulations can be summarized as follows:
+1. The swing-up task was accomplished by the continuous actor-critic in a number of trials several times fewer than by the conventional discrete actor-critic (see Figures 4 and 5).
+2. Among the continuous methods, the value-gradient-based policy with a known or learned dynamic model performed signiﬁcantly better than the actor-critic (see Figures 4, 5, and 10).
+3. The value function update methods using exponential eligibility traces were more efﬁcient and stable than the methods based on Euler approximation (see Figure 6).
+4. Reward-related parameters, such as the landscape and the baseline level of the reward function, greatly affect the speed of learning (see Figure 7).
+5. The value-gradient-based method worked well even when the input gain was state dependent (see Figures 9 and 10).
+
+238
+A
+v
+
+θ −π 0
+
+Kenji Doya
+π 4π
+
+2.4
+
+0 ω
+
+−4π
+
+0.0
+V +0.021
+
+-2.4
+
+-0.347
+
+-2.4
+B
+v
+
+-0.715
+
+0.0
+
+2.4
+
+x
+
+θ −π 0 π
+4π
+
+2.4
+
+0 ω
+
+−4π
+
+0.0
+df/du +1.423
+
+-2.4
+
+-0.064
+
+-1.551
+
+-2.4
+
+0.0
+
+2.4
+
+x
+
+Figure 9: (A) Landscape of the value function for the cart-pole swing-up task.
+
+(B)
+
+Learned
+
+gain
+
+model
+
+∂ ω˙ ∂u
+
+.
+
+Reinforcement Learning in Continuous Time and Space
+
+239
+
+Figure 10: Comparison of the number of trials until 100 successful swing-ups with the actor-critic, value-gradient-based policy with an exact and learned physical models.
+
+Among the three major RL methods—the actor critic, Q-learning, and
+
+model-based look-ahead—only the Q-learning has been extended to contin-
+
+uous-time cases as advantage updating (Baird, 1993). This article presents
+
+continuous-time counterparts for all three of the methods based on the
+
+HJB equation, 2.6, and therefore provides a more complete repertoire of
+
+continuous RL methods. A major contribution of this article is the derivation
+
+of the closed-form policy (see equation 4.5) using the value gradient and
+
+the dynamic model. One critical issue in advantage updating is the need
+
+for ﬁnding the maximum of the advantage function on every control cycle,
+
+which can be computationally expensive except in special cases like linear
+
+quadratic problems (Harmon et al., 1996). As illustrated by simulation, the
+
+value-gradient-based policy (see equation 4.5) can be applied to a broad
+
+class of physical control problems using a priori or learned models of the
+
+system dynamics.
+
+The usefulness of value gradients in RL was considered by Werbos (1990)
+
+for discrete-time cases. The use of value gradients was also proposed by
+
+Dayan and Singh (1996), with the motivation being to eliminate the need for
+
+updating the value function in advantage updating. Their method, however,
+
+in
+
+which
+
+the
+
+value
+
+gradients
+
+∂V ∂x
+
+are
+
+updated
+
+without
+
+updating
+
+the
+
+value
+
+function V(x) itself, is applicable only to nondiscounted problems.
+
+When the system or the policy is stochastic, HJB equation 2.6 will include
+
+second-order partial derivatives of the value function,
+
+1 τ
+
+V∗(x(t))
+
+=
+
+max
+u(t)∈U
+
+r(x(t), u(t))
+
++
+
+∂ V∗ (x) ∂x
+
+f (x(t), u(t))
+
+240
+
+Kenji Doya
+
++ tr
+
+∂ 2 V∗ (x) ∂x2 C
+
+,
+
+(6.1)
+
+where C is the covariance matrix of the system noise (see, e.g., Fleming & Soner, 1993).
+In our simulations, the methods based on deterministic HJB equation 2.6 worked well, although we incorporated noise terms in the policies to promote exploration. One reason is that the noise was small enough so that the contribution of the second-order term was minor. Another reason could be that the second-order term has a smoothing effect on the value function, and this was implicitly achieved by the use of the smooth function approximator. This point needs further investigation.
+The convergent properties of HJB-based RL algorithms were recently shown for deterministic (Munos, 1997) and stochastic (Munos & Bourgine, 1998) cases using a grid-based discretization of space and time. However, the convergent properties of continuous RL algorithms combined with function approximators remain to be studied. When a continuous RL algorithm is numerically implemented with a ﬁnite time step, as shown in sections 3.2 and 3.3, it becomes equivalent to a discrete-time TD algorithm, for which some convergent properties have been shown with the use of function approximators (Gordon, 1995; Tsitsiklis & Van Roy, 1997). For example, the convergence of TD algorithms has been shown with the use of a linear function approximator and on-line sampling (Tsitsiklis & Van Roy, 1997), which was the case with our simulations.
+However, the above result considers value function approximation for a given policy and does not guarantee the convergence of the entire RL process to a satisfactory solution. For example, in our swing-up tasks, the learning sometimes got stuck in a locally optimal solution of endless rotation of the pendulum when a penalty for over-rotation was not given.
+The use of ﬁxed smooth basis functions has a limitation in that steep cliffs in the value or policy functions cannot be achieved. Despite some negative didactic examples (Tsitsiklis & Van Roy, 1997), methods that dynamically allocate or reshape basis functions have been successfully used with continuous RL algorithms, for example, in a swing-up task (Schaal, 1997) and in a stand-up task for a three-link robot (Morimoto & Doya, 1998). Elucidation of the conditions under which the proposed continuous RL algorithms work successfully—for example, the properties of the function approximators and the methods for exploration—remains the subject of future empirical and theoretical studies.
+Appendix A: HJB Equation for Discounted Reward
+According to the optimality principle, we divide the integral in equation 2.5 into two parts [t, t + t] and [t + t, ∞) and then solve a short-term opti-
+
+Reinforcement Learning in Continuous Time and Space
+
+241
+
+mization problem,
+
+V∗(x(t)) = max
+
+t+
+
+et
+
+−
+
+s−t τ
+
+r(x(s),
+
+u(s))ds+e−
+
+t τ
+
+V∗(x(t+
+
+t)) . (A.1)
+
+u[t,t+ t] t
+
+For a small t, the ﬁrst term is approximated as
+
+r(x(t), u(t)) t + o( t),
+
+and the second term is Taylor expanded as
+
+V∗(x(t +
+
+t))
+
+=
+
+V∗(x(t))
+
++
+
+∂V∗ ∂ x(t)
+
+f (x(t),
+
+u(t))
+
+t + o(
+
+t).
+
+By substituting them into equation A.1 and collecting V∗(x(t)) on the lefthand side, we have an optimality condition for [t, t + t] as
+
+(1
+
+−
+
+e−
+
+t τ
+
+)V∗(x(t))
+
+= max
+u[t,t+ t]
+
+r(x(t), u(t))
+
+t
+
++
+
+e−
+
+t τ
+
+∂V∗ ∂ x(t)
+
+f
+
+(x(t),
+
+u(t))
+
+t + o(
+
+t)
+
+. (A.2)
+
+By dividing both sides by t and taking t to zero, we have the condition for the optimal value function,
+
+1 τ
+
+V∗(x(t))
+
+=
+
+max
+u(t)∈U
+
+r(x(t), u(t))
+
++
+
+∂V∗ ∂x
+
+f (x(t), u(t))
+
+.
+
+(A.3)
+
+Appendix B: Normalized Gaussian Network
+
+A value function is represented by
+
+K
+V(x; w) = wkbk(x),
+k=1
+
+(B.1)
+
+where
+
+bk(x) =
+
+ak(x)
+
+K l=1
+
+al(x)
+
+,
+
+ak(x) = e− sTk (x−ck) 2 .
+
+The vectors ck and sk deﬁne the center and the size of the kth basis function. Note that the basis functions located on the ends of the grids are extended like sigmoid functions by the effect of normalization.
+In the current simulations, the centers are ﬁxed in a grid, which is analogous to the “boxes” approach (Barto et al., 1983) often used in discrete RL. Grid allocation of the basis functions enables efﬁcient calculation of their
+
+242
+
+Kenji Doya
+
+activation as the outer product of the activation vectors for individual input variables.
+In the actor-critic method, the policy is implemented as
+
+u(t) = umaxs
+
+wkAbk(x(t)) + σ n(t) ,
+
+k
+
+(B.2)
+
+where s is a component-wise sigmoid function and n(t) is the noise. In the value-gradient-based methods, the policy is given by
+
+u(t) = umaxs
+
+1 ∂ f (x, u) T c ∂u
+
+k
+
+wk
+
+∂ bk (x) ∂x
+
+T
+
++
+
+σ
+
+n(t)
+
+.
+
+(B.3)
+
+To implement the input gain model, a network is trained to predict the time derivative of the state from x and u,
+
+x˙(t) fˆ(x, u) = wkMbk(x(t), u(t)).
+k
+
+(B.4)
+
+The weights are updated by
+
+w˙ kM(t) = ηM(x˙(t) − fˆ(x(t), u(t)))bk(x(t), u(t)), and the input gain of the system dynamics is given by
+
+(B.5)
+
+∂ f (x, u) ∂u
+
+k
+
+wkM
+
+∂bk(x, u) ∂u
+
+.
+u=0
+
+Acknowledgments
+
+(B.6)
+
+I thank Mitsuo Kawato, Stefan Schaal, Chris Atkeson, and Jim Morimoto for their helpful discussions.
+
+References
+
+Asada, M., Noda, S., & Hosoda, K. (1996). Action-based sensor space categorization for robot learning. In Proceedings of IEEE/RSJ International Conference on Intelligent Robots and Systems (pp. 1502–1509).
+Atkeson, C. G. (1994). Using local trajectory optimizers to speed up global optimization in dynamic programming. In J. D. Cowan, G. Tesauro, & J. Alspector (Eds.), Advances in neural information processing system, 6 (pp. 663–670). San Mateo, CA: Morgan Kaufmann.
+Baird, L. C. (1993). Advantage updating (Tech. Rep. No. WL-TR-93-1146). Wright Laboratory, Wright-Patterson Air Force Base, OH.
+
+Reinforcement Learning in Continuous Time and Space
+
+243
+
+Baird, L. C. (1995). Residual algorithms: Reinforcement learning with function approximation. In A. Prieditis & S. Russel (Eds.), Machine learning: Proceedings of the Twelfth International Conference. San Mateo, CA: Morgan Kaufmann.
+Barto, A. G., Sutton, R. S., & Anderson, C. W. (1983). Neuronlike adaptive elements that can solve difﬁcult learning control problems. IEEE Transactions on Systems, Man, and Cybernetics, 13, 834–846.
+Bertsekas, D. P. (1995). Dynamic programming and optimal control. Cambridge, MA: MIT Press.
+Bradtke, S. J. (1993). Reinforcement learning applied to linear quadratic regulation. In C. L. Giles, S. J. Hanson, & J. D. Cowan (Eds.), Advances in neural information processing systems, 5 (pp. 295–302). San Mateo, CA: Morgan Kaufmann.
+Bradtke, S. J., & Duff, M. O. (1995). Reinforcement learning methods for continuous-time Markov decision problems. In G. Tesauro, D. S. Touretzky, & T. K. Leen (Eds.), Advances in neural information processing systems, 7 (pp. 393– 400). Cambridge, MA: MIT Press.
+Crites, R. H., & Barto, A. G. (1996). Improving elevator performance using reinforcement learning. In D. S. Touretzky, M. C. Mozer, & M. E. Hasselmo (Eds.), Advances in neural information processing systems, 8 (pp. 1017–1023). Cambridge, MA: MIT Press.
+Dayan, P., & Singh, S. P. (1996). Improving policies without measuring merits. In D. S. Touretzky, M. C. Mozer, & M. E. Hasselmo (Eds.), Advances in neural information processing systems, 8 (pp. 1059–1065). Cambridge, MA: MIT Press.
+Doya, K. (1996). Temporal difference learning in continuous time and space. In D. S. Touretzky, M. C. Mozer, & M. E. Hasselmo (Eds.), Advances in neural information processing systems, 8 (pp. 1073–1079). Cambridge, MA: MIT Press.
+Doya, K. (1997). Efﬁcient nonlinear control with actor-tutor architecture. In M. C. Mozer, M. I. Jordan, & T. P. Petsche (Eds.), Advances in neural information processing systems, 9 (pp. 1012–1018). Cambridge, MA: MIT Press.
+Fleming, W. H., & Soner, H. M. (1993). Controlled Markov processes and viscosity solutions. New York: Springer-Verlag.
+Gordon, G. J. (1995). Stable function approximation in dynamic programming. In A. Prieditis & S. Russel (Eds.), Machine learning: Proceedings of the Twelfth International Conference. San Mateo, CA: Morgan Kaufmann.
+Gordon, G. J. (1996). Stable ﬁtted reinforcement learning. In D. S. Touretzky, M. C. Mozer, & M. E. Hasselmo (Eds.), Advances in neural information processing systems, 8 (pp. 1052–1058). Cambridge, MA: MIT Press.
+Gullapalli, V. (1990). A stochastic reinforcement learning algorithm for learning real-valued functions. Neural Networks, 3, 671–192.
+Harmon, M. E., Baird, III, L. C., & Klopf, A. H. (1996). Reinforcement learning applied to a differential game. Adaptive Behavior, 4, 3–28.
+Hopﬁeld, J. J. (1984). Neurons with graded response have collective computational properties like those of two-state neurons. Proceedings of National Academy of Science, 81, 3088–3092.
+Kaelbling, L. P., Littman, M. L., & Moore, A. W. (1996). Reinforcement learning: A survey. Journal of Artiﬁcial Intelligence Research, 4, 237–285.
+
+244
+
+Kenji Doya
+
+Mataric, M. J. (1994). Reward functions for accelerated learning. In W. W. Cohen & H. Hirsh (Eds.), Proceedings of the 11th International Conference on Machine Learning. San Mateo, CA: Morgan Kaufmann.
+Moore, A. W. (1994). The parti-game algorithm for variable resolution reinforcement learning in multidimensional state-spaces. In J. D. Cowan, G. Tesauro, & J. Alspector (Eds.), Advances in neural information processing systems, 6 (pp. 711– 718). San Mateo, CA: Morgan Kaufmann.
+Morimoto, J., & Doya, K. (1998). Reinforcement learning of dynamic motor sequence: Learning to stand up. In Proceedings of IEEE/RSJ International Conference on Intelligent Robots and Systems, 3, 1721–1726.
+Munos, R. (1997). A convergent reinforcement learning algorithm in the continuous case based on a ﬁnite difference method. In Proceedings of International Joint Conference on Artiﬁcial Intelligence (pp. 826–831).
+Munos, R., & Bourgine, P. (1998). Reinforcement learning for continuous stochastic control problems. In M. I. Jordan, M. J. Kearns, & S. A. Solla (Eds.), Advances in neural information processing systems, 10 (pp. 1029–1035). Cambridge, MA: MIT Press.
+Pareigis, S. (1998). Adaptive choice of grid and time in reinforcement learning. In M. I. Jordan, M. J. Kearns, & S. A. Solla (Eds.), Advances in neural information processing systems, 10 (pp. 1036–1042). Cambridge, MA: MIT Press.
+Peterson, J. K. (1993). On-line estimation of the optimal value function: HJBestimators. In C. L. Giles, S. J. Hanson, & J. D. Cowan (Eds.), Advances in neural information processing systems, 5 (pp. 319–326). San Mateo, CA: Morgan Kaufmann.
+Schaal, S. (1997). Learning from demonstration. In M. C. Mozer, M. I. Jordan, & T. Petsche (Eds.), Advances in neural information processing systems, 9 (pp. 1040– 1046). Cambridge, MA: MIT Press.
+Singh, S., & Bertsekas, D. (1997). Reinforcement learning for dynamic channel allocation in cellular telephone systems. In M. C. Mozer, M. I. Jordan, & T. Petsche (Eds.), Advances in neural information processing systems, 9 (pp. 974– 980). Cambridge, MA: MIT Press.
+Singh, S. P., Jaakkola, T., & Jordan, M. I. (1995). Reinforcement learning with soft state aggregation. In G. Tesauro, D. S. Touretzky, & T. K. Leen (Eds.), Advances in neural information processing systems, 7 (pp. 361–368). Cambridge, MA: MIT Press.
+Sutton, R. S. (1988). Learning to predict by the methods of temporal difference. Machine Learning, 3, 9–44.
+Sutton, R. S. (1995). TD models: Modeling the world at a mixture of time scales. In Proceedings of the 12th International Conference on Machine Learning (pp. 531– 539). San Mateo, CA: Morgan Kaufmann.
+Sutton, R. S. (1996). Generalization in reinforcement learning: Successful examples using sparse coarse coding. In D. S. Touretzky, M. C. Mozer, & M. E. Hasselmo (Eds.), Advances in neural information processing systems, 8 (pp. 1038– 1044). Cambridge, MA: MIT Press.
+Sutton, R. S., & Barto, A. G. (1998). Reinforcement learning. Cambridge, MA: MIT Press.
+
+Reinforcement Learning in Continuous Time and Space
+
+245
+
+Tesauro, G. (1994). TD-Gammon, a self teaching backgammon program, achieves master-level play. Neural Computation, 6, 215–219.
+Tsitsiklis, J. N., & Van Roy, B. (1997). An analysis of temporal-difference learning with function approximation. IEEE Transactions on Automatic Control, 42, 674– 690.
+Watkins, C. J. C. H. (1989). Learning from delayed rewards. Unpublished doctoral dissertation, Cambridge University.
+Werbos, P. J. (1990). A menu of designs for reinforcement learning over time. In W. T. Miller, R. S. Sutton, & P. J. Werbos (Eds.), Neural networks for control (pp. 67–95). Cambridge, MA: MIT Press.
+Zhang, W., & Dietterich, T. G. (1996). High-performance job-shop scheduling with a time-delay TD(λ) network. In D. S. Touretzky, M. C. Mozer, & M. E. Hasselmo (Eds.), Advances in Neural Information Processing Systems, 8. Cambridge, MA: MIT Press.
+
+Received January 18, 1998; accepted January 13, 1999.
+

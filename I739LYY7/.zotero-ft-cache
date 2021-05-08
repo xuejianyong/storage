@@ -1,0 +1,1413 @@
+Available online at www.sciencedirect.com
+ScienceDirect
+Cognitive Systems Research 41 (2017) 1–35
+
+www.elsevier.com/locate/cogsys
+
+Autonomous construction and exploitation of a spatial memory by a self-motivated agent
+Action editor: P. Erdi Simon L. Gay a,⇑, Alain Mille a, Olivier L. Georgeon a, Alain Dutech b
+a Universite´ de Lyon, CNRS, LIRIS, UMR5205, F-69622, France b Universite´ de Lorraine, CNRS, LORIA, UMR7503, Vandœuvre-le`s-Nancy F-54506, France
+Received 20 November 2015; received in revised form 14 July 2016; accepted 21 July 2016 Available online 10 August 2016
+
+Abstract
+We propose an architecture for self-motivated agents allowing them to construct their own knowledge of objects and of geometrical properties of space through interaction with their environment. Self-motivation is deﬁned here as a tendency to experiment and to respond to behavioral opportunities aﬀorded by the environment. Interactions have predeﬁned valences that specify inborn behavioral preferences. The long-term goal is to design agents that construct their own knowledge of their environment through experience, rather than exploiting pre-coded knowledge. Over time, the agent learns relations between elements of the environment that aﬀord its interactions, and its perception of these elements, in the form of data structures called signatures of interactions. These signatures allow the agent to attribute a low level semantics to elements that constitute its environment based on valences of interactions, without predeﬁned knowledge about these elements and regardless of the number of element types. Signatures of interaction are then used to localize elements in space and to construct data structures that characterize spatial properties of space, called signatures of places and signatures of presence. Signatures of place and of presence characterize space using interactions rather than geometrical or topological properties. The agent uses these structures to maintain an egocentric representation of aﬀordances of the surrounding environment, without any preconception about the elements that compose the environment, and without using notions of geometrical space. Experiments with simulated agents show that they learn to behave in their environment, taking into account multiple surrounding objects, reaching or avoiding objects according to the valence of the interactions that they aﬀord. Ó 2016 Elsevier B.V. All rights reserved.
+Keywords: Aﬀordance; Learning (artiﬁcial intelligence); Developmental learning; Interactionism; Intrinsic motivation; Spatial awareness
+
+1. Introduction
+We propose a mechanism that allows an artiﬁcial agent to construct, interpret, and exploit a short-term memory of its surrounding environment, without using ontological preconception about its environment or its sensorimotor possibilities. The agent’s purpose is to generate behaviors that satisfy its self-motivational principles. Such an agent
+⇑ Corresponding author. E-mail address: simon.gay@liris.cnrs.fr (S.L. Gay).
+http://dx.doi.org/10.1016/j.cogsys.2016.07.004 1389-0417/Ó 2016 Elsevier B.V. All rights reserved.
+
+can be deﬁned as environment-agnostic (Georgeon & Sakellariou, 2012).
+Utilization of a spatial memory must allow the agent to integrate the surrounding elements of its environment. In particular, the spatial memory must memorize elements that slip out of range of the agent’s sensory system so the agent can keep track of them. It must also help the agent to discover spatial properties of its environment, by capturing spatial regularities oﬀered by the environment. The spatial memory must thus construct a complete context that characterizes the agent’s environment. The construction
+
+2
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+of such a spatial memory relates to the problem of space integration, which is faced by living beings as well as artiﬁcial agents.
+We base our work on a design principle introduced by Georgeon and Aha (2013), called Radical Interactionism (RI). RI intends to account for cognitive theories that suggest that sensorimotor patterns of interaction are the primary bricks of cognition (e.g. Piaget, 1954). In the RI formalism, the agent is given a predeﬁned set of actions A that the agent can perform in the environment, and a predeﬁned set of results R that the agent gets from the environment as the result of an action. The agent’s input data is called result rather than observation or perception because it does represent the state of the environment. In a given state of the environment, the agent may get a diﬀerent result rt 2 R depending on the action at 2 A. On the contrary, if we used the terms observation or perception, the reader would expect that the agent’s input data would depend on the state of the environment only. The terms observation and perception are used in many articles to mean exactly that. By using the term result, we wish to highlight this crucial diﬀerence from these articles.
+The RI formalism deﬁnes an interaction i as a couple made of an action and a result: i ¼ ha; ri=a 2 A; r 2 R; i 2 I, where I is the set of interactions, I ¼ A Â R. Interactions represent Piagetians sensorimotor schemes and are the core elements of the RI model. An RI agent uses interactions as atomic elements.
+The RI formalism deﬁnes the valence function m : IÀ!R that associates a numerical valence with each interaction. We develop agents that seek to perform interactions that have a positive valence and to avoid performing interactions that have a negative valence. This motivational principle is called interactional motivation (Georgeon, Marshall, & Gay, 2012), and is related to the problem of intrinsic motivation (Oudeyer, Kaplan, & Hafner, 2007). The agent perceives its environment by identifying aﬀordances in the environment rather than by recognizing objects on the basis of predeﬁned features. This approach addresses the knowledge-grounding problem (Harnad, 1990) by letting knowledge of objects and spatial properties arise from experience of interaction, introducing no discontinuity between the agent’s experience and the representation of objects and space.
+1.1. How to integrate space management in an autonomous agent according to the RI paradigm?
+Georgeon and Ritter (2011) have developed a sequential RI algorithm that allows an agent to autonomously capture and exploit sequential regularities of interaction oﬀered by the coupling between the agent and the environment. This algorithm constructs hierarchical sequences of interactions that represent these regularities, starting from short sequences, and building increasingly longer sequences of sequences in a bottom-up fashion. However, this kind of agents had troubles organizing their behaviors in space and
+
+did not detect the persistence of objects. As an example, the agent could not detect that turning 90° left three times is equivalent to turning 90° right once. Moreover, the agent ceased to pursue objects when they slipped out of range of the agent’s sensory system, even if the objects were just behind the agent.
+To overcome these limitations, the challenge is to develop a mechanism that allows an artiﬁcial agent to construct, maintain and exploit a short-term internal model of the environmental context. Moreover, a second challenge is to be able to cope with objects that compose this environment in terms of interactions. All of this has to be obtained by and for generating behaviors that satisfy the agent’s motivational principles.
+In this context, we do not try to develop a path planning mechanism, neither are we designing a mapping algorithm. Instead, we decided to consider mechanisms inspired by simple living beings as a good starting point to take up these challenges.
+1.2. Inspiration from biology
+Learning to integrate and maintain a representation of the surrounding environment, and memorizing the position of elements present the environment, are vital abilities for many living beings, that help them to avoid dangerous areas or to move toward interesting objects. Considering artiﬁcial agents, such abilities help them to construct an internal model without pre-conceptions about the agent’s sensorimotor properties. We drew inspiration from vertebrates, for which space is integrated in several brain areas, such as tectum (Northmore, 2011) (or colliculus in mammals), sensorimotor cortices (Graziano, Taylor, & Moore, 2002), or hippocampus (O’Keefe & Dostrovsky, 1971). These areas maintain a certain correspondence with spatial positions (Cotterill, 2001). Previc (1998) proposes a model of space divided into four areas. Each area handles an area of the surrounding space with a predeﬁned purpose: the peripersonal space, that consists of the space the agent can directly reach; the action extrapersonal space, that consists of the space the agent can reach through movements in space; the focal extrapersonal space, which is the area around the point observed by the visual system (in living beings equipped with a fovea); and the ambient extrapersonal space, which takes into account the far environment, used as a reference for orientation in space.
+We limit the work presented in this paper to the peripersonal and the extra-personal spaces. We believe that these two areas are necessary for rudimentary living beings to survive. Indeed, vision and space management of ﬁsh and reptiles is mainly based on the optic tectum and may not have very advanced brain structures related to space management, such as sensorimotor cortices and hippocampus, and few species have a fovea.
+The peripersonal space can be considered as the space in which an agent can interact directly or after a short movement that can be considered as a part of the interaction.
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+3
+
+The extrapersonal space can be considered as the region of space (in egocentric reference) with which an agent can interact after a movement, limited to the region of space that the space memory can integrate. The extrapersonal space incorporates the peripersonal space. We can thus study the extrapersonal space without a peripersonal space integration mechanism. In a previous work, we proposed a mechanism that integrates peripersonal space (Gay & Georgeon, 2013). In this paper, we focus on mechanisms that integrate the extrapersonal space.
+1.3. A spatial agnostic agent: which principles should be respected?
+We have to deﬁne the set of principles we consider necessary for an environmentally agnostic agent to exhibit spatial behaviors that are adapted to an initially unknown environment. Exhibited behaviors have to respect ﬁve main principles:
+Principle 1 (P1): the agent must be intrinsically motivated to ensure that its motivation principles do not rely on a direct access to environment properties or on any external inﬂuence. Principle 2 (P2): the agent must consider objects that compose its environment by itself, based on its sensorimotor possibilities, rather than using a predeﬁned set of object descriptors. Principle 3 (P3): the agent must be able to integrate its surrounding environment in a form it can exploit. This property implies that the agent must be able to discover and integrate spatial properties of its environment and recognize previously deﬁned objects in its environment. Principle 4 (P4): the agent must be able to consider the permanence of objects, i.e. the agent must learn to build its memory in such a way that it can track object positions even when it cannot interact with them anymore. Principle 5 (P5): the agent must exploit the structures it constructs and its internal model of its environment to generate behaviors that satisfy its motivational principles.
+This paper is divided in three parts: the ﬁrst part gives a state of the art of the problem of space integration and generation of behavior based on experience, and summarizes our previous work (Section 2). The second part details the mechanisms we propose to allow an artiﬁcial agent to integrate its surrounding environment without preconception about the environment (Sections 3 and 4). We use the agent employed in our experiments to illustrate principles and mechanisms of our system. The third part presents the experiments we provided to test our mechanisms (Section 5).
+2. State of the art
+The ﬁve principles, as deﬁned in the previous section, are well studied in the literature. However, these properties were studied separately. The sensorimotor approach
+
+requires that these principles must be respected simultaneously to generate behaviors based on a complete sensorimotor loop.
+The following state of the art lists representative works that exhibit the right properties to respect one or more principles. The diﬀerent contributions are presented with corresponding studied principles (in parentheses).
+2.1. Building knowledge from experience
+Theories of cognition (e.g. O’Regan, 2011; Piaget, 1954) assume that the knowledge of our world arises from our interaction with this world. We consider this property to be fundamental as it ensures that an agent experiences its environment through its possibilities of interaction rather than accessing diﬀerent states of the environment, which would be completely independent from it. This section lists relevant works in the domain of the developmental approach for artiﬁcial intelligence (Developmental AI in short) and the emergence of the notion of object based on interactional experience with the environment.
+2.1.1. Decisional learning mechanisms in Developmental AI Oudeyer et al. (2007) proposed a developmental learning
+mechanism that generates a preference for actions allowing fastest learning progress (P1). This approach helps to deﬁne priorities in the learning process. This approach respects the principle of environmental agnosticism, as the agent has no a priori information on its interactions and its environment, and generates behaviors that satisfy its curiosity principle based on information acquired through its interaction with its environment (P5). However, this mechanism cannot integrate spatial properties of the environment and elements that compose it, and cannot generate spatial behaviors.
+Nguyen et al. (2013) and Ivaldi et al. (2014) proposed a curiosity mechanism that leads a robot to learn to recognize objects by manipulating them and observing their properties. These approaches focus on learning new knowledge and allow generation of behaviors based on a form of intrinsic motivation (P1). They are however limited to learning mechanisms based on a form of curiosity that leads an artiﬁcial agent to discover behaviors but cannot exploit them.
+Blank, Kumar, Meeden, and Marshall (2005) deﬁned a hierarchical learning mechanism where each level deﬁnes an abstraction of lower level information and learns to predict this information. The learning mechanism tries to reach environment states where information is predictable and allows fast learning. This approach autonomously generates and exploits hierarchic behaviors (P5), but is based on environment states, which infringes the principle of environmental agnosticism.
+2.1.2. Object discovering and exploitation through interactions
+Autonomous construction of objects is an important principle in our mechanisms. Indeed, such an ability makes
+
+4
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+the agent independent from its environment, as there is no need to deﬁne a priori the elements that compose the environment. This ability also allows the agent to give a meaning to elements of the environment, according to the possibilities of interactions aﬀorded by these elements.
+Maye and Engel (2011) proposed that a robot can learn to categorize and recognize objects through sequences of interactions aﬀorded by these objects (P1). The agent thus generates internal object models based on its abilities to detect and interact with them (P2). This principle can however only discover and learn sequential properties of the environment and elements that compose it, and cannot be used to integrate spatial properties of the environment.
+Hermans, Rehg, and Bobick (2011) deﬁned a mechanism in which a robot learns to predict properties of objects according to their visual properties (such as color, texture, shape and size). Deﬁning properties of objects according to their visual properties allows these objects to be deﬁned in terms of interactional properties (P2). However, the elements are automatically centered in the camera image, which implies predeﬁned preconditions about elements of the environment.
+Cos-Aguilera, Can˜ amero, and Hayes (2004) used a Self Organizing Map (SOM) to consider object classes. The utilization of a SOM enables the agent to deﬁne objects without knowing a priori the number of element types in the environment (P2). The agent moves randomly in its environment: this mechanism cannot detect spatial regularities and cannot generate spatial behaviors.
+Griﬃth, Sukhoy, Wegter, and Stoytchev (2012) proposed an approach in which a robot learns to use acoustic properties of objects and proprioceptive stimuli of arms while manipulating these objects under a sink (P2). Griﬃth, Sinapov, Sukhoy, and Stoytchev (2012) proposed a similar approach where the robot learns to separate containers from non-containers by manipulating them (P2). These approaches are based on the segmentation of objects according to proposed aﬀordance, but cannot be used to generate behaviors.
+Pfeifer and Scheier (1994) proposed a mechanism in which a robot learns to recognize and generate implicit object models that can be lifted and pushed, and obstacles, according to its sensors. The generated implicit models depend of the gripper size of the robot, and its experience of its environment (P1, P2). However, this mechanism cannot recognize distant objects or integrate the surrounding environment.
+Montesano and Lopes (2009) proposed a model that allows a robot to determine if an object can be grasped according to visual properties (P2). Although this model cannot generate behaviors, the emergent knowledge can be directly used by the agent.
+Ug˘ur, Dog˘ar, C¸ akmak, and Sßahin (2007) proposed a mechanism in which a simulated or physical robot learns to deﬁne relevant information in its perception that allows the result of its actions (a set of trajectories) to be predicted
+
+(P1). This mechanism allows the robot to navigate in a cluttered environment by avoiding or pushing obstacles (depending on their shapes) (P5). The agent constructs implicit models of elements (P2), but they cannot be used to recognize distant objects or integrate the surrounding environment.
+Baleia, Santana, and Barata (2014) proposed a similar approach, but added an arm used by the robot to probe the environment in front of the robot, when the properties of the environment cannot be deﬁned with a suﬃcient certitude, implementing a form of active perception (P1, P2, P5). However, as described above, this approach cannot integrate the surrounding environment.
+These works study the problem of discovering and exploiting objects of the environment by an autonomous and artiﬁcial agent. However, the structures learned during object discovering cannot be used to discover and integrate spatial properties of the environment, which dramatically limits the ability to exploit these structures to generate spatial behaviors.
+2.2. Space integration
+Integrating surrounding space is necessary when an agent needs to localize an element of the environment in order to reach or avoid it. It is even more necessary to keep track of elements when they cannot be observed directly through interactions anymore. Integrating space thus consists in constructing a structure that can track elements in an exploitable way. The memory process has to be able to update this structure to follow the considered elements.
+2.2.1. Peripersonal space The peripersonal space consists of the close surrounding
+environment with which the agent can directly interact. Integrating this space helps the agent to deﬁne possible actions in its current context.
+Detry et al. (2009) proposed an approach in which a robotic arm computes positions from where an object can be grasped, which allows the robot to grasp an object without any ontological preconception about this object (P2, P3). Gripper positions are however computed according to a predeﬁned model of the arm.
+Pierce and Kuipers (1997) proposed to construct the topological structure deﬁned by an initially uninterpreted set of sensors, using similarities between sensor values (P1). This mechanism allows an agent to construct a map of its immediate surrounding environment, and deﬁne movements associated with its actions (P2, P3 (limited to close space)). The agent then uses this model to navigate in its environment, but the model is limited to close space (P5).
+Fuke, Ogino, and Asada (2007, 2009), and Chinellato, Antonelli, Grzyb, and del Pobil (2010) proposed models that generate implicit links between positions in the visual space and positions that a robotic arm can reach, and localize tactile stimuli in space (P3). These models are not
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+5
+
+based on a Cartesian reference, but on an interactional reference (P1). This model is however limited to visual and reachable space and cannot generate behavior.
+2.2.2. Extrapersonal space Extrapersonal space is the area of the surrounding space
+in which an agent has to move before being able to interact with interesting elements. Integrating the extrapersonal space implies recognizing distant aﬀordances, and being able to behave in order to reach them.
+Kawamura, Koku, Wilkes, Peters, and Sekmen (2002) proposed a navigation mechanism based on an egosphere. The ego-sphere consists in projecting points of interest of the environment on a sphere centered on the agent. Points of interest are thus considered by their polar coordinates on the sphere. The agent can then navigate in its environment by comparing sets of points of interest (P3, P5). However, this mechanism does not take distance into consideration and thus does not provide a way to localize the points of interest in space. There is thus no possibility to determine how to reach them.
+Lagoudakis and Maida (1999) proposed a mechanism named polar neural map to allow an agent to navigate toward a place, while avoiding obstacles in the surrounding environment. This map considers the surrounding elements in a polar representation and the orientation of the place to reach (P3, P5). However, this mechanism is based on predeﬁned movements in space, and needs a predeﬁned place as a goal to guide the agent.
+These works study the problem of learning and exploiting a structure that represents spatial properties of the environment. Learning a structure that characterizes the peripersonal space is well studied in literature, but only a few works study the problem of integrating extrapersonal space. In the presented works, extra-personal space representation is based on a predeﬁned structure that cannot provide information about the distance of elements in the environment. Moreover, these works do not rely on autonomously learned structures to represent elements of the environment, such as works presented in Section 2.1. Using learned structures to build a structure that characterizes peri and extrapersonal space is however required for an agnostic agent to generate behaviors adapted to its environmental context.
+2.3. Sensorimotor contingencies learning
+The model proposed by Ug˘ur et al. (2007) is very close to our interaction signature mechanism (described in Section 4.1). These authors propose to determine the possibilities of actions (a set of forward movements ranged from turn-sharp-right to turn-sharp-left) according to visual information. The agent learns to extract relevant visual information that can be used to determine when an action is possible, both because there is no object on the agent’s path and because the object can be pushed. The agent can then navigate in a cluttered environment while avoiding or pushing obstacles without any preconception about
+
+the environment and the objects composing it. However, this mechanism cannot be used to integrate extrapersonal space: as the agent uses perceptions to deﬁne the traversability of the environment, it cannot exploit the learned structures to discover the spatial properties of its environment, or take distant elements into consideration.
+2.4. Previous studies based on Radical Interactionism and spatial learning
+Georgeon, Marshall, and Manzotti (2013) associated an RI mechanism with a spatial memory within a cognitive architecture called the Enactive Cognitive Architecture (ECA). The agent was provided with the coordinates of the enacted interactions in an egocentric referential. Knowing the spatial position of enacted interactions, the agent could detect when they overlapped. From spatial overlaps of enacted interactions, the agent could infer the presence of objects in the surrounding space that aﬀorded these interactions. The agent learned to represent categories of objects by the set of interactions that they aﬀorded. This model required the strong assumption that the agent received information about the position of enacted interaction. The present study aims at removing this assumption. Another limitation of this model was that it was unable to deal with objects that could be changed by the agent (e.g. a preys that disappear after being eaten). The present study also seeks to overcome this limitation.
+3. The Radical Interactionism (RI) approach
+The Radical Interactionism (RI) model (Georgeon & Aha, 2013) considers the exchanges between an agent and its environment in the form of sensorimotor schemes called interactions, rather than separated actions and perceptions. The RI model does not require the notion of environment states or extrinsic reward, which is compliant with the principle of environmental agnosticism. The agent thus actively discovers its environment through successive interactions with the environment, and constructs its perception as an internal model based on interactions.
+Considering interactions rather than separated actions and perceptions has the advantage of considering both the possibilities of interactions provided by the environment, related to initially unknown objects, and the initially unknown movement produced by an interaction. Indeed, an action or a perception alone cannot provide information about the agents movement because an action can fail and a perception can be observed as a consequence of several actions. Using interactions thus helps to deﬁne movements of the agent and to construct a structure to characterize a spatial environmental context.
+3.1. Formalization of the RI model
+The RI interaction cycle begins with the agent selecting and trying to enact an intended interaction it 2 I (as
+
+6
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+deﬁned in Section 1). Enacting interaction i ¼ ha; ri consists of performing action a (through activating actuators), and receiving result r (through sensors). The process of enaction of i is programmed by the designer of the agent but is ignored by the agent. At the end of the interaction cycle, the agent gets the enacted interaction et that was actually enacted. Fig. 1 shows this enaction cycle, from the agent’s point of view. The enaction of it is a success if et ¼ it, and a failure otherwise. In a given state of the environment, the enacted interaction depends on the intended interaction. Therefore, the agents input data (the enacted interaction) does not represent the state of the environment, and thus does not constitute the agents perception. Instead, perception is an internal construction maintained by the agent according to its experience interacting with the environment. The agent selects next intended interaction during the next enaction cycle according to this internal construction.
+The valence function m (introduction in Section 1) deﬁnes the agents behavioral preferences, without using an extrinsic reward. An RI agent learns to anticipate the results of its interactions, tries to enact interactions with high valences, and tries to avoid enacting interactions with negative valence. As a result, to an external observer, the agent seems to like enacting interactions that have a positive valence and to dislike enacting interactions that have a negative valence.
+The RI model diﬀers from standard reinforcement learning approaches (e.g. POMDP, A stro¨ m, 1965) in that it does not aim at maximizing a reward value. Rather, the agent learns behaviors that satisfy the interactional motivation principle. The RI model does not use rewards deﬁned as a function of the environmental state; it uses valences associated with enacted interactions. Moreover, the RI model does not refer to the environment states: for the agent, the environment is opaque and can only be accessed by experiencing it through interaction, which satisﬁes the principle of environmental agnosticism. A RI agent is evalu-
+Fig. 1. Comparison between POMDP (left) and RI (right). The RI cycle begins with an intended interaction it selected by the agent, as opposed to the POMDP cycle, which begins with the agent receiving an observation yt. This inversion of the interaction cycle is materialized in the ﬁgure by the black circle (beginning) and the black arrowhead (end). The RI model does not refer to the notion of environmental states: for the agent, the environment is opaque and can only be accessed by experiencing it through interactions. The agent’s motivation is intrinsic: the agent experiences the satisfaction from the enaction of an interaction rather than from an external reward based on some environmental state.
+
+ated through its behavior and through the structures that it learns, according to a set of criteria (Georgeon & Sakellariou, 2012) inspired by the developmental robotics domain (Lungarella, Metta, Pfeifer, & Sandini, 2003; Weng et al., 2001).
+3.2. Formalization of the Parallel RI model
+To overcome the limitations of the RI model presented in Sections 1.1 and 2.4, this paper proposes an extension of the RI model, called Parallel Radical Interactionism (PRI). The PRI is similar to the RI in principle, but diﬀers in that it allows the agent to simultaneously experience several enacted interactions. The intuition comes from living beings that feel multiple sensory stimuli while interacting with their environment. For example, an animal can move forward, and simultaneously experience the optical ﬂow and the Doppler eﬀect that result from this movement. We thus propose that the agent can get additional results, in addition to the result that belongs to the enacted interaction. In the PRI model, we distinguish between two kinds of results: primary results r 2 R0 and secondary results r00 2 R00, with the set of all results R ¼ R0 [ R00 However, secondary results cannot be considered without the movement produced by the enacted interaction. As an example, the optic ﬂow on the retina can only convey spatial information if it is considered with the movement that generates it. We also cannot construct new interactions by associating the result with the action that composes the enacted interaction, because an action is not suﬃcient to characterize the movement of the agent. This led us to distinguish between primary interactions and secondary interactions: A primary interaction i0 ¼ ha; ri 2 I0 ¼ E Â R0 is the association of an action with a primary result. Primary interactions of the PRI model are similar to interactions of the RI model. A secondary interaction i00 ¼ hi; r00i 2 I00 ¼ I0 Â R00 is the association of a primary interaction with a secondary result. Secondary interactions are speciﬁc to the PRI model. They are meant to convey additional results appended to the primary interaction i0.
+At enaction cycle t, the agent selects and tries to enact an intended primary or secondary interaction it 2 I ¼ I0 [ I00. The diﬀerence with the RI model is that, at the end of the enaction cycle t, the agent experiences a set of enacted interactions Et ¼ fekgt (Fig. 2). The set of enacted interactions Et contains one primary interaction only plus a set (possibly empty) of enacted secondary interactions associated with this primary interaction. It constitutes a representation of the current context as the agent experiences it through interactions; we thus call the set Et the interactional context.
+The PRI model keeps track of the success or failure of enactions in a more extended way than the RI model. In the case of a primary interaction, an interaction i is marked as successfully enacted at enaction cycle t when i 2 Et, whether it was intended or not. A primary interaction i is
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+7
+
+Fig. 2. Diagram of the Parallel Radical Interactionism model (adapted from the RI model). At enaction cycle t, the agent tries to enact an intended interaction it, and gets a set of enacted interactions Et ¼ fekgt, that constitutes the interactional context experienced by the agent.
+marked as failed when i is intended but not enacted (i.e. i ¼ it ^ i R Et). This means that another interaction j – i is enacted instead of i. If an interaction j can be enacted instead of an interaction i, and i and j are never enacted simultaneously, we can consider that j is an alternative of i. We deﬁne that two interactions i and j are opposite if i and j are mutually alternatives. As a consequence, if an opposite interaction j of i is enacted (i.e. j 2 Et), then the interaction i is marked as failed, even if it was not intended.
+All the secondary enacted interaction (elements of Et \ I) are marked as successfully enacted on time t. All the secondary interactions that do not belong to Et but whose associated primary interaction belongs to Et are marked as failed on time t.
+3.3. Implementation of the PRI model in an artiﬁcial agent
+Based on the PRI model, we designed an artiﬁcial agent that moves in a 2-dimensional environment. This environment contains several objects that aﬀord several possibilities of interaction to the agent. The agent has ﬁve possible actions: move forward of its length, turn left of 90°, turn right of 90°, turn left of 45°, and turn right of 45°. The agent’s sensory system generates the primary results of these actions. The move forward action can yield three results: (1) successfully moving forward, (2) bumping into a solid object, and (3) moving forward and eating something edible. The turn actions can yield only one primary result: successfully turning. The set of primary interactions I0 thus contains the 7 interactions listed in Table 1: successfully moving forward, bumping, eating, turning left of 90°, turning right of 90°, turning left of 45°, turning right of 45°. We set the valence of these interactions such that the agent slightly likes moving forward, dislikes bumping, and strongly likes eating. The interactions moving forward,
+Table 1 List of the seven primary interactions used by the agent. The valence of each interaction is given in brackets.
+move forward of one step (5) bump in a solid element (À10) move forward and eat something edible (50)
+turn 90° left (À3) turn 90° right (À3) turn45° left (À3) turn 45° right (À3)
+
+bumping, and eating are opposite to each other, because a failure of one produces the enaction of the other.
+Additionally, the agent is equipped with a visual system that detects objects in a 180° visual ﬁeld based on their color c (among {red, green, blue}), and provides information about the optic ﬂow ðh; vÞ. h is the angle on the retina, and v is the measured optic ﬂow. This visual system thus provides secondary results in the form of triples r00 ¼ hc; h; vi.
+We did not construct primary results from visual stimuli because the measured optic ﬂow depends on the agent’s displacement. Since an action can generate diﬀerent displacements whether it succeeds or not, the agent cannot learn any spatial properties based on the action only. Instead, we use visual stimuli to produce secondary results. Since an interaction provides information on the agent’s displacement, each hinteraction, secondary resulti couple is related to a unique position in space (unknown by the agent a priori). Since the bumping interaction does not generate a movement in space, we do not provide the agent with secondary results while bumping. A secondary result thus consists in seeing an element of color c at a predeﬁned (but unknown) position, while enacting an interaction other than bumping. Note that the secondary results do not convey information about the position of each result in the 2D space. Therefore, the agent must reconstruct the spatial property of the environment without presupposition about the spatial position of its sensory stimuli.
+Each couple ði; r00Þ is related to a speciﬁc element of a certain color at a speciﬁc position in space relative to the agent. We discretize the space of couples ði; r00Þ to deﬁne a ﬁnite set of secondary results. Other discretizations can be used, as the agent learns to extract spatial properties that emerge from interactions a posteriori. The selected discretization must, however, allow the agent to observe relative movements of elements to integrate spatial properties of the environment. We propose to discretize the space of visual stimuli such that the positions associated with visual interactions deﬁne a regular grid of 15 Â 30 positions that covers the agent’s visual ﬁeld. The unit of this grid is smaller than the size of the objects of the environment, so that the agent can detect relative movements of these objects. We use the same discretization for each primary interaction to make observation of emerging properties easier.
+We thus deﬁne a set of 8100 secondary interactions ((15 Â 30) positions Â 3 colors Â 6 interactions producing movement).
+The agent moves in a 2D environment that can contain three types of elements that aﬀord interactions. Each type of element has a speciﬁc color that makes it recognizable according to the sensorimotor possibilities of the agent:
+– Preys (blue ﬁsh), that aﬀord the interaction eating. – Walls (green bricks), that aﬀord the interaction bumping. – Algae (red ﬂowers), that have no inﬂuence on the enac-
+tion of interactions. Algae thus have the same interactional properties than an empty space. We expect the agent to learn to ignore these elements.
+
+8
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+These three types of elements are opaque: the agent cannot see an object hidden by another one. Fig. 3 shows the agent in its environment, as well as an organized representation of the interactional context.
+4. A spatial memory based on interactional experience
+We present a mechanism that allows a PRI agent to integrate its surrounding environment by constructing a spatial context. The agent ﬁrst learns to recognize objects that aﬀord its interactions. Next, the agent generates data structures that characterize position of objects in terms of interactions. By categorizing and localizing objects in terms of possibilities of interaction, the agent projects valences of interactions to diﬀerent regions of the surrounding space according to interactions that are assumed to be aﬀorded in these regions. Based on these values, the agent can generate behaviors that satisfy its interactional motivation in the short and medium terms.
+Fig. 4 presents the three sub-mechanisms that compose our agent’s algorithm. Each sub-mechanism implements an elementary functionality and exploits information provided by other mechanisms. The ﬁrst mechanism (Section 4.1) constructs data structures, called Signatures of Interactions, used to represent categories of objects. Once learned through the agent’s experience, signatures of interaction allow the agent to predict the enaction status (success or failure) of future intended interactions based on
+
+the current context. Signatures of interactions are fundamental for the spatial memory system, because the whole mechanism relies on properties learned by these signatures. The second mechanism (Section 4.2) recognizes objects characterized by signatures of interactions in the surrounding environment, and learns to track and localize these objects in egocentric reference while the agent is moving in space. Mechanism M2 indexes positions in space by the sequences of interactions that allow the agent to reach these positions. It also keeps track of objects using data structures called places. A place is a set of positions that share similar interactional properties. The last mechanism (Section 4.3) exploits the two previous mechanisms to generate behaviors that can satisfy the interactional motivation of the agent.
+4.1. Mechanism M1: constructing signatures of interaction
+This mechanism is inspired by an experiment on the F5 area (ventral premotor cortex) of the monkey brain carried out by Murata et al. (1997). It showed that neurons in the F5 area responded to the presence of an object in front of the animal, whether the animal grasped the object or simply looked at it. The response of these neurons varied depending on the movement required to grasp the object rather than the global shape of the object. The neurons remained active until the monkey observed the absence of the object. From this experiment, we draw two hypotheses:
+
+Fig. 3. The environment of the agent and a representation of the interactional context for an external observer. Top left: the agent (represented as a gray shark) in its environment. A black line shows the pathway of the agent. Bottom left: the agent gets the enacted interaction and a set of secondary visual interactions. This constitutes the interactional context experienced by the agent. Center: to make the interactional context easier to read by an external observer, we mark the enacted interaction with a green square and the other interactions with dark squares. As external observers, we know the positions and colors of the objects that caused the secondary visual results. We thus display the secondary results as colored squares, using their colors and position relative to the agent. Right: Representation of the current interactional context. Top right: the additional results are attached to the enacted interaction. As there are 6 primary interactions that produce secondary interactions (Bump does not produce movement), there are six groups of secondary interactions. In the current context, some visual interactions associated to move forward (white triangle) where enacted, while the ﬁve other groups remain empty. Bottom right: the enacted interaction is marked by a green square. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+9
+
+Fig. 4. The agent’s algorithm is divided into three inter-dependent mechanisms (Adapted from Gay et al. (2014)). Mechanism M1 learns to recognize objects that aﬀord interactions according to the interactional set Et. Mechanism M2 recognizes objects in space and constructs a spatial memory in the form of data structures that characterizes spatial properties of the environment, and localizes, integrates and tracks objects deﬁned by mechanism M1. Mechanism M3 exploits information given by the spatial memory to generate interactionally-motivated behaviors.
+
+(1) A speciﬁc context of elements of the environment can be deﬁned and characterized by the interactions that are aﬀorded by this context. Therefore, we do not specify objects by intrinsic features but by the interactions they aﬀord to the agent. An object is thus deﬁned as a speciﬁc context of elements that aﬀord an interaction. This idea relates to Gibson’s notion of aﬀordances (Gibson, 1977), and, more precisely, to the formalization of aﬀordances deﬁned by Stoﬀregen (2003) and Chemero (2003), who deﬁned an aﬀordance as a property of the agentenvironment coupling rather than a property of the agent or of the environment alone.
+(2) A possibility of interaction can indicate the presence of the object that aﬀords it. The presence of objects in a given situation can thus be represented by a set of enactable interactions, even when the agent cannot directly detect these objects.
+Mechanism M1 exploits these hypotheses by estimating the possible enaction status (success or failure) of interactions in the current context. Several implementations were described and tested by Gay and Georgeon (2013) and Gay, Georgeon, and Wolf (2014).
+Note that the agent can characterize its environment using only a limited number of interactions, regardless of the complexity of the environment. Indeed, every part of the environmental context can be characterized by the set of aﬀorded and the set of non-aﬀorded interactions. This representation of the environment is associated with motivational valence: objects that aﬀord interactions that have high valences becomes attractive, while objects that aﬀord interactions that have negative valences become repulsive. The agent thus projects valences of interaction onto the current environment.
+4.1.1. Formalization of signatures of interactions The agent can only perceive its environment through
+interactions, and thus cannot directly perceive objects that aﬀords its interactions. However, we can consider that an
+
+enacted interaction et carries information about the presence of elements in the surrounding environment. An interactional context Et can thus characterize a context that contains the object aﬀording an interaction i.
+Mechanism M1 constructs, for each interaction i, set(s) of interactions that can help the agent to assess the certitude of presence or absence of the object that aﬀords i. From these sets of interactions, the agent will be able to assess the possibility of successfully enacting i. We call signature Si of an interaction i a structure learned by experience that characterizes such sets of interactions. We formalize a signature Si of an interaction i as a function (1) that gives a numerical value in the interval ½À1; 1 that reﬂects the possibility of successfully enacting i in an interactional context E.
+
+Si : PðIÞ ! ½À1; 1
+
+ð1Þ
+
+where PðIÞ denotes the partition of I (the set of subsets of I). SiðEÞ ¼ 1 means that the agent has the certitude that the tentative enaction of i in context Et will succeed, SiðEÞ ¼ À1 means that the agent has the certitude that the tentative enaction of i will fail. Above some threshold l 2 ½0; 1½, the agent has some reasonable belief that i can be enacted, and below l, a reasonable belief that it would fail. When Àl 6 SiðEtÞ 6 l, the agent makes no assumption about the possibility of enacting i in context Et. The higher is l, the more interactions are considered enactable or non-enactable, but with a less reliability. The lower l is,
+the fewer interactions are considered as enactable or non-
+enactable, but with higher reliability. Si must be learned and reinforced each time i is enacted
+as a success or a failure (we do not consider enaction cycles
+where i is not enacted) to respect the following condition:
+
+lim
+t!þ1
+
+S
+
+t i
+
+ðEtÀ1
+
+Þ
+
+À
+
+resði;
+
+tÞ
+
+¼
+
+0
+
+ð2Þ
+
+where resði; tÞ ¼ 1 if i is successfully enacted at enaction cycle t and resði; tÞ ¼ À1 if i failed. The reinforcement of the signature of an interaction i is thus supervised, and compares certitude of success in the previous interactional context EtÀ1 with the actual enaction of i. Over time, the
+
+10
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+signature learning mechanism reinforces signatures of interaction to minimize prediction errors and provide pertinent certitudes.
+The parameters that characterize Si characterizes how the agent perceives (or experiences) the object aﬀording the interaction i. Note that when the object aﬀording an interaction i cannot be detected by the agent, the signature of i cannot be deﬁned.
+An implementation of this signature mechanism must respect these two properties:
+– A signature must be used to predict the result of an intended interaction in the next enaction cycle.
+– A signature must be reversible. Indeed, if an interaction i is considered as enactable, then the object aﬀording i can be considered as present in the environment, and interactions that would have detected this object can be considered as enacted. Thus, it must be possible to deﬁne a function S^i that can provide contexts E 2 PðIÞ that can aﬀord i (given by S^ið1Þ) and contexts that do not aﬀord i (given by S^iðÀ1Þ). The signature can then complete the current interactional context, adding information that cannot be detected by the agent in the current context.
+4.1.2. An example of implementation We propose to implement the signature mechanism M1
+on our agent with a single layer neural network. This solution is pertinent for our simple environment, as each interaction is aﬀorded by a unique element of the environment. Each interaction is attributed a formal neuron that gives the certitude of success in an interactional context Et. We modeled the input layer of the neural network as a vector ½ 1;t; . . . ;  n;t where n ¼ CardðIÞ and  k;t ¼ 1 when the kth
+
+interaction of I succeeded at enaction cycle t (i.e. ik 2 Et) and  k;t ¼ 0 otherwise. The signature of an interaction i is characterized by the set of synaptic weights ½wi;1; . . . ; wi;n
+
+and a bias wi;nþ1. The certitude function Si of an interaction
+
+i is deﬁned with a linear function of inputs, passed through
+
+an activation function that restrains the output value in the
+
+½À1; 1 interval:
+
+!
+
+X
+
+SiðEÞ ¼ g
+
+ k Á wi;k þ wi;nþ1
+
+ð3Þ
+
+k2½1;n
+
+gðxÞ ¼ tanh  x  2
+
+A signature Si of an interaction i is reinforced each time i is enacted as a success or a failure, using the delta rule (or Least Mean Squares method) (4). We note resði; tÞ ¼ 1 if i was successfully enacted at enaction cycle t and resði; tÞ ¼ À1 if i failed. The bias wi;nþ1 is related to an input  nþ1;t for which the value is 1 at each enaction cycle.
+
+wti;k Àwit;Àk1 þ g Â  k;tÀ1 Â ðresði; tÞ À SiðEtÀ1ÞÞ
+
+ð4Þ
+
+8k 2 ½1; n þ 1; g is the learning rate where g 2 ½0; 1. In our experimentations, we used a constant learning rate of 0:5, which oﬀers a good compromise between learning speed
+and signature stability.
+Considering this implementation, a signature Si is characterized by a list of weights fwi;kgk2½0;nþ1, that summarizes contexts that aﬀord i or prevent enaction of i. We thus propose that, in this implementation, S^ið1Þ ¼ fwi;kgk2½0;nþ1 and S^iðÀ1Þ ¼ fÀwi;kgk2½0;nþ1.
+For visualization by an external observer (like us), we propose to display summarized context S^ið1Þ in a way that makes them easy to read, shown in Fig. 5 (note that the
+
+Fig. 5. Representation of signatures for an external observer (here, the signature of interaction move forward of a trained agent). Signature weights are organized in a similar way as for the interactional context (Fig. 3). Left: a signature consists of a vector of weights. We propose to gather weights related to visual interactions that are related to a same color stimulus and associated with a same primary interaction, and organize each group to match positions characterized by visual interactions (middle). Weights related to primary interactions and the bias are displayed separately with eight squares, in the order given in Table 1. As we have three colors, we overlap groups related to diﬀerent colors using the three channels of a RGB image (right). Here, an external observer can observe that the interaction move forward is aﬀorded by the absence of green and blue elements in front of the agent: some weights related to interactions seeing a green and seeing a blue element are strongly negative. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+11
+
+agent does not need to topographically organize signature weights). First, as we know, as an external observer, the associated primary interaction and the characterized color of visual interactions, we propose to gather weights according to the associated primary interaction and color of the secondary interaction they are connected to. We also know the position in space characterizing each secondary interaction: each group of weights can be organized to match positions of their connected secondary interactions. This organization allows observation of spatial properties of objects, such as position according to the agent and size. Finally, we overlap groups of weights for which the connected secondary interactions are associated to the same primary interaction: as there are three primary colors, we can display the three overlapping groups using the three color channel of a RGB image. Of course, each color group is displayed using the channel of the same color. We can thus observe the color properties of the object deﬁned by signatures.
+4.2. Mechanism M2: construction of a structure to characterize space
+
+Our previous work (Gay et al., 2014) have shown that only two types of information are required to localize and consider an object in space: the interactions that allow to move closest to this object, and an estimation of its distance. Implementation of a hard-coded but imprecise space memory that generates this limited information on a robot has shown that the decisional mechanism was robust enough to enable the robot to generate behaviors satisfying its interactional motivation. Thus, the mechanism we presented in this section is designed to generate these two types of information.
+The mechanism that constructs and maintains this structure is divided into two sub-mechanisms (Fig. 6): the ﬁrst mechanism extracts spatial regularities from signatures of interactions and detects objects in the area of space covered by interactions. We call this space Observable Space, as an object in this area can be detected through enacted interactions. The second mechanism exploits spatial regularities to maintain the position of previously detected objects in the surrounding space, we call Global Space. The global space consists of the space, in egocentric reference, that the agent can integrate. Global space includes observable space.
+
+This mechanism is designed to generate a structure, we call space memory, which can give relevant and exploitable information about the environmental context of the agent.
+
+4.2.1. Detecting objects in observable space This mechanism exploits the relations between
+interactions, discovered through their signatures. Indeed,
+
+Fig. 6. Construction mechanism for a structure that characterizes the environmental context. This mechanism is divided into two sub-mechanisms: the ﬁrst mechanism recognizes and localizes distant objects in the observable space, using the last interactional context Et and signatures of interactions. The second sub-mechanism then stores detected objects, and maintains positions of stored objects in egocentric reference at each enaction cycle. This second sub-mechanism characterizes positions of objects in the global space. Stored objects can be compared with detected objects to possibly recognize and update them. The object context consists of a list of objects localized by the interaction allowing to move closest and their distances, and can be used by the decisional system (M3).
+
+12
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+a signature Si generates a link between an interaction i and sets of interactions fjkgl 2 S^iðxÞ; x 2 f1; À1g that allows to determine the enactability of i. However, interactions jk of
+these sets may have their own signatures Sjk , and each context El ¼ fjkgl contains a unique primary interaction j0 and a set of secondary interactions fjkgk–0 associated to j0. By considering signatures of interactions jk 2 El, we
+can characterize an environmental context that, if moved
+
+by enacting j0, will aﬀord i. We can thus backmove a signa-
+
+ture Si through a primary interaction j0 using the following
+
+procedure: we note S^ri 0 ¼ S^ið1Þ, where r0 is an empty
+
+sequence of interactions, and construct:
+
+[
+
+S^i½j0;r0 ¼
+
+fE 2 PðIÞ=8jk 2 El; Sjk ðEÞ > 0g ð5Þ
+
+8El2S^ri 0 =j02El
+
+Interactional
+
+contexts
+
+of
+
+S^
+
+½j0 i
+
+;r0
+
+
+
+characterize
+
+environmen-
+
+tal contexts that can aﬀord i after enacting j0. By applying
+
+successively (5), it is possible to backmove a signature Si
+
+through an increasing sequence of interaction r. We call
+
+predecessor Sri a signature Si backmoved through a sequence
+
+of interactions r. A predecessor characterizes a context
+
+that, if moved through the enaction of the sequence of
+
+interactions r, aﬀords i.
+
+By
+
+using
+
+the
+
+predecessor
+
+S
+
+r i
+
+of
+
+Si,
+
+it
+
+is
+
+possible
+
+to
+
+esti-
+
+mate the prediction of enaction result of an interaction
+
+after enacting a sequence of interactions r (regardless of
+
+the enactability of r). We then consider that an instance
+
+of the object aﬀording i is present at a position that can
+
+be reached by enacting the sequence r, with a certitude given by SirðEtÞ. A certitude of 1 indicates that an instance
+of the object aﬀording i is present at position characterized
+
+by r with an absolute certitude, and a certitude of À1 indi-
+
+cates that the instance is absent with an absolute certitude.
+
+Note that this mechanism is not a path planning algorithm:
+
+the sequence r is considered regardless of its enactability.
+
+We thus deﬁne a way to assimilate a position in the
+
+observable space as a sequence of interactions. An
+
+instance of an object aﬀording an interaction i, localized
+
+at a position r, consists of a context that, when moved
+
+by a transformation r, aﬀords the interaction i. This def-
+
+inition of positions relates to the notion of Representa-
+
+tive Space of Poincare´ (1902), for whom localizing an
+
+object in space means considering the movement needed
+
+to reach it.
+
+We implemented the signature predecessor mechanism
+
+on our agent. Considering our implementation of signa-
+
+tures based on formal neurons, the predecessor of a signa-
+
+ture of an interaction is computed as follows: we note
+
+S^ir;j0 & S^ri the subset of weights of a signature Si or a predecessor Sri that are connected to the primary interaction j0 or
+
+a secondary interaction jk associated to j0. The predecessor
+
+S
+
+½j0 i
+
+;r
+
+is
+
+computed
+
+by
+
+adding
+
+signatures
+
+of
+
+interactions
+
+jk
+
+associated with j0, weighted by the corresponding weights
+
+wri;k 2 S^ri;j0 , and normalized according to the greatest weight
+
+of S^ir;j:
+
+X S^½ij0;r ¼
+wir;k 2S^ri;j0
+
+wir;k maxwri;k 2S^ri;j0
+
+ðwri;k Þ
+
+Â
+
+S^jk
+
+ð1Þ
+
+ð6Þ
+
+In this implementation, we only consider weights for
+
+which the absolute value is greater than a threshold to
+
+reduce the number of weights to compute. The predecessor
+
+S½ij;r is considered as non-exploitable if a certain amount of
+
+signature
+
+of
+
+interactions
+
+designated
+
+by
+
+S
+
+r i;j
+
+are
+
+not
+
+deﬁned.
+
+This means that the object is partially or totally out of the
+
+observable space and cannot be detected through the path
+
+½j; r. Fig. 7 shows an example of sequence of signature pre-
+
+decessors by an increasing sequence of interactions, with
+
+signatures learned by a trained agent (we do not threshold
+
+weights in this example).
+
+Fig. 7. From left to right: signature of interaction bump, predecessors of the signature of interaction bump by an increasing sequence of interactions (below the signature predecessors). The green blob that represents the object aﬀording bump is moved through the observable space when an interaction is added to the sequence characterizing the object instance position. However, we do not observe signiﬁcant changes in color, shape or size of the object, which allows detection of objects at diﬀerent positions. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+13
+
+We also propose to reduce the number of possible transformations r by detecting redundant positions: when two sequences r1 and r2 of diﬀerent lengths generate two similar predecessors of the same signature of interaction (i.e. they deﬁne similar contexts S^ir1 ’ S^ir2 ), it is then possible to remove the longest sequence. This detection ensures that sequences are always the shortest, for every position of space. Redundancy can vary from one interaction to another: as an example, if a signature characterizes an object with no speciﬁed orientation, two sequences of interactions that lead to the same instance but from diﬀerent orientations may be considered as redundant, which is not the case with an object that needs a certain orientation to aﬀord an interaction.
+4.2.2. Notion of Places It is possible to store object instances and their positions
+in egocentric reference by using sequences deﬁned by the object detection mechanism described in Section 4.2.1. However, if the agent does not enact this sequence of interactions, or if the sequence is not enactable in the current environment, the object instance is lost from agent’s memory. We thus need to deﬁne a structure that can learn to store and update positions of object instances, regardless of enacted interactions.
+As we deﬁned positions with sequences of interactions (Section 4.2.1), we can obtain the two required types of information: ﬁrst, the distance, given by the minimum number of interactions needed to reach the object instance. Distance is thus deﬁned in terms of number of interactions rather than a geometrical distance. Second, the ﬁrst interaction of a sequence gives the interaction making it possible to move closest, as the sequence is considered as the shortest path to reach the instance.
+We do not need to consider two instances of the same object separately when they share the same characteristics. We thus propose to deﬁne a place as the list of positions (or sequence of interactions) that are characterized by the same interaction and the same distance. A place thus consists of
+
+a list of sequences of interactions that have the same length
+
+and begin with the same interactions. An object instance is
+
+considered as present in a place l if at least one instance of
+
+this object is detected at a position that composes this
+
+place,
+
+i.e.
+
+9r
+
+2
+
+l=S
+
+r i
+
+ðEt
+
+Þ
+
+>
+
+l.
+
+We can thus deﬁne a context that characterizes the con-
+
+tent of the observable space by listing the interactions that
+
+can be enacted in each place. This context deﬁnes interac-
+
+tions that allow the agent to move toward distant
+
+aﬀordances.
+
+4.2.3. Composite places A context of objects based on places is limited to the
+observable space as it consists of positions that can be experienced through interactions. We propose the following principle, illustrated in Fig. 8, to characterize the presence of an object instance in the global space:
+We consider an object instance in the non-observable space. If the agent uses an interaction i that produces a movement bringing the object instance in a place l of the observable space, then we consider that before enacting i, it was possible to characterize the presence of the object instance by considering the place l backmoved by the interaction i. We thus propose the notion of composite place to deﬁne such a moved primitive place: we note ½i1; . . . ; in; li, where ½i1; . . . ; in is a sequence of interactions we call the path of the composite place, and l is the ﬁnal place of the composite place. A composite place thus consists of a set of positions (the ﬁnal place), preceded by a sequence of interactions (the path) that can backmove the ﬁnal place in the non-observable space.
+
+4.2.4. Signatures of places To use a composite place, we ﬁrst need to determine the
+positions of the observable space (if any) that belong to the area deﬁned by this composite place. Note that this process is not applied to primitive places as their positions are deﬁned by construction. To determine whether a position belongs to a composite place, we propose the following
+
+Fig. 8. Principle of composite places. Left: an edible alga is present in the non-observable space (places are randomly deﬁned for illustration). If the agent turns left, then the element can be detected in place 12. It was thus possible to initially characterize the presence and the position of this element by considering the place 12 displaced by the interaction turn left. We call composite place a place preceded by an interaction or a sequence of interactions.
+
+14
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+principle: the agent detects positions of object instances in its environment, as an example, an instance of the object aﬀording the interaction i at position r. Then, it enacts the path of a composite place l. If an instance of the object aﬀording i is then detected in the ﬁnal place of l, then the initial position r of the object instance may be included in the area characterized by the composite place l. Of course, the instance is not necessarily the same. It is thus preferable to focus on instances of the less represented object of the context. Fig. 9 illustrates this principle.
+Learning to deﬁne places that belong to a composite place thus helps predict observation of an object instance in the ﬁnal place according to a context observed before enacting the path of the composite place. We propose a principle similar to the interaction signature principle.
+We deﬁne a signature of place Sl of a composite place l as a structure that characterizes the positions r in space considered as included in l. For each interaction i, we deﬁne the context of position Etp;i of the object aﬀording i as the list of every position r of space in which an instance of the object aﬀording i is detected: Ept;i ¼ fr=Sri ðEtÞ > lg. As with signatures of interaction, signatures of places can be formalized as a function
+
+Sl : PðRÞ ! ½À1; 1
+
+ð7Þ
+
+where R is the set of possible sequences of interactions r and PðRÞ denotes the partition of R (the set of subsets of R). Function Sl characterizes the certitude of presence of an instance of an object aﬀording an interaction i in the
+ﬁnal place of a composite place l, after enaction of the path of l, according to a context of place Ept;i, with an absolute certitude of presence when SlðEtp;iÞ ¼ 1 and an absolute certitude of absence when SlðEpt;iÞ ¼ À1.
+The place signature learning process is similar to the
+interaction signature learning process. It consists in rein-
+forcing signatures of places, by analyzing contexts of
+places, to deﬁne pertinent certitude of presence of instances
+in a place l. The learning process is applied to a signature Sl when the path of the composite place l is successfully
+
+enacted. The reinforcement of the signature Sl of a place l compares certitudes of presence in a place in the initial context of position EtpÀn;i, where n is the length of the path of l, and the actual presence of an instance of the object aﬀording i in the place l. In the same way as the interaction signature learning mechanism, the place signature learning mechanism reinforces signatures to minimize prediction errors and provide pertinent certitudes.
+
+4.2.5. Storage of object instances
+
+According to our deﬁnition of objects, an object
+
+instance is considered as present at every position in space
+
+where the corresponding interaction is enactable. However,
+
+certain elements can aﬀord an interaction from multiple
+
+positions. It is thus necessary to limit the stored instances
+
+of a certain object instance to the most relevant ones. As
+
+an example, walls can be bumped from an inﬁnity of posi-
+
+tions, but the most relevant position is the position for that
+
+the agent is most likely to reach in the short term, which
+
+corresponds to the closest point of the wall. We thus deﬁne
+
+the pertinence of an object instance according to the certi-
+
+tude
+
+of
+
+success
+
+and
+
+the
+
+distance
+
+of
+
+this
+
+instance:
+
+, Sri ðEtÞ
+d ðrÞ
+
+where r is the position of the instance, and dðrÞ the dis-
+
+tance of the instance, which corresponds to the length of
+
+the sequence r.
+
+We need to limit the number of stored object instances,
+
+by limiting the stored instances to the most pertinent
+
+instances. We propose a procedure that ﬁrst selects the
+
+most relevant object instance contained in each place
+
+(primitive or composite), and then eliminates instances
+
+until each remaining instance is covered by at least one
+
+place that only covers this instance. This procedure ensures
+
+that, for each stored instance, there is at least one place
+
+that can characterize the position of this place and separate
+
+it from other instances of the same object.
+
+Selected instances are then stored by the space memory
+
+in the form of a list of places flkg containing all the places (primitive or composite) that contain the position of this
+
+instance. The position of the instance is then characterized
+
+Fig. 9. Principle of signatures of places. At enaction cycle t (left), the agent detects an instance of the object that aﬀords the interaction eat, localized at position r. The agent then turns 90° left. An instance of the object that aﬀords the interaction eat is detected in the place l4 (yellow area). Thus, the composite place [turn 90° left][l4i may contain the position r. Note that the agent cannot determine whether or not the two detected instances are the same. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+15
+
+by the intersection of places of this list. As composite places can characterize areas in the non-observable space, such a list can characterize the position of an object instance in the global space.
+
+4.2.6. Object tracking based on composite place We use the sequential aspect of composite places to keep
+the localization of object instances in the space memory. Indeed, when the ﬁrst interaction of a composite place is enacted, this interaction can be removed from the path of the composite place. The object can then be considered as present in a new composite place composed of the previous composite place minus the ﬁrst interaction. For example, if the position of an object instance is characterized by a composite place ½i1; i2 . . . ; in; li, and if the agent enacts the interaction i1, then the instance position can be characterized by the composite place ½i2; . . . ; in; li. This method allows an object instance to be followed in the global space. However, this method is limited by the length of composite interactions. We thus propose an additional mechanism that learns to deﬁne connections between places.
+
+4.2.7. Signature of presence
+
+Signatures of places cannot characterize the position of
+
+an object instance in the non-observable space as signa-
+
+tures of places are based on positions of the observable
+
+space. To overcome this limitation, we propose that the
+
+intersection of the set of places characterizing the presence
+
+and position of an object instance deﬁnes a small area of
+
+space that can be assimilated to a position in the global
+
+space. Just as for place signatures, it is possible to deter-
+
+mine and learn such sets of places deﬁning positions that
+
+are included in the area characterized by a composite place.
+
+To determine whether a set of places deﬁnes a position
+
+that belongs to a composite place, we propose the follow-
+
+ing principle: the agent ﬁrst considers object instances
+
+stored in its space memory. The position of each object
+
+instance is characterized by a list of places, for which the
+
+intersection deﬁnes the most probable position of the
+
+object instance. As an example, the position of an instance
+
+of the object aﬀording the interaction i is stored by the
+
+space memory with a set of places flkg. Then, the agent
+
+enacts the path of a composite place l. If an instance of
+
+the object aﬀording i is then detected in the ﬁnal place of
+
+l, then the initial set of places flkg may deﬁne a position
+
+that is included in the area characterized by the composite
+
+place l. Fig. 10 illustrates this principle:
+
+We deﬁne the context of place Etk;x of an object instance x as the list of places flkg that characterize the position of x. We deﬁne the signature of presence of a place l as a
+
+structure that characterizes contexts of place that deﬁne
+
+positions included in the area characterized by l. As with
+
+signatures
+
+of
+
+places,
+
+a
+
+signature
+
+of
+
+presence
+
+S
+
+p l
+
+of
+
+a
+
+place
+
+l
+
+can be formalized as a function that characterizes the
+
+certitude of presence of an object instance x in the ﬁnal
+
+place of a composite place l after enacting the path of l,
+
+according to a context of place Ekt;x that characterizes the
+
+position of this instance, with an absolute certitude of pres-
+
+ence
+
+when
+
+S
+
+p l
+
+ðEkt;xÞ
+
+¼
+
+1
+
+and
+
+an
+
+absolute
+
+certitude
+
+of
+
+absence
+
+when
+
+S
+
+p l
+
+ðEkt;x
+
+Þ
+
+¼
+
+À1.
+
+The presence signature learning process is similar to the
+
+other signature learning processes. It consists in reinforcing
+
+signatures of presence, by analyzing contexts of place, to
+
+deﬁne pertinent certitude of presence of an instance x in
+
+a place l. The signature of presence of a place l is reinforced
+
+when the path of l is successfully enacted. The reinforce-
+
+ment of the signature of presence of a place l compares cer-
+
+titudes of presence according to the initial presence context
+
+EtkÀn;x, where n is the length of the path of l, and the real presence or absence of the object instance x in the place
+
+l. Just like the two previous signature learning mechanisms,
+
+the presence signature learning mechanism must reinforce
+
+presence signatures to minimize prediction errors and pro-
+
+vide relevant certitudes.
+
+While place signatures are used to evoke places that can
+
+characterize the position of an object instance detected in
+
+the observable space, presence signatures can evoke places
+
+that can characterize the position, in the global space, of
+
+an object instance stored in space memory. The principle
+
+of presence signature allows the position of an object
+
+instance to be tracked for long sequences of interactions,
+
+by continuously adding composite places to the context
+
+of place of an object instance, and is only limited by the
+
+certitude and the precision of signatures of presence.
+
+4.2.8. Recognition of stored instances As the agent can observe the same object instance more
+than once, we propose a mechanism that recognizes and updates stored instances that may correspond to instances detected at the last enaction cycle. This mechanism compares the expected positions of an object instance with the positions where new instances of the same object are detected.
+As stored instance position is characterized by a list of places, we can use these places, and especially their signatures of places, to deﬁne the expected positions of an object instance. The certitude at each position is deﬁned by the number of places of the list for which the signature contains this position. Then, for each detected instance, we ﬁnd the stored instance with the greatest certitude at the position of the detected instance (when the certitude is not null). The detected instance then replaces the stored instance.
+
+4.2.9. Illustration of the principle of the space memory mechanism
+The following situation was observed during our experiments, and illustrates how the space memory can exploit presence signatures to track an object escaping from its sensory system. We begin with the conﬁguration displayed in Fig. 11. In this conﬁguration, there is a prey on the left of the agent (we call A-prey) and a prey on its right (we call
+
+16
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+Fig. 10. Principle of signatures of presence. At enaction cycle t (left), the space memory contains an instance of the object aﬀording the interaction eat, for which the position is characterized by places l1; l2; l3. The agent then turns 90° left. An instance of the object aﬀording the interaction eat is detected in the place l4. Thus, the composite place [turn 90° left][l4i may contain the context of place fl1 \ l2 \ l3g. Note that the agent cannot determine whether or not the two detected instances are the same.
+
+Fig. 11. Update of the estimated position of an object with presence signatures. From left to right: the enacted primary interactions at each enaction cycle, the agent in its environment, and the list of places that characterize the position of B-prey. The list of places is organized in the form of a context that gives the state of all places (places that are in the list of places that characterizes the position of the prey are blue, other places are black), to be compared with presence signatures (see Section 5.3.3). This context is organized as follows: primitive places are organized according to the interaction and distance that characterize them (left rectangle). Composite places are organized in a similar way, according to their ﬁnal path, and separated according to their path (seven right rectangles). A blue square means the object position is characterized by the corresponding place. In the ﬁrst step, position of B-prey is characterized by ten places (we give some examples of places). In this conﬁguration, we exploit the fact that the agent prefers preys on its left side when the diﬀerence in distances is small, due to asymmetries in its signatures. The agent moves forward and turns left to reach A-prey. At this time, the places that characterize the position of B-prey are removed, as none of them begin with turn 90° left. However, signatures of presence evoke a set of four composite places (presented in Fig. 24) that begin with turn 90° left. The estimated position of B-prey is then updated by removing the ﬁrst element of the path of these four places, as this element was already enacted by the agent. At the end of the enaction cycle, the position of B-prey is characterized by a set of four composite places with a path that begins with turning 90° left. An interesting point is that the position of B-prey was initially characterized by turning 90° right, while now it is characterized by turning 90° left. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+17
+
+B-prey). During this experimental run, we observed that the agent showed a preference for preys that are on its left side when the diﬀerence in distance is small. This preference is probably due to asymmetries in its signatures. We exploit here this characteristic to observe how the space memory encodes the position of B-prey when it disappears from the visual ﬁeld of the agent. Attracted by the A-prey, the agent moves forward. Then, B-prey is not longer visible, and its position is characterized by a set of places. These places indicate that B-prey can be reached by turning 90° right and turning 45° right. This context is compatible with presence signatures of four composite places (see Section 5.3.3 and Fig. 24 for their signatures). These four places can thus be added to the list of places that characterize the position of B-prey. The agent then enacts turn 90° left to reach A-prey. The places that characterize the position of B-prey are removed, as they do not begin with turn 90° right interaction. However, the four composite places evoked in the previous enaction cycle begin with this interaction. These places are then updated. The position of B-prey is now characterized with four places which indicate that B-prey can be reached by turning 90° left. Thus, B-prey moved (in egocentric reference) from an area that can be reached by turning right to an area that can be reached
+
+by turning left: presence signatures thus link areas of the global space in terms of interaction.
+4.3. Mechanism M3: decisional mechanism
+The agent’s decisional mechanism is divided into four sub-mechanisms, as shown in Fig. 12. Three of these mechanisms are deﬁned to learn the three type of signatures. These mechanisms are similar and their learning process are implemented in the same way. The fourth mechanism exploits the space memory to generate behaviors satisfying the interactional motivation of the agent.
+4.3.1. Learning mechanisms A previous work (Gay & Georgeon, 2013) has showed
+that an agent equipped with our signature mechanism must be equipped with a mechanism dedicated to learn and test signatures of interaction. Indeed, when the agent constructs its signatures based on coincidences observed with a behavior generated by the exploitation mechanism, it may be locked in an irrelevant behavior that does not allow it to ﬁnd out incoherences in signatures.
+The agent is equipped with three mechanisms dedicated to learn, respectively, signatures of interactions, signatures
+
+Fig. 12. Decisional mechanism. This mechanism is composed of three learning mechanisms that test and learn (in the following order of priority) signatures of interaction, signatures of places and signatures of presence. When a signature is considered as unreliable in the current context, the mechanism proposes to test the associated interaction or place. When none of the learning mechanisms propose an interaction or a place, the exploitation mechanism determines the interaction that best satisﬁes the interactional motivation of the agent in the short and medium terms, according to the list of enactable interactions (given by mechanism M1) and the context of object instances (given by mechanism M2).
+
+18
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+of places and signatures of presence. As each type of signature depends on the previous types, each mechanism takes priority over the next mechanisms.
+As the signature learning process is similar for all signatures, the three mechanisms are based on the same principle. The ﬁrst mechanism (here, the signature learning mechanism) ﬁrst computes the certitude of its structures, and selects the structure with the lowest certitude (in absolute value). Indeed, the structure that has the lowest certitude (in absolute value) can be considered as the least predictable structure in the current context, and thus the structure for which the signature may learn the most if tested. If this certitude is lower than a certain threshold, we call learning threshold, then the mechanism proposes this structure and the agent tries to enact it. If no structure can be elected, the next mechanism repeats this procedure. The process is repeated until a learning mechanism proposes a structure to test or until all the mechanisms have been tested. In this second case, the agent uses the exploitation mechanism, described in Section 4.3.2.
+In the case of the mechanism dedicated to the interaction signature learning process, we need to consider that a secondary interaction can only succeed or fail when its associated interaction is successfully enacted: a secondary interaction is thus a candidate when its associated interaction is considered as enactable with a high certitude (we used a threshold of 0.8). We also need to consider interactions for which the object cannot be observed, and thus for which the result cannot be predicted. A secondary interaction can be selected if, after at least ﬁve consecutive correct predictions, the absolute value of the certitude is greater than a threshold (set to 0.2). Indeed, weights of the signature of an interaction aﬀorded by an object that cannot be detected are deﬁned according to coincidences, and thus are expected to have a low value.
+The mechanisms dedicated to place and presence signature learning processes can also propose a composite place for which a part of the path was already enacted. In this case, the mechanism proposes the sequence of remaining interactions, when the certitude of the composite place is low in absolute value in a context of position or a context of place at enaction cycle t À n (where n is the number of interactions of the path that are already enacted).
+Note that we do not deﬁne a learning and an exploitation period: when the signatures become reliable, the learning mechanisms are less used. However, the agent retains its learning abilities during all its life, and learning mechanisms can be used in case of environmental changes.
+4.3.2. Exploitation mechanism Exploitation is based on the mechanism presented in
+Gay et al. (2014) and adapted to be used with an agnostic space memory based on places. This mechanism consisted in measuring variations in distance of object instances produced by a candidate interaction. The variation in distance is weighted by the valence of interactions aﬀorded by object instances, and by the distance of the instance. Thus, an
+
+instance of an object aﬀording an interaction with a positive valence, that can be moved closer by a candidate interaction ic, adds a positive utility value to ic, and an instance of an object aﬀording an interaction with a negative valence adds a negative utility value. The utility value depends on the distance of instances, so that close instances have a greater inﬂuence on the decision. Experiments with a hard-coded space memory showed that this mechanism was robust enough to be implemented on a robot, despite the low precision of the memory.
+The utilization of places simpliﬁes the exploitation mechanism: indeed, each place carries the two types of information required, i.e. the distance and the interaction (s) making it possible to move closest the most to the object instance:
+
+– Primitive places contain the distance and the interaction by deﬁnition.
+– The distance of a composite place is the sum of the distance deﬁned by its ﬁnal place and the length of its path. The interaction making it possible to move closest the most is the ﬁrst interaction of the path.
+
+However, the path is not necessarily the shortest sequence to reach an object. We thus need to estimate the distance of an object to eliminate irrelevant paths and thus only take interactions that allow to move closer to the object instances into account. We propose using the certitude of places: the places that characterize the position of an instance are ordered by increasing distance. For each distance, we select the place with the greatest certitude, noted as cd;max. We then select the ﬁrst local maximum of certitude, noted as dmax, deﬁned by
+
+d max
+
+¼
+
+minðd
+d 2N
+
+Þ=fcd;max
+
+>
+
+cdÀ1;max
+
+^
+
+cd;max
+
+P
+
+cd þ1;max g
+
+ð8Þ
+
+Distance is then estimated as a sum of distances of
+
+places for which the distance dl 2 ½dmax À  ; dmax þ   (we used   ¼ 1 in our implementations), weighted by the certi-
+
+tudes of presence cl of these places. We consider that the variation in distance produced by a
+
+candidate interaction is always À1 interaction, as the dis-
+
+tance of an instance is deﬁned in terms of number of inter-
+
+actions. We note x an instance of the object aﬀording ix
+
+stored in memory M, and Rx the list of interactions making
+
+it possible to move closer to instance x. The utility value uic
+
+given to each candidate interaction ic is given by:
+
+uic
+
+¼
+
+X  f ðdxÞ x2M 0
+
+Â
+
+mðixÞ
+
+if ic 2 Rx else
+
+ð9Þ
+
+where f is a function that reduces the inﬂuence of object instance according to their distance, and mðixÞ is the valence of ic. In our implementation, we used the function eÀcd , where c is the object coeﬃcient that characterizes the inﬂuence variation according to the distance of an object
+instance. With a low object coeﬃcient, distant objects
+may have a greater inﬂuence than close objects. With a
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+19
+
+high value, the agent may not consider distant objects. Fig. 22 shows how the object coeﬃcient can aﬀect the agent’s behavior.
+We need to consider that an object instance at a distance of 1 must not be taken into consideration in the utility value, as the agent can directly interact with it. Indeed, if the agent interacts with an object, the object may be modiﬁed by the interaction and vanish from the space memory. This disappearance could be considered as a positive or negative event, according to the valence of the aﬀorded interaction. However, this event is irrelevant as the agent can enact the aﬀorded interaction and experience the valence of the interaction.
+The variation of global proximity is then used to compute the global satisfaction value of a candidate interaction:
+
+m0ðiÞ ¼ mðiÞ þ b Â ui
+
+ð10Þ
+
+where b is the inﬂuence coeﬃcient of the space memory. This coeﬃcient characterizes the inﬂuence of variation produced by the enaction of a candidate interaction on the environment (long-term decision) with respect to the satisfaction value of this interaction (short-term decision). With a low coeﬃcient, the agent will not consider distant object instances. With a high coeﬃcient, the agent will not consider the satisfaction value of its interactions. In the implementations proposed in this paper, the coeﬃcient b is predeﬁned. Deﬁning a variable coeﬃcient that depends on agent internal states is an open question that we intend to study in future work.
+The mechanism then selects the candidate interaction with the greatest global satisfaction value. The decision thus considers short term satisfaction (through interaction valence) and future satisfaction (through variation in distance of object instances).
+
+5. Experiments
+We tested our mechanisms on the agent described in Sections 3 and 4. We propose to test the diﬀerent mechanisms separately to observe their properties more precisely. When a whole sensorimotor loop is needed, we implement simpliﬁed or hard-coded versions of the other mechanisms based on observations of these mechanisms. The versions of the agent and the corresponding mechanisms are displayed in Fig. 13. Testing mechanisms separately makes the analysis of learned structures and emergent behaviors easier to understand and interpret. The downside of this approach is that we cannot observe side-eﬀect that can result from a simultaneous utilization of the diﬀerent mechanisms. Conclusion section discusses this possibility.
+The ﬁrst experiment tests the interaction signature construction mechanism (M1). We implemented the interaction signature mechanism M1 and the interaction signature learning sub-mechanism of the decisional system M3 to generate a complete sensorimotor loop. As the interaction learning process is the ﬁrst learning stage of the agent, we do not need the space memory and the exploitation mechanism. This experiment is designed to observe properties of signatures of interactions.
+The second experiment tests the object recognition submechanism of the construction mechanism of a structure to characterize space (M2). We needed to test this submechanism separately as it is the most CPU consuming. As the object recognition mechanism is not based on a learning process, we only test object detection in several environmental contexts rather than observing an emergent behavior. We used the signatures of interactions learned in the previous experiment.
+The last experiments test the space memory (submechanism of M2) and the decisional system (M3). We
+
+Fig. 13. The successive experiments test the diﬀerent sub-mechanisms of the agent’s decisional system. The ﬁrst experiment tests the mechanism M1 with the interaction signature learning process (red). The second experiment focuses on the properties of the distant object detection sub-mechanism (green). The last experiments use structures obtained in previous experiments and simpliﬁed versions of other mechanisms based on properties observed in previous experiments to investigate properties of the space memory and emergent behaviors produced by the exploitation mechanism (blue). (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+20
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+used a simpliﬁed interaction signature mechanism and object detection sub-mechanism, based on observations of the ﬁrst two experiments. These experiments investigate the learned structures and emergent behaviors by observing how the agent interacts with its environment in diﬀerent environmental contexts.
+5.1. Signature of interactions learning
+This experiment tests the interaction signature learning process, by analyzing properties that emerge from signatures of interactions. Although this experiment was described in a previous work (Gay et al., 2014), we give in this paper more results to highlight properties that emerge from signatures.
+We equipped the agent with the mechanism dedicated to the interaction signature learning process described in Section 4.3.1, and let the agent learns signatures of its interactions. The signatures of primary interactions emerge and stabilize after nearly 4000–5000 enaction cycles, and signatures of visual interactions begin to emerge after 8000 enaction cycles. While signatures of visual interactions begin to stabilize, elements are
+
+progressively removed from the environment to let the agent experience visual interactions related to distant positions. Fig. 14 gives some examples of signatures of interaction obtained after 20,000 enaction cycles. We can observe that interaction move forward is related to the absence of green and blue objects (mid-red blob) in front of the agent, bump is related to a green object in front of the agent and eat is related to a blue object in front of the agent. We can also note that the size of blobs is equivalent to the size of the agent. Thus, these signatures can deﬁne certain spatial properties of the agent’s body schema. We can observe that move forward and eat are related to the interaction bump with a negative weight, while bump is related to itself with a positive value. Indeed, when the agent bumps into a wall, the wall stays in front of the agent, which makes the bump interaction possible again. Signatures can thus integrate non-visual information, and associate multi-modal information that characterizes the same object. Signatures of turn interactions (not represented on the ﬁgure), that cannot fail, are strongly related to the bias of the formal neuron that composes the signature, indicating that the result of turn interactions does not depend on the context.
+
+a
+
+b
+
+c
+
+d
+
+e
+
+Fig. 14. Signatures of interaction of move forward (a), bump (b) and eat (c), seeing green at position given by the red square while moving forward (d) and seeing green at the position given by the red square while turning 90° right (e). Interactions displayed on the left show the associated primary interaction of each group of secondary interactions. The position of the agent (according to positions of visual interactions) is given by an orange arrow. Weights of each signature are normalized according to the greatest weight (in absolute value) of the signature. On each color channel, a value of 1 means a normalized value of 1 and a value of 0 means a normalized value of À1. In the case of primary interactions, a white square means a normalized weight of 1 and a black square, a normalized weight of À1. We can observe that the signature of move forward relates to the absence of green and blue in front of the agent (midred blob), bump is aﬀorded by a green object in front of the agent and eat is aﬀorded by a blue object if in front of the agent. Bump is also related to itself, which means that bump can be enacted repeatedly. The secondary interactions are related to an element of the same color. The position of this element corresponds to the position of the interaction, moved by the transformation produced by the associated primary interaction (i.e. a translation and a rotation). As an example, if the agent has enacted, at the previous enaction cycle, the interaction move forward and a visual interaction consisting in seeing green at the right of the agent, then the interaction seeing green at the position given by the red square while turning 90° right (e) may be successfully enacted. The signature (e) also indicates that this interaction can be considered as successfully enactable if the agent has, as an example, turned left and seen green on its right. These oﬀsets show that signatures can deﬁne the geometrical properties of observable space. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+21
+
+Signatures of visual interactions show that an interaction related to a certain position p and a color c is related to an element with the same color c, located at a position p0 that corresponds to the position p moved by the transformation produced by the primary associated interaction: a translation for visual interactions associated with move forward and a rotation for the visual interactions related to turn interactions. Fig. 15 shows these transformations, by drawing a link between the position associated with a visual interaction and the barycenter of the positions of the higher weights of its signature, which allows observation of the geometrical information deﬁned by signatures of interactions. This diﬀerence of position shows that spatial transformations produced by interaction can be deﬁned in the observable space through signatures of interactions. Table 2 summarizes average geometrical transformations obtained for each group of visual interactions.
+Another interesting observation is that the weight patterns are similar for each group of visual interactions (except for interactions associated with eat, as this interaction is less frequently enacted than the others, and because eat needs a prey in front of the agent, which makes some of the visual interactions impossible to experience). This means that the signature of an interaction i allows to cluster interactions enabling detection of the object aﬀording i, even though these interactions cannot be enacted simultaneously. For example, enacting move forward and seeing a green element in p is equivalent to enacting turn 90° left and seeing a green element in the same position p (the agent
+
+initially ignore that it is the same position) because the enaction of one of these two interactions makes possible the enaction of another interaction move forward and seeing a green element in p0. This property is observed at each position p of the observable space.
+In Fig. 16, we represent visual interactions using points. When a signature designates two visual interactions with weights of the same sign, the points corresponding to these two visual interactions are gathered. To help an external observer to identify signatures, we set positions of visual interactions associated with the interaction move forward to match their real positions in space. Then, we draw links between interactions related to neighbor positions. Visual interactions related to move forward thus constitute a reference grid. As can be observed in Fig. 16b and c, this reference grid appears in each group of visual interactions, indicating that visual interactions associated with the same position are clustered. It is thus not necessary to deﬁne a priori the positions of visual interactions to deﬁne interactions that characterize the presence of the same element, which can be useful on a real optic ﬂow system, where the measured relative speed of the same object depends on the movement of the agent.
+The ability to cluster interactions that characterize the presence of the same element can be used to complete the interactional context Et by adding interactions that would be enacted if their intention have led to the same environmental context. The fact that two interactions associated with diﬀerent primary interactions can be considered as
+
+Fig. 15. Transformations produced by enacting primary interactions. We display these movements by drawing a link between interactions and the barycenter of their signatures (we only take highest weights, in absolute value, into consideration). Left: visual interactions related to seeing green while moving forward. Right: visual interactions related to seeing blue while turning 45° left. The translation and the rotation are clearly recognizable. Note that the agent cannot access this representation, as it ignores positions associated to visual interactions. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+Table 2 Average geometrical transformations discovered through signature of interactions, for each group of visual interaction: translations on x and y axis, rotation on z axis, as an external observer can observe. Distance unit is deﬁned according to the distance covered by enacting move forward. Transformation are very close to real transformations (translation of 1 unit on y axis and rotations of 90° and 45°). We do not compute the average transformation for visual interactions associated with eat as too few of them are considered as reliable.
+
+Associated interaction
+
+Green
+
+Blue
+
+Red
+
+forward
+eat left 90° right 90°
+left 45° right 45°
+
+À0.033; 1.003; À0.15°
+0.235; À0.075; 89.43° À0.284; À0.086; À89.12°
+0.168; À0.013; 44.39° À0.195; À0.004; À43.84°
+
+À0.030; 1.005; 0.13°
+0.190; À0.159; 89.87° À0.191; À0.154; À89.93°
+0.141; À0.043; 44.77° À0.137; À0.034; À44.84°
+
+À0.031; 1.012; À0.12°
+0.154; À0.100; 89.35° À0.189; À0.125; À89.64°
+0.150; À0.033; 44.73° À0.134; À0.033; À45.01°
+
+22
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+Fig. 16. Relations between signatures. When a signature designates two interactions with weights of the same sign, these two interactions are gathered. To help an external observer to identify interactions, we set positions of interactions associated with move forward as a reference (a). Neighboring positions are linked by a line to deﬁne a regular mesh. Groups of interactions are represented separately (although they are overlapping). We display the structure obtained with visual interactions related to seeing blue while turning 90° left (b) and seeing red while turning 45° right (c). The reference mesh is recognizable: interactions related to the same position are clustered. The average error among reliable signatures is 0.034 unit of the reference grid. We can observe that the meshes are limited to positions that the agent can experience in its environment: other positions are too far to be experienced in our test environment. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+related to the same element makes it possible to consider the simultaneous enaction of these interactions. Indeed, if an interaction is considered as enactable, the element aﬀording it can be considered as present. Then, every interaction that allows this element to be detected can be considered as enacted. Fig. 17 gives an example of a completed interactional context.
+Signatures of interaction can thus be used to deﬁne enactability of interaction, and then to deﬁne the consequences of geometrical transformations produced by interactions in the observable context. This second property is used by the distant object recognition mechanism to recognize distant elements in the observable space.
+5.2. Recognition and localization of distant objects
+We add the object recognition mechanism to our agent, and reuse signatures obtained with the experiment
+
+described in Section 5.1. This mechanism has two func-
+
+tions: ﬁrst, it computes predecessors of signatures accord-
+
+ing to a set of sequence of interactions. Then, it
+
+compares these predecessors to the current interactional
+
+context to detect object instances.
+
+An instance of the object that aﬀords an interaction i is considered as present at a position r if SirðEtÞ > l (where l ¼ 0:9), where Sir is the predecessor of Si through sequence of interaction r, and if the opposite interactions
+
+fjkg of i are considered as failures at this position (i.e.
+
+S
+
+r jk
+
+ðEt
+
+Þ
+
+<
+
+Àl).
+
+This
+
+condition
+
+allows
+
+removal
+
+of
+
+positions
+
+r for which the aﬀorded interaction is ambiguous.
+
+We propose to remove what we call redundant positions
+
+to reduce the number of positions to consider. Two posi-
+
+tions are considered as redundant when one of these posi-
+
+tions is longer than the other one and if a certain
+
+proportion (80%) of weights considered as relevant (abso-
+
+lute value higher than 5 and higher than 1=3 of the highest
+
+Fig. 17. Completed context. Interactions that are considered as enactable are used to complete the environmental context Et (left context) by applying their signatures. In this example, we can observe in the completed context (right context) that the pattern of enacted interactions is similar for each group of visual interaction (except for interactions associated with eat, which are not reliable enough). The color shade indicates the certitude of predicted interaction: the lighter the color, the greater the certitude. The completed context (right context) can be used to deﬁne the enactability of an interaction with better accuracy. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+23
+
+weight of the signature) of the signature predecessor of the longest distance are included in the predecessor signature associated with the shortest position. Then, it is possible to remove the longest position. This principle ensures that the position of an object instance is deﬁned by the shortest sequence of interactions.
+We then deﬁne the most relevant positions to remove positions that lead to the same element of the environment. We consider that two positions leads to the same element if their predecessor signatures share a certain proportion of weights considered as relevant (20%). It is then possible to bundle together positions that are related to the same element of the context when this element covers a large surface of the environment. The positions of such position bundles are characterized by the distance and the ﬁrst interaction of the sequences that compose them. For each bundle B, we deﬁne the most relevant transformation r, deﬁned by (11), to ﬁnd the distance of the detected object instance.
+
+maxðS
+r2B
+
+r i
+
+ðEt
+
+Þ
+
+Â
+
+udðrÞÞ
+
+ð11Þ
+
+where dðrÞ is the distance deﬁned by the length of sequence r, and u 2 ½0; 1 a coeﬃcient that balances the inﬂuence of the distance and of the certitude. As variations in certitudes according to distance are very small, we use a high value (0:99) in our experiments.
+We tested this mechanism in several environmental conﬁgurations where elements are placed around the agent. The memory range is limited to a distance of 7 interactions.
+In Fig. 18, we set 4 elements around the agent, in addition to the surrounding border. We can observe the
+
+positions in which object instances are recognized, after removing redundant positions.
+After ﬁltering bundles, the mechanism found an object aﬀording move forward that corresponds to the large empty area in front of the agent, three instances of the object aﬀording bump, a ﬁrst one at a distance of three interactions, that can be moved closer by moving forward (wall square in front of the agent), a second one at a distance of 4 interactions, that can be moved closer by turning 90° right (right border) and a third one at a distance of 6 interactions, that can be moved closer by turning 90° left and by turning 45° left (left border). The mechanism also detects three instances of objects that aﬀord eat: the ﬁrst one at a distance of 3 interactions, that can be moved closer by moving forward and by turning 45° right, the second one at a distance of 4 interactions, that can be moved closer by turning 90° left, and the third one at a distance of 5 interactions, that can be moved closer by moving forward (Table 3). This context of object instance actually characterizes the environmental context of the agent.
+We also tested the precision of the mechanism by comparing the detected object instances in conﬁgurations where elements of the environment are spatially close. In one of these conﬁgurations, displayed in Fig. 19, we set two preys in front of the agent, separated by an empty space. The agent apparently considers these two elements to be the same object (Table 4), which is normal as these elements are at the same distance and can be moved closer with the same interaction (move forward). However, if a wall is set between the two preys, the agent considers the preys separately: the wall generates a strong separation between
+
+Fig. 18. Object instance detection. From left to right: the agent in its environment, the environmental context (in organized form), and the position where objects are detected, with a sequence limited to 7 interactions, after removing redundant positions. The positions on this representation are computed according to transformation produced by interactions of the corresponding sequences (the agent cannot access this representation). The environmental context shows that the agent succeeded to move forward (green square at the bottom) and experienced several secondary visual interactions (top group). The positions in which an instance is detected are displayed with circles, and a line shows the orientation: red for instances of the object aﬀording move forward, green for bump and blue for eat. The positions and orientations of objects in the right representation are determined according to the theoretical movements produced by interaction (the agent cannot access this representation). In this conﬁguration, the instance detection mechanism found one instance of move forward (that can be directly enacted), three instances of the object aﬀording bump and three instances of the object aﬀording eat. Arrows show the approximate positions of these object instances, designated in the form aﬀorded interaction (interaction(s) making it possible to move closest most, distance). (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+24
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+Table 3 List of deﬁned object instances in the conﬁguration displayed in Fig. 18. From left to right, the aﬀorded interaction, the interactions making it possible to move closer to the object instance, the distance of the instance, the shortest and most certain places, and the certitude of success of the aﬀorded interaction. The ﬁrst instance has a null distance as the interaction move forward can be immediately enacted.
+A interaction Interactions Dist. Main positions
+the two preys, by invalidating some object instances near the middle of the two preys (Table 5).
+The object segmentation mechanism thus takes surrounding elements of an object into consideration. We can also note that the two preys are not considered to be at the same distance. This shows that positions on a certain side are better known by the agent, and thus more accurate. The experience the agent has with its environment generates a form of individuation of the agent.
+5.3. Construction and exploitation of a space memory
+We test the space memory mechanism (M2) and the exploitation mechanism (M3) on an agent equipped with a simpliﬁed version of the signature mechanism (M1) and object detection mechanism. These simpliﬁed mechanisms are based on observations from the previous experiments (Sections 5.1 and 5.2) and deﬁne the same properties.
+In this section, we ﬁrst focus on the structure learned by the agent (signatures of place and signatures of presence) and on spatial properties that emerge from these structures. Then, we observe emergent behaviors generated by the decisional system, by analyzing how the agent interacts with elements of its environment, and the inﬂuence of the space memory on the agent’s behavior.
+5.3.1. Agent simpliﬁcations We propose a simpliﬁed version of the signature mech-
+anism. A ﬁrst simpliﬁcation is based on the observation that signatures can cluster interactions that are related to
+
+the same object, as shown in Section 5.1. We thus propose to merge visual interactions that are related to the same position and the same color, regardless of their associated primary interaction. For example, move forward and see a green element at position p1 is equivalent to turn 90° left and see a green element at p1. This simpliﬁcation signiﬁcantly reduces the number of interactions and increases their frequency of enaction. The downside is that we cannot deﬁne the result of visual interactions or select them as an intended interaction, as they can be enacted as a consequence of more than one primary interaction. However, visual interactions do not inﬂuence the decision mechanism as their valences are zero. It is thus not necessary to deﬁne their signatures. We increase the resolution of the visual ﬁeld to deﬁne a grid of 50 Â 100 visual positions p, which allows more accurate observation of the properties of objects deﬁned by the agent.
+This simpliﬁed signature mechanism was tested with a hard-coded space memory in a previous work (Gay et al., 2014). The signatures of primitive interaction stabilize after only 2000 enaction cycles. Fig. 20 shows these signatures which we will use in the next experiments. The objects deﬁned by these signatures are similar to the objects deﬁned by the signatures obtained with the signature mechanism tested in Section 5.1: move forward is related to the absence of wall and prey in front of the agent (mid-red blob), bump is related to a green object in front of the agent and eat is related to a blue object in front of the agent. The higher resolution allows more accurate observation of the objects and, in particular the shape and constitution of these objects. It appears that the object aﬀording eat is not only related to a blue object, but also to the absence of green element on both sides of the blue blob (mid-red blobs): indeed, a wall corner next to a prey can prevent the agent from reaching the prey. The objects deﬁned by the agent are thus related to its experience of its environment and can diﬀer from the objects deﬁned by an external observer.
+A second simpliﬁcation consists in using geometrical translations rather than sequences of interactional transformations to deﬁne positions in space. This simpliﬁcation allows a continuity between positions (and thus associated transformations), thus allowing intuitive observation of signatures of places and simplifying the object instance recognition mechanism. As the objects have no speciﬁc orientation in our environment, we do not use rotation to limit the transformation set to a bounded interval of Z2. We deﬁne a set of transformation, for which each position ðx; yÞ is equivalent to the shortest sequence of interactions r allowing this position to be reached. We deﬁne the correspondence between positions and sequences of interactions using signatures of the three primary interactions with a non empty signature (move forward, bump and eat): we generate predecessors of signatures and ﬁnd the shortest sequence of interaction that allows each position ðx; yÞ to be reached. Note that we used the theoretical movements
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+25
+
+Fig. 19. Precision of the object instance segmentation according to surrounding elements. Top: the agent considers the two preys as a unique instance of the object aﬀording eat. Indeed, the two preys are at the same distance from the agent and can be moved closer by enacting move forward. Bottom: if a wall is set between the two preys, the agent considers the two preys separately and with diﬀerent distances. The presence of the wall invalidates several positions for the preys, which separates the two preys. The diﬀerence in distances indicates that the agent has a preferred side, for which signature predecessors are more reliable.
+
+Table 4 List of deﬁned object instances in the conﬁguration displayed in Fig. 19 (top). The agent considers the two preys as a unique object aﬀording eat, ‘‘in front of it” (reachable by enacting move forward).
+A interaction Interactions Dist. Main positions
+
+produced by interactions. As the position and shape of the object designated by each signature are similar, we obtain a similar correspondence. We select the correspondence obtained with the signature of move forward.
+We then use this correspondence between positions of space and sequences of interactions to deﬁne primitive places. We consider that move forward and eat generate the same movement. We propose to deﬁne distances using geometrical distances. This ensures that a maximum number of places are contiguous, thus simplifying place signature analysis. The set of primitive places we used to test the space memory is displayed in Fig. 21.
+In the following experiments, the agent begins with the set of signatures of primary interactions and the set of places deﬁned in this section.
+5.3.2. Space memory speciﬁcations The signatures of places and of presence are imple-
+mented in a similar way as signatures of interactions, based
+
+26
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+Table 5 List of deﬁned object instances in the conﬁguration displayed in Fig. 19 (bottom). The agent now considers preys as two distinct objects. The presence of the wall block invalidates the enaction of interaction eat at positions between the two preys, which divides remaining positions into two distinct groups of positions.
+A interaction Interactions Dist. Main positions
+
+Fig. 21. Set of places deﬁned according to the signature of move forward. The white point shows the neutral position (no transformation). Colors show the interaction making it possible to move closest most. The color gradient shows the distance, from 1 to 10. A distance unit nearly correspond to the distance covered by enacting the interaction move forward. (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+on formal neurons. The input layer of a neuron implementing a place signature is organized as vectors ½eip;1; . . . ; eip;mp , where mp is the number of observable positions, where eip;k ¼ 1 when an instance of the object aﬀording i is detected in the kth position in the list of positions and eip;k ¼ 0 otherwise. The certitude of presence in a place is deﬁned with a linear function of inputs, passed through
+an activation function (12). The signature Sl of a place l is characterized by the set of synaptic weights ½wl;1; . . . ; wl;mp  and the bias wl;mpþ1 of the associated formal neuron.
+The input layer of a neuron implementing a presence signature is organized, for each object instance x, as vectors ½ekx;1; . . . ; ekx;mk , where mk is the number of places (primitive and composite), where ekx;k ¼ 1 when the object instance x is characterized by the kth place in the list of places and exk ;k ¼ 0 otherwise. The certitude of presence is deﬁned with a linear function of inputs, passed through
+an activation function (13). The signature of presence of
+a place l is characterized by the set of synaptic weights
+
+½wpl;1; . . . ; wpl;mk  and the bias wlp;mkþ1 of the associated formal
+
+neuron.
+
+SlðEipÞ ¼ g
+
+! X
+epi;k Á wl;k þ wl;mpþ1
+
+ð12Þ
+
+k 2½1;mp 
+
+!
+
+X
+
+SlpðExk Þ ¼ g
+
+exk ;k Á wlp;k þ wpl;nþ1
+
+ð13Þ
+
+k 2½1;mk 
+ x  gðxÞ ¼ tanh
+2
+
+Signatures of places and of presence are reinforced by applying the delta rule (4), with a constant learning rate of 0.05.
+The global satisfaction of a candidate interaction cannot take an object instance into consideration when the agent can interact with this instance in the next enaction cycle. We thus do not consider object instances for which the estimated distance is less than 1. As the system is not accurate, we increase this limit to 2 to ensure that a close object instance that may be interacted in the next enaction cycle will not be taken into account.
+We use the following coeﬃcients, as they provide a good compromise between the inﬂuence of close elements and the inﬂuence of distant elements:
+
+– object coeﬃcient c ¼ 1 – inﬂuence coeﬃcient of the space memory b ¼ 15
+
+A modiﬁcation of these coeﬃcients does not aﬀect the functioning of the decisional mechanism. However, it inﬂu-
+
+Fig. 20. Signatures of primary interactions obtained with the simpliﬁed interactional system after 2000 enaction cycles. From left to right, the signatures of move forward, bump, eat, turn 90° right, turn 90° left, turn 45° right, turn 90° left. Signatures are displayed in a way similar than to the complete interactional system, except that there is only one group of three overlapping color groups of visual interactions per signature, instead of six. These signatures are similar to signatures obtained with the previous agent. Signatures of turn interactions are strongly related to the bias of the formal neuron as these interactions cannot fail. The higher resolution shows that the signature of eat is not only related to a blue element, but also to the absence of green elements (purple circle arc). (For interpretation of the references to color in this ﬁgure legend, the reader is referred to the web version of this article.)
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+27
+
+a
+
+b
+
+c
+
+d
+
+Fig. 22. Inﬂuence of the object coeﬃcient on agent behavior. (a) with a low coeﬃcient (c 20; 0:5), the distance of an object instance has a small inﬂuence on its attractiveness. In this situation, walls are strongly repulsive (although they are further than the prey), thus preventing the agent from moving forward the prey. (b) and (c) With a higher object coeﬃcient 0:6 for (b) and between 0:7 and 1:1 for (c), the diﬀerence in inﬂuence between the prey and surrounding walls make the agent move toward the prey until it reaches it. We can observe that the agent remains at a reasonable distance from the wall. (d) With a high coeﬃcient, the object instances have a very small inﬂuence on agent behavior: the agent is not repulsed by the wall and turns toward the prey only when the latter is very close to the agent.
+
+turns toward the prey only when the prey is very close to the agent.
+We limit the length of the path of composite places to a maximum of 2, which is the minimum length allowing updating of a position of the global space. Indeed, with a visual ﬁeld of 180° and a rotation of 90°, the space memory can characterize every position of its global space with composite places with a path of length 1. With a path of length 2, it is possible to evoke a composite place l which can result in a composite place with a path of length 1 after an update of the path of l. As places with a path of length 1 are suﬃcient to characterize the global space, we limit the context of presence Ek to primitive places and composite places with a path of length 1.
+Each object instance is characterized in the space memory by two lists of places. The ﬁrst list gives places that characterize the position of the instance with a high reliability. This list is updated by updating the path of composite places. Thus, this list can characterize the position of an instance for a maximum of two enaction cycles, but with a high reliability. The ﬁrst list is used for the presence signature learning process. The second list gives places that characterize the position of an object instance with a lower reliability, and is updated both by updating the path of composite places and by evoking places through presence signature. This list characterizes the position of an instance for long sequences of enaction cycles, until the object is observed again or if there are no known places to evoke. The exploitation decision mechanism uses the ﬁrst list as long as this list is not empty. It then uses the second list.
+
+ences the emergent behaviors of the agent, as it modiﬁes the attractiveness of object instances according to their distances. With a low space memory coeﬃcient, the valences of interactions have a greater inﬂuence than object instances: the agent thus selects the interaction move forward more often because the valence of this interaction becomes higher than the utility values deﬁned by object instances. The object coeﬃcient inﬂuences the attractiveness of object instances according to their distance: with a high value, distant object instances have little inﬂuence on the decision, while a low value makes the agent strongly inﬂuenced by distant object instances. Fig. 22 shows an example where a wall block is closed to a prey: with a low object coeﬃcient, the distance of an object instance has little inﬂuence on its attractiveness. In this situation, the agent is strongly attracted by the prey, but also repulsed by surrounding wall blocks, which prevents the agent from moving toward the prey. With a higher object inﬂuence, the agent moves toward the prey, as it is attractive, but remains at a reasonable distance from wall blocks. The variation of inﬂuence of object instances according to their distances enables the agent to move toward the prey without being repulsed by surrounding walls that are further away. With a high object coeﬃcient, object instances have little inﬂuence on the behavior of the agent, which
+
+5.3.3. Learning structures of the space memory We ﬁrst let the agent move in its environment, driven by
+the place signature learning mechanism. After 50,000 enaction cycles, most of the signatures of places are stabilized. Fig. 23 shows a sample of place signatures. Signature weights are organized topographically to match the position associated with each weight. A white pixel indicates a positive weight and a black pixel a negative value. A gray pixel indicates a value of 0. We can easily recognize the areas that belong to each place. We can also observe that signatures of composite places deﬁne areas that extend into the non-observable space, especially with composite places with a path composed of a turn interaction. This extension of places into the non-observable space shows that composite places can be used to deﬁne the presence of object instances in the global space.
+Once signatures of place have emerged and stabilized, we let the agent learn presence signatures by activating the presence signature learning mechanism. The exploitation mechanism is also activated but is useless at this time as a large amount of signatures (both place and presence signatures) are unreliable. Note that autonomous activation of the presence signature learning process is still an open question. Learning reliable presence signatures takes nearly 50,000 additional enaction cycles.
+
+28
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+Fig. 23. Sample of place signatures after 50,000 enaction cycles. The ﬁrst row shows the place signatures of primitive places characterized by a distance of 5 (this distance was selected because these signatures are the easiest to read). The weights of each signature are organized to match the position of the corresponding position. The neutral translation, that corresponds to the position of the agent, corresponds to the center of the signature. White areas show positions that are considered as part of the area covered by the corresponding place, while black areas show positions that are considered as out of the area. The dark half-circle in signatures corresponds to the area covered by the visual ﬁeld of the agent (the depth of the visual ﬁeld is limited by the length of the environment). The area deﬁned for each place is clearly deﬁned. The next rows show the place signatures of composite places composed of the above primitive place and a path composed of the interactions displayed on the left. We can recognize the white areas of signatures of primitive places, which are moved according to the translation produced by the path (rotation and translation). We can guess that some of these areas extend into the non-observable space (especially with the signatures of [turn 90° left][{move forward; 5}i and [turn 90° right][{move forward; 5}i). These composite places are thus suited for characterizing the presence of an object in the non-observable space.
+
+The presence signatures show how places can be connected when they are related to the same area. Fig. 24 shows some examples of presence signatures. These signatures show that the four displayed places can be associated with place [turn 45° right][{turn 90° right; 2}i and [turn 45° right][{turn 45° right; 2}i. The similarity between these signatures indicated that these four composite places characterize similar areas in space. These signatures explain the space memory update observed in Fig. 11.
+5.4. Emergence of behaviors
+The following experiments test the space memory mechanism and the exploitation decision mechanism. We thus deactivate the signature learning mechanisms so that they cannot interfere with the exploitation decision system. A ﬁrst set of experiments shows how the agent interacts with
+
+elements of the environment, and thus shows how the agent interprets elements of its environment. A second set of experiments shows how the space memory inﬂuence the agent’s behavior and guides it to elements of the environment even when they are masked after their detection.
+5.4.1. Interaction with elements of the environment We ﬁrst observe how the agent considers elements of its
+environment and interacts with them. We exploit here the fact that the agent is attracted by preys. Indeed, the agent recognizes them as objects aﬀording the interaction eat, which has a very high valence. We can thus force the agent to take another object of its environment into consideration, by placing another element the path leading the agent to the prey. We ﬁrst used an alga, then a wall.
+We ﬁrst let the agent discover the prey, then we hide it with algae (Fig. 25). It appears that the agent moves
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+29
+
+Fig. 24. Sample of presence signatures. Signature weights are organized as follows: weights related to primitive places are organized in the left group according to the interaction and the distance that characterize them (left rectangle). Weights related to composite places are organized in a similar way, each group shows the weights related to composite places composed of the given path (seven right rectangles). The context is limited to primitive places and composite places with a path of length 1, as these places are suﬃcient to characterize the global space. White weights show the set of places that characterizes the area associated with the composite place (left), and black weights, the set of places that do not. These signatures look similar as the four displayed composite places are related to close areas. These signatures show that the four displayed composite places are mainly related to places [turn 45° right][{turn 90° right; 2}i and [turn 45° right][{turn 45° right; 2}i. This means that if the position of an object instance is characterized by the two places displayed under signatures, then the four composite places may also be used to characterize the position of this object instance.
+
+t
+Fig. 25. Behavior of the agent in presence of an alga. Top: the interactional context. We ﬁrst let the agent discover a prey (left), detected as a positive object because it aﬀords an interaction with a high valence. We set an alga between the agent and the prey, on the agent’s path (middle). We observe that the agent moves through algae as if they were not present: algae become interactionally equivalent of empty spaces, as they both aﬀord move forward. Bottom: the estimated position of the prey in space memory, obtained by adding place signatures of places that characterize the position of the instance aﬀording eat. The prey disappears from memory when eaten: the space memory thus integrates the fact that a prey disappears from the environment when the agent eats it.
+
+through algae as if they were not present. Indeed, algae have the same interactional properties as an empty space as they have no inﬂuence on the enaction of move forward, which is conﬁrmed by signatures of primary interactions
+
+that do not integrate visual interactions related to seeing a red element: weights related to visual interactions that consist in seeing a red element have a low value. Thus, the agent considers that algae are (interactionally) the same
+
+30
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+objects as empty spaces. The fact that the agent considers algae as empty spaces shows that it takes aﬀordances into consideration rather that elements of its environment. We can also observe that the agent is still attracted by the prey, which conﬁrms that the prey is stored in memory.
+We then repeat this experiment with a wall block (Fig. 26). This time, the agent turns to avoid the wall block when its inﬂuence becomes greater than the prey. The agent then turns around the wall, and when the interaction move forward does not make the wall come closer, the agent continues to move toward the prey (right). This behavior illustrates the principle of the space memory: during the ﬁrst enaction cycles, the relative diﬀerence in distance between the wall block and the prey is small. As the prey aﬀords an interaction with a higher valence (in absolute value) than the wall block, the agent is more attracted by the prey than repulsed by the wall. While the agent is approaching, the inﬂuence of the wall becomes higher than the prey, which makes the agent turn, as turn interactions allows it to escape from the wall. Once the agent has bypassed the wall block, the interaction move forward has a positive utility value, as it does not make it possible to move closer to the wall anymore. The agent thus moves forward again and reaches the prey. This avoidance behavior shows that wall blocks are now considered as negative objects. Indeed, the agent recognizes walls as objects that aﬀord the interaction bump, which has a negative valence.
+In these two experiments, we observe that when the agent eats a prey, this prey disappears from its memory: the agent thus integrates the fact that eating a prey makes it disappear. However, in certain conﬁgurations (see Fig. 27), the agent may believe that another prey can be present beside the position of the eaten prey (the dark blob at the positions near the agent shows that there is no prey
+
+in this area). This occurs because the agent experienced several times the situation where two preys are adjacent, and considered as a unique object instance: when the agent eats one of these preys (generally the left prey as the agent has a preference for its left side), the other prey remains near the agent (generally, on its right side). We also observed that if we remove the prey before the agent reaches it, the agent, that cannot observe the absence of an object, generates an erratic behavior, wandering near the estimated position of the missing prey. Indeed, the space memory indicated the presence of a prey in front of the agent, that may disappear if the agent enacts move forward while the interaction eat is not considered as enactable. This behavior stops when the prey vanishes from the space memory.
+5.4.2. Inﬂuence of the space memory This second set of experiments shows how object
+instances, stored in the space memory and not visible anymore, can inﬂuence the agent’s behavior. We exploit the fact that the algae are considered as empty spaces by the agent for hiding elements in the observable space. Thus, it is possible to observe the estimated position of objects stored in memory with the place signatures of places that characterize the position of this object. In this experiment, we propose to compare the behavior of the agent in a reference context, containing a prey, and in a second context where a second element is added. The comparison of behaviors in these two contexts allows to observe the inﬂuence of the second object on the decisional mechanism. The elements are masked by algae after being detected by the agent, to ensure that the agent’s behavior is only inﬂuenced by the object context given by the space memory.
+To better visualize the estimated position of object instances, we propose to display the estimated certitude
+
+t
+Fig. 26. Behavior of the agent in presence of a wall. Top: the interactional context. We ﬁrst let the agent discover a prey (left). We then set a wall between the agent and the prey, on the agent’s path (middle). The agent turns to get away from the wall (right): this element is considered as negative as it aﬀords the interaction bump. The agent then gets around the wall, and move toward the prey. Bottom: the estimated position of the prey according to the space memory. The timeline displays the estimated position until the agent can observe the prey again (enaction cycles 1–8).
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+31
+
+t
+Fig. 27. We let the agent discover the prey (left), then we hide the environment with algae (middle). The agent moves through algae with an eﬃcient path (only one rotation) and reaches the prey (right). Bottom: the estimated position of the prey at each enaction cycle. The estimated position is obtained by adding place signatures of places that characterize the position of the object. The white blobs show the positions in which the object instance is likely to be. We can observe, on the last enaction cycle, that the agent believes that another prey is present on its right side (while the position of the eaten prey is considered to be empty). This means that during signature learning, the agent experiences several times the situation where two preys are adjacent.
+
+of presence ^cp;x of an object instance x in a position p of
+
+the observable space by adding, weight by weight, place
+
+signatures of places that characterize the position of x.
+
+The result values of each position are then normalized
+
+according to the highest value (in absolute value):
+
+P
+
+^cp;x
+
+¼
+
+l2x wl;x maxp ðj^cp;x jÞ
+
+ð14Þ
+
+These certitude values are organized topographically according to the related position in space. A white pixel indicates that the instance may be present at the corresponding position with a high certitude, while a black pixel indicates that the instance is absent from the corresponding position with a high certitude. A gray color indicates that the certitude at this position cannot be deﬁned, because the position is out of the observable space experienced by the agent or because the object instance vanished from the space memory. Thus, the lighter the position, the higher
+
+the certitude of presence in this position. Obviously, the lightest positions are at the intersection of the largest amount of places.
+We begin with the reference context displayed in Fig. 27: we place a prey on the left part of the agent’s visual ﬁeld. We then let the agent enact an interaction (here, move forward) to allow it to discover its environment. We then mask the environment with algae. The agent generates an eﬃcient behavior consisting in moving forward until the prey is aligned, then turning 90° left and ﬁnally moving forward to reach the prey. We observe that the space memory is precise enough to estimate the moment when the agent has to turn. The estimation of prey position shows that the place update mechanism is able to track the invisible prey and give a correct estimation of this instance.
+In a symmetrical situation, we observe that the agent misses the prey (Fig. 28): the agent enacts an additional move forward interaction before turning. The agent then
+
+Fig. 28. Agent in a symmetrical context: when the agent tries to reach the prey, it makes an error in estimation of the prey position. The agent then misses the prey, with an error smaller than a agent’s step length. Left: the estimated position of the object instance aﬀording eat according to the space memory. The agent is thus more ﬂuent on its left side, due to asymmetries in its signatures of place and presence.
+
+32
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+t
+Fig. 29. We add a wall on the path previously observed. The agent begins in the same conditions as before. Bottom: estimated position of the prey and the wall in space memory. The top timeline shows the estimated position of the prey. The bottom timeline shows the estimation of the position of the wall block. We can observe that the agent uses another path to reach the prey. This experiment shows that the agent takes every object stored in its space memory to adapt its behavior. We can also note that the prey disappears from the space memory.
+
+turns right and tries to align toward the prey. However, due to the lack of precision in the space memory, the agent cannot reach the prey, although the error was smaller than a step length. This observation shows that there are asymmetries in the signatures of place and presence and in the learning process. These asymmetries are mainly due to the order of interactions in the interactional set I that makes a bias in the signature learning mechanism. The agent is thus more familiar with its left side: its experience of its environment aﬀects the reliability of its environment internal model and inﬂuences its behavior.
+For the second part of the experiment, we add a wall block on the path used by the agent in the ﬁrst part of the experiment (Fig. 29). The agent starts at the same position and with the same signatures as before. We let the agent enact an interaction to discover its environment, and mask the environment with algae. We then observe that the agent is inﬂuenced by the wall present in the space memory: the agent uses another path that avoids the wall. It begins by turning left, moves forward to pass the wall block, turns to align toward the prey and ﬁnally moves toward the prey.
+The agent turns after only two enaction cycles, which shows that the behavior is not a simple modiﬁcation of the previous behavior for bypassing a wall on the initial path, but is a diﬀerent behavior that includes the wall presence right from the start. This variation in behavior indicates that the agent is inﬂuenced by every element of its memory, as it takes both the prey and the wall into consideration.
+
+6. Conclusion
+We proposed a mechanism that allows an artiﬁcial agent to discover and integrate properties of its environment and that exploits this emerging knowledge to generate behaviors that satisfy a form of intrinsic motivation called interactional motivation, with the least possible predeﬁned ontology about its environment and its sensorimotor possibilities. The agent deﬁnes a low-level semantics for its environment based on the valence of its interactions.
+An agent equipped with this mechanism can construct a spatial memory that integrates spatial properties of its environment and generates a context that characterizes elements of the environment escaping the agent’s sensory system. The precision of this spatial memory, which depends on the interactional possibilities of the agent, is low but suﬃcient to help the agent characterize its situation and generate behaviors that satisfy its interactional motivation.
+The experiments demonstrate that the mechanism satisﬁes the ﬁve principles deﬁned in Section 1.3:
+– The agent is intrinsically motivated as its decisions are based on the principle of interactional motivation. This principle implies that no information about the environment is needed: the agent does not use the notion of environmental states or the notion of extrinsic reward.
+– The agent deﬁnes its own internal object models through signatures of interactions. Objects deﬁned by the agent are characterized by properties of elements of the envi-
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+33
+
+ronment that aﬀord interactions as experienced by the agent. The agent can thus directly exploit these models as they consist of interactional properties. The objects deﬁned by an agent can diﬀer from objects that an external observer with diﬀerent possibilities of interaction could deﬁne. Thus, where we, as external observers, deﬁned empty spaces and algae, the agent deﬁned a unique object that can be crossed. The agent also considers long border walls and wall blocks as a unique object that aﬀords the interaction bump. – The agent can integrate surrounding space and its spatial properties without using the notion of geometrical space: object instances are recognized by backmoving signatures of interactions according to a sequence of interactions. Signatures of place and signatures of presence characterize spatial properties of the environment in terms of interactions. Thus, the agent constructs its own notion of space based on interactions. – Signatures of place and signatures of presence are used to update the estimated position of object instances stored in the space memory. The space memory can then track object instances even when the agent can no longer perceive them, which constitutes a form of object permanence. – The space memory generates a context of object instances that can be used by the agent to select intended interactions in order to maximize its interactional motivation principle in the short and medium term, by considering interactions that can be enacted in a near future, characterized by object instances. The decisional mechanisms presented in this paper are rudimentary but generate behaviors adapted to the agent’s motivational principles.
+The diﬀerent components of the global mechanism were tested separately. Testing the interaction signature mechanism (M1) and the interaction signature learning mechanism ﬁrst is possible and pertinent as the interaction signature learning process constitutes the ﬁrst stage of the agent’s learning process. Testing the object recognition mechanism alone is also possible as this mechanism does not rely on a learning process. We tested the place and presence signature learning processes with a partially hard-coded and simpliﬁed version of the interaction signature learning and object recognition mechanism. These hard-coded mechanisms implement properties observed with their agnostic equivalent mechanism, which allows to investigate the construction of a space memory in controlled conditions. However, we cannot observe any side-eﬀects that can emerge from simultaneous learning of interaction, place and presence signatures.
+We tested our mechanisms in a simpliﬁed environment, on agents equipped with limited sensorimotor possibilities. We simpliﬁed our experimental system for practical and technical reasons: ﬁrst, we needed to reduce the complexity of our mechanisms to observe more precisely properties emerging from the learning process. As an example, with
+
+a 3D environment, it would be diﬃcult to observe and interpret signatures of interactions, which would be displayed as 3D structures. We limited the number of colors to 3 to display signatures with RGB images rather than multiple columns (as we do in Fig. 5, before overlapping columns). However, the environment is still more complex than the interactional possibilities of the agent: there are objects with the same interactional properties (such as algae and empty spaces) and elements of diﬀerent sizes (walls), which allow us to observe how an agent equipped with a RI decisional system can interpret an environment that exceeds its sensorimotor possibilities.
+6.1. Perspectives
+In future work, we intend to extend this decisional system to more complex agents, to enable them to interact with more complex environments using improved possibilities of interaction:
+– Agents in dynamic environments, by simultaneously using spatial and sequential (Georgeon & Ritter, 2011) interactional mechanisms. Further works (Gay & Hassas, 2015) have shown that coupling the space memory with sequential mechanisms allows integration of dynamic properties of the environment, and thus, prediction of movements and tracking of mobile elements.
+– Simultaneous enaction of intended interactions: living beings move by using multiple muscles simultaneously. Modifying the Radical Interactionism model to integrate this property will help to generate more complex behaviors.
+– Inter-agent interactions: the current version of our agent cannot interact with another agent. Deﬁning interactions that allow simple communication between agents will help form groups of agents and let low level social behavior emerge.
+Our implementations used predeﬁned and constant interaction valences to investigate our mechanisms in consistent conditions. We intend to study the possibilities of using valences that can depend on agent’s internal states, such as hunger or tiredness: as an example, the interaction eat can have a high valence when the agent is starving and a low or negative valence when the agent is satisﬁed. As the object semantics deﬁned by the agent is based on valences of interaction, rather than an object property that needs to be discovered, elements became immediately attractive or repulsive depending on the agent’s internal states.
+Similarly, the inﬂuence coeﬃcient of the space memory and the object inﬂuence coeﬃcient can depend on internal states: an agent in a critical state may generate short term behaviors based on close objects and immediately enactable interactions, while a satisﬁed agent can aﬀord to consider distant possibilities of interactions and long-term behaviors.
+
+34
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+The current object detection mechanism eliminates ambiguous objects (see Section 5.2). A curiosity mechanism can be added to make ambiguous objects attractive, thus leading the agent to interact with these objects and categorize them with other interactions.
+References
+A stro¨ m, K. J. (1965). Optimal control of Markov processes with incomplete state information. Journal of Mathematical Analysis and Applications, 10(1), 174–205.
+Baleia, J., Santana, P., & Barata, J. (2014). Self-supervised learning of depth-based navigation aﬀordances from haptic cues. In Proceeding of IEEE international conference on autonomous robot systems and competitions (ICARSC) (pp. 146–151).
+Blank, D., Kumar, D., Meeden, L., & Marshall, J. B. (2005). Bringing up robot: Fundamental mechanisms for creating a self-motivated, selforganizing architecture. Cybernetics and Systems(2), 125–150.
+Chemero, A. (2003). An outline of a theory of aﬀordances. Ecological Psychology, 15(2), 181–195.
+Chinellato, E., Antonelli, M., Grzyb, B. J., & del Pobil, A. P. (2010). Implicit mapping of the peripersonal space by gazing and reaching. IEEE Transactions on Autonomous Mental Development.
+Cos-Aguilera, I., Can˜ amero, L., & Hayes, G. (2004). Using a SOFM to learn object aﬀordances. In Proceedings of the 5th workshop of physical agents (WAF’04) (pp. 139–150).
+Cotterill, R. M. (2001). Cooperation of the basal ganglia, cerebellum, sensory cerebrum and hippocampus: Possible implications for cognition, consciousness, intelligence and creativity. Progress in Neurobiology, 64(1), 1–33.
+Detry, R., Baseski, E., Popovic, M., Touati, Y., Kruger, N., Kroemer, O., ... Piater, J. H. (2009). Learning object-speciﬁc grasp aﬀordance densities. In Proceeding of IEEE 8th international conference on development and learning (pp. 1–7).
+Fuke, S., Ogino, M., & Asada, M. (2007). Body image constructed from motor and tactile images with visual information. International Journal of Humanoid Robotics, 4(2), 347–364.
+Fuke, S., Ogino, M., & Asada, M. (2009). Acquisition of the headcentered peri-personal spatial representation found in VIP neuron. IEEE Transactions on Autonomous Mental Development, 1(2), 131–140.
+Gay, S. L., & Georgeon, O. L. (2013). Interaction-based space representation for environment agnostic agents. In Proceedings of ALA2013, workshop at AAMAS (pp. 38–45).
+Gay, S. L., Georgeon, O. L., & Wolf, C. (2014). Autonomous object modeling based on aﬀordances for spatial organization of behavior. In IEEE fourth joint international conference on development and learning and on epigenetic robotics (ICDL-EPIROB). .
+Gay, S. L., & Hassas, S. (2015). Autonomous object modeling based on aﬀordances in a dynamic environment. In Annual international conference on biologically inspired cognitive architecture (BICA).
+Georgeon, O. L., & Aha, D. W. (2013). The radical interactionism conceptual commitment. Journal of Artiﬁcial General Intelligence, 4(2), 31–36.
+Georgeon, O. L., & Sakellariou, I. (2012). Designing environmentagnostic agents. In Proceedings of ALA2012, adaptive learning agents workshop, at AAMAS 2012, 11th international conference on autonomous agents and multiagent systems (pp. 25–32).
+Georgeon, O. L., Marshall, J. B., & Gay, S. L. (2012). Interactional motivation in artiﬁcial systems: Between extrinsic and intrinsic motivation. In Proceedings of the 2nd joint IEEE international conference on development and learning and on epigenetic robotics (EPIROB) (pp. 1–2).
+Georgeon, O. L., Marshall, J. B., & Manzotti, R. (2013). ECA: An enactivist cognitive architecture based on sensorimotor modeling. Biologically Inspired Cognitive Architectures, 6, 46–57.
+
+Georgeon, O. L., & Ritter, F. E. (2011). An intrinsically-motivated schema mechanism to model and simulate emergent cognition. Cognitive Systems Research, 15–16, 73–92.
+Gibson, J. J. (1977). The theory of aﬀordances. In R. Shaw & J. Bransford (Eds.), Perceiving, acting, and knowing: Toward an ecological psychology. , ISBN-13: 9780470990148.
+Graziano, M. S. A., Taylor, C. S. R., & Moore, T. (2002). Complex movements evoked by microstimulation of precentral cortex. Neuron, 34(5), 841–851.
+Griﬃth, S., Sinapov, J., Sukhoy, V., & Stoytchev, A. (2012). A behaviorgrounded approach to forming object categories: Separating containers from non-containers. IEEE Transactions on Autonomous Mental Development, 4(1), 54–69.
+Griﬃth, S., Sukhoy, V., Wegter, T., & Stoytchev, A. (2012). Object categorization in the sink: Learning behavior-grounded object categories with water. In Proceedings of the 2012 ICRA workshop on semantic perception, mapping, and exploration (SPME). .
+Harnad, S. (1990). The symbol grounding problem. Physica D(42), 335–346.
+Hermans, T., Rehg, J. M., & Bobick, A. F. (2011). Aﬀordance prediction via learned object attributes. In International conference on robotics and automation (ICRA): Workshop on semantic perception, mapping, and exploration. .
+Ivaldi, S., Nguyen, S.-M., Lyubova, N., Droniou, A., Padois, V., Filliat, D., ... Sigaud, O. (2014). Object learning through active exploration. IEEE Transactions on Autonomous Mental Development, 6(1), 56–72.
+Kawamura, K., Koku, A. B., Wilkes, D. M., Peters, R. A., II, & Sekmen, A. (2002). Toward egocentric navigation. International Journal of Robotics and Automation, 17(4), 135–145.
+Lagoudakis, M. G., & Maida, A. S. (1999). Robot navigation with a polar neural map. In Proceedings of the sixteenth national conference on artiﬁcial intelligence and the eleventh Innovative applications of artiﬁcial intelligence conference (pp. 965).
+Lungarella, M., Metta, G., Pfeifer, R., & Sandini, G. (2003). Developmental robotics: A survey. Connection Science, 15(4), 151–190.
+Maye, A., & Engel, A. K. (2011). A discrete computational model of sensorimotor contingencies for object perception and control of behavior. In IEEE international conference on robotics and automation (ICRA) (pp. 3810–3815).
+Montesano, L., & Lopes, M. (2009). Learning grasping aﬀordances from local visual descriptors. In IEEE 8TH international conference on development and learning (pp. 1–6).
+Murata, A., Fadiga, L., Fogassi, L., Gallese, V., Raos, V., & Rizzolatti, G. (1997). Object representation in the ventral premotor cortex (area F5) of the monkey. Journal of Neurophysiology, 78(4), 2226–2230.
+Nguyen, S.-M., Ivaldi, S., Lyubova, N., Droniou, A., Ge´rardeaux-Viret, D., Filliat, D., ... Oudeyer, P.-Y. (2013). Learning to recognize objects through curiosity-driven manipulation with the iCub humanoid robot. In IEEE third joint international conference on development and learning and epigenetic robotics (ICDL) (pp. 1–8).
+Northmore, D. P. M. (2011). The optic tectum. In Encyclopedia of ﬁsh physiology: From genome to environment. Academic Press, ISBN-13: 9780123745453.
+O’Keefe, J., & Dostrovsky, J. (1971). The hippocampus as a spatial map: Preliminary evidence from unit activity in the freely moving rat. Brain Research, 34(1), 171–175.
+O’Regan, J. K. (2011). Why red doesn’t sound like a bell: Understanding the feel of consciousness. USA: Oxford University Press, ISBN-13: 9780199775224.
+Oudeyer, P.-Y., Kaplan, F., & Hafner, V. V. (2007). Intrinsic motivation systems for autonomous mental development. IEEE Transactions on Evolutionary Computation, 11(2), 265–286.
+Pfeifer, R., & Scheier, C. (1994). From perception to action: The right direction? In Proceedings of from perception to action conference (pp. 1–11).
+Piaget, J. (1954). The construction of reality in the child. New York: Basic Books, ISBN-13: 978-0465014071.
+
+S.L. Gay et al. / Cognitive Systems Research 41 (2017) 1–35
+
+35
+
+Pierce, D., & Kuipers, B. (1997). Map learning with uninterpreted sensors and eﬀectors. Artiﬁcial Intelligence, 92(1–2), 169–227.
+Poincare´, H. (1902). La Science et l’Hypothe`se. Ed. Flammarion. Previc, F. H. (1998). The neuropsychology of 3-D space. Psychological
+Bulletin, 124(2), 123–164. Stoﬀregen, T. A. (2003). Aﬀordances as properties of the animal
+environment system. Ecological Psychology, 15(2), 115–134.
+
+Ug˘ur, E., Dog˘ar, M. R., C¸ akmak, M., & Sßahin, E. (2007). The learning and use of traversability aﬀordance using range images on a mobile robot. In Proceeding of IEEE international conference on robotics and automation (pp. 1721–1726).
+Weng, J., McClelland, J., Pentland, A., Sporns, O., Stockman, I., Sur, M., & Thelen, E. (2001). Artiﬁcial intelligence - Autonomous mental development by robots and animals. Science, 291(5504), 599–600.
+

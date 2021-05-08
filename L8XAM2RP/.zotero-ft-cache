@@ -1,0 +1,692 @@
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. X, NO. Y, MONTH 2016
+
+1
+
+Lifelong Augmentation of Multi-Modal Streaming Autobiographical Memories
+Maxime Petit*, Tobias Fischer*, and Yiannis Demiris
+
+Abstract—Robot systems that interact with humans over extended periods of time will beneﬁt from storing and recalling large amounts of accumulated sensorimotor and interaction data. We provide a principled framework for the cumulative organisation of streaming autobiographical data so that data can be continuously processed and augmented as the processing and reasoning abilities of the agent develop and further interactions with humans take place. As an example, we show how a kinematic structure learning algorithm reasons a-posteriori about the skeleton of a human hand. A partner can be asked to provide feedback about the augmented memories, which can in turn be supplied to the reasoning processes in order to adapt their parameters. We employ active, multi-modal remembering, so the robot as well as humans can gain insights of both the original and augmented memories. Our framework is capable of storing discrete and continuous data in real-time. The data can cover multiple modalities and several layers of abstraction (e.g. from raw sound signals over sentences to extracted meanings). We show a typical interaction with a human partner using an iCub humanoid robot. The framework is implemented in a platform-independent manner. In particular, we validate its multi platform capabilities using the iCub, Baxter and NAO robots. We also provide an interface to cloud based services, which allow automatic annotation of episodes. Our framework is geared towards the developmental robotics community, as it 1) provides a variety of interfaces for other modules, 2) uniﬁes previous works on autobiographical memory, and 3) is licensed as open source software.
+Index Terms—Autobiographical Memory, Reasoning, Remembering, Developmental Robotics, Human Feedback, Robotics
+I. INTRODUCTION
+H UMANS have the ability to mentally travel in time. They can go back in time by remembering their past experiences, as well as predicting the consequences of future actions based on these past events with their reasoning capabilities. This ability is crucial for autonomous robots [1, 2] as it allows to adapt to the current situation. The important cognitive component involved in this process is the autobiographical memory, which contains one’s past experiences. The autobiographical memory is based on lifelong episodic and semantic memories. The episodic memory stores past personal
+The authors are with the Personal Robotics Lab, Department of Electrical and Electronic Engineering, Imperial College London, UK. E-mail: {m.petit, t.ﬁscher, y.demiris}@imperial.ac.uk.
+*M. Petit and T. Fischer contributed equally to this work. Manuscript received August 10, 2015; revised October 13, 2015; accepted November 18, 2015.
+Color versions of one or more of the ﬁgures in this paper are available online at http://ieeexplore.ieee.org
+Digital Object Identiﬁer
+
+experiences, precisely deﬁned in space and time using multimodal perception; whereas the semantic memory contains general knowledge, e.g. facts or laws about the world [3–5]. Both of these memories are declarative (explicit), i.e. consciously accessible information. This is opposed to non-declarative (implicit) memories, which are based on the collection of non-consciously learnt capabilities [6]. One example of a nondeclarative memory is the procedural memory, which contains skills and habits.
+In this paper, we present an implementation of a dynamic autobiographical memory system1. We focus on the episodic part, and are interested in the continuous data perceived during an episode. Our framework is generic (i.e. independent of the robotic platform, programming language, and modern desktop operating system), and stores a full episodic memory. We store as much data as possible in a continuous data stream in contrast to other solutions [7]. This means that our system gathers data during events in real-time (tested up to 100 Hz). The data can then be replayed at a later time without losing any information; and, more importantly, can be used as input to reasoning modules. The data can originate from multiple modalities, and span across several layers of abstraction.
+Storing as much data as possible is especially useful in cases of incremental development of reasoning algorithms, where an initial implementation might only employ a single modality, whereas a more advanced implementation might fuse multiple modalities. If only the single modality was remembered in the ﬁrst place, additional data acquisition would be needed for further development, whereas our system bypasses this problem.
+We base our work on a cognitive framework used to extract regularities in human-robot interaction [8–10]. The framework was used to learn knowledge about rules of games [8], spatial and temporal properties [9], and pronoun identiﬁcation [10]. These applications required the storage of data (such as objects location, agent skeleton, relations) only at two key moments: at the beginning (for pre-conditions) and at the end of an episode (for consequences). This was sufﬁcient for knowledge-based reasoning [11], where the data about the action itself is not relevant.
+However, the continuous data recorded during an episode is crucial for many other applications, such as autonomous robots that learn from motor babbling [12] and imitation [13]. Furthermore, the storage of multiple modalities (such as joint positions, camera images, tactile sensor values) is needed for
+1The software developed for this paper is available open source at http://www.imperial.ac.uk/PersonalRobotics
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+2
+
+IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. X, NO. Y, MONTH 2016
+
+Annotation Modules
+Body Schema Face Tracker
+
+Annotation
+
+Speech
+
+...
+
+Sensors Tactile
+
+Continuous Data
+
+Proprioception
+
+Input Interface
+
+Discrete Data
+
+ABM
+
+Continuous Data
+
+Main
+
+ACrgounmteenntt
+
+Content OPC
+
+Emotions
+
+Entity
+
+Action
+
+Object
+
+Adjective
+
+RTObject
+
+Agent
+
+ininis11111111ntis1111111133333333niats111111113333333366666666niatsn11111111333333336666666611111111nsat11111111n333333336666666611111111csta11111111n333333336666666611111111ceta33333333n6666666611111111cean6666666611111111cen11111111cec22222222e22222222e00000000222222220000000011111111t22222222000000001111111155555555it222222220000000011111111m55555555--------it2222222200000000000000001111111155555555m--------it00000000000000002222222211111111m55555555e--------ti111111110000000022222222--------55555555me--------ti22222222000000005555555522222222--------m--------ei222222226666666600000000m22222222----------------e0000000022222222666666662--------e22222222266666666--------e2222222266666666--------////////2222222266666666////////iiiiiiii66666666cccccccc////////iiiiiiiiuuuuuuuucccccccc////////iiiiiiiiuuuuuuuuccccccccbbbbbbbb////////iiiiiiiiuuuuuuuuccccccccbbbbbbbb////////////////iiiiiiiilccccccccuuuuuuuuabbbbbbbbiiiiiiii////////lhlllllllccccccccuuuuuuuueeeeeeeabbbbbbbbb////////llhlllllleuuuuuuuufffffffeeeeeeebbbbbbbbab////////lhlllllllattttttteefffffffbbbbbbbbeeeeeeea////////bllllhlllladetttttttelfffffffeeeeeeea////////aaaaaaalllllllhlbatttttttdee/leeeeeeeaffffffflllllllhaaaaaaabrrrrrrrpeadttttttte/eeeeeeesffffffflmmmmmmmbaaaaaaarrrrrrrepatttttttdetfffffff/oslmmmmmmmaaaaaaarrrrrrrtttttttpadetl/so///////rmmmmmmmaaaaaaarrrrrrrdpatlt/os///////sssssssaaaaaaatrmmmmmmmrrrrrrrpea/ttsttttttto///////sssssssmmmmmmmrrrrrrrrtp:eataaaaaaatsottttttt///////mmmmmmmsssssssotr:eattaaaaaaaotttttttt///////sssssssorta:eteeeeeeeaaaaaaa///////ttttttttsssssssrote:t:::::::eeeeeeeaaaaaaattttttttssssssstooooooooe::::::::eeeeeeeaaaaaaattttttttoooooooo:aaaaaaa:::::::eeeeeeetttttttooooooooeeeeeee:::::::tttttttoooooooeeeeeee:::::::sooooooo:::::::usooooooousbusb15203465tsuby23610554tsuby51604235tupby65154320tpbey40165532tpe06541532ytpeypepve571532--vea04175532..3.5.--0221va040.517253l..3.5...--00221vu082222a400..155327l....53..--0v112012u022282332965a40537521.0l.e...35.--..v0112012u822022a952363045537.0--.3.5...le..0022111a40u820222693352.03....5l...e02120u11228220.0356392l...e0u11280222635329.fe11r335629fe33333333arf3333333311111111ramf333333331111111199999999arfm333333331111111199999999rafme3333333311111111r99999999ame3333333311111111a99999999me1111111199999999me99999999ee
+
+Dialogue Interface
+
+Output Interface
+
+Memories
+
+Request Data
+
+Add Reasoned Data
+
+Multi-Modal Remembering Image Visualisation
+Tactile Visualisation
+
+Reasoning Modules
+
+Kinematic Structure
+
+Recognition
+
+Proprioception
+
+Visual
+
+Fig. 1. Framework overview. The autobiographical memory (ABM) receives continuous data from the sensors of the robot (e.g. images, proprioceptive data, tactile information) and external devices (e.g. images and skeleton information from the Kinect, and distance measurements from a laser scanner) during an episode. This data is saved together with the respective annotations which are typically provided by action modules in a SQL database. At the beginning and end of an episode, the contents of the working memory (e.g. emotions of the robot) are additionally stored in the ABM. After an episode is ﬁnished, external reasoning modules can access the data and provide augmented memories. For example, one of the modules retrieves a stream of images, then reasons about the kinematic structure of the contained objects, and ﬁnally stores the augmented images back in the ABM. Our framework also supports cloud based services. In this ﬁgure, we show cloud based a-posteriori face recognition. The data can then be reproduced as an action, i.e. by visualising the images, spoken language and recalling motor commands. The robot can make use of the a-posteriori provided annotations (e.g. naming a previously unknown person) and augmented images (e.g. the skeleton of an object). The robot can ask a partner to judge the quality of the augmented images, which can then be used to improve the underlying algorithms.
+
+various reasoning processes, such as kinematic structure extraction [14]. Also, computationally expensive computer vision algorithms might beneﬁt from our framework, as some of these algorithms cannot currently run in real-time, which reduces their usage in the area of robotics. The system provides also a spoken language interaction interface to allow the robot to ask for feedback about the quality of the results of such reasoning algorithms. This is especially useful if the quality of the output is hard to quantify automatically (e.g. the kinematic structure of a human hand), which precludes reinforcement learning. The reasoning algorithms can then provide candidates from earlier episodes to a human, potentially several hours or days after the actual episode happened. We propose a generic autobiographical memory which is able to store and provide streaming data for these and related applications.
+Our cognitive framework respects the requirements detailed in [15], a recent version of the popular Soar architecture: i) store knowledge of memories; ii) extract, select, combine, and store features; iii) represent the stored knowledge using a syntax. An overview of our framework is shown in Figure 1
+
+and will be detailed in Section III. In our framework, we separate the memory from the inference systems, i.e. the data storage is independent of the data processing, following the principle of [16]. This allows the memory to be used in a wider range of applications instead of being task, domain or robot speciﬁc.
+The ﬁrst contribution of this paper is the ability to remember episodes in the visual, spoken and/or proprioceptive modalities. It has been shown that the addition of visual information to language can help providing a memory prosthesis for elderly users [17]. In our work, we extend this concept by also recalling the proprioceptive data. This is feasible as we have a full episodic memory which allows the robot to re-live past episodes by replaying previously executed joint sequences. We propose that employing a wider range of modalities when remembering episodes leads to a more natural interaction. In this respect, we are mirroring the work of Perzanowski et al. [18], who proposed that a robot should recognise multimodalities of a human to improve the interaction.
+The second contribution is providing data of episodes to al-
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+M. PETIT, T. FISCHER AND Y. DEMIRIS: LIFELONG AUGMENTATION OF MULTI-MODAL STREAMING AUTOBIOGRAPHICAL MEMORIES
+
+3
+
+low a-posteriori reasoning. This requires providing data to the external module, retrieving the reasoned data, and linking them to the original episode. This is especially useful for inference algorithms that cannot be used in real-time. Also, this implies our memory is dynamic with newly acquired knowledge used to revisit past episodes which are reinterpreted according to the new information. The robot can then be considered as a constantly adapting developmental agent. In this article, we show the integration of an external inference algorithm which computes the kinematic structure of articulated objects[14]. The autobiographical memory can provide a stream of annotated images to the module, which sends augmented images (original images superimposed with the kinematic structure) in return. Thus, our autobiographical memory framework allows a robot to visualise the results of time-consuming reasoning algorithms as if the reasoning had happened in real-time.
+As third contribution, our framework allows the data exchange with cloud based services. As a proof of concept, we use the face recognition and scene understanding services provided by ReKognition2 and Imagga3 to gain information about the contents of images captured by the robot cameras.
+The fourth contribution is the capability to obtain and store spoken feedback from a human about the quality of reasoned visual data. In a typical scenario, the robot performs or observes an action, which is stored as memory. Then, these memories are provided to reasoning algorithms, which create augmented memories in return (see second contribution). As the quality of these reasoning processes is hard to judge/rank for the robot itself, the robot is asking humans for feedback. Importantly, as the episodes are stored as memory, the feedback can be given to episodes far in the past, even if the reasoning process takes a long time. As described in the ﬁrst contribution, the human is not only presented with the augmented memory to be ranked, but the episode as a whole is relived. The ranking is then provided back to the reasoning module, and can be used to improve the parameters as known from reinforcement learning.
+As suggested by Baxter and Belpaeme [19] as well as Lallee et al. [20], social robots require a long-term memory to improve long-term interaction with humans. Therefore, as our ﬁfth contribution, we introduce human-robot interaction capabilities for all of the previously mentioned contributions. That is, we allow humans to interact with the robot in a multimodal, multi-temporal (interaction in the present about past experiences) manner. The robot makes use of the reasoned data, and accesses the cloud based services, when interacting with the human.
+II. RELATED WORK
+One of the ﬁrst concrete attempts to provide a cognitive architecture for general intelligence is Soar [21]. This framework implements a long-term memory storing production rules, and is thus forming a procedural non-declarative memory. The framework also contains a short-term memory using a
+2http://rekognition.com 3http://imagga.com
+
+symbolic graph to represent object properties and their relations. More recently, this framework has been extended with semantic and episodic long-term memories, that can process low-level, non-symbolic representations of knowledge [15].
+Another important advance in providing a generic memory module was made by Tecuci and Porter [16]. In order to avoid bias due to a speciﬁc domain or task, the memory system was separated and was made completely independent from the inference mechanisms. The provided episodic memory can then be attached to different applications which use the retrieved memories in different manners depending on the speciﬁc task. Episodes were divided in context (initial situation), outcome (effect of the episode) and contents (sequences of action). The sequences of actions to describe an episode are a step towards recording a stream of data, however the description is sparse as the basic component are actions rather than sensor data (highlevel information vs. low-level information). In our framework, as we aim to visually and actively remember even unknown actions/episodes, we additionally require low-level data which is more dense.
+More recently, the Multilevel Darwinist Brain [22] was based on artiﬁcial neural networks and was tested with several robots (Pioneer 2, AIBO and Hermes II). The networks emerged from an artiﬁcial evolution algorithm for automatic acquisition of knowledge, including both a short-term and long-term memory. The short-term memory network stores action-perception pairs (“the facts”), whereas the long-term memory network gathers post-treatment knowledge (“situations” and “behaviours”) from the short-term memory data. The long-term memory is therefore procedural, i.e. the links to the original past events are lost, and thus individual events cannot be remembered.
+The previous architectures stored mainly high level discrete data, such as pre-deﬁned action labels, applied to either artiﬁcial agents or non-humanoid robots. The Extended Interaction History Architecture [23] makes use of the iCub, a complex humanoid robot. The architecture allows the robot to learn a successful interaction from simple actions sequences. The learning is based on the immediate feedback from a human in collaborative tasks, which is affecting the social drive of the iCub. The feedback is non-declarative, based on social engagement cues such as visual attention or human-robot synchronicity. In contrast to our method, the feedback is given to a recent action, rather than giving feedback about the outcome of a reasoning process. Although there is an intention to store continuous variables, they are discretised (into 8 bins over the range of each variable) or reduced (intensity image of 64 pixels, audio stream ﬁltered to extract drumbeats). This could prove too restrictive for reasoning modules requesting high-frequency, high-resolution data.
+In 2012, a generic robot database was developed based on the MongoDb database architecture and ROS middleware [24]. The database provides a long term memory to store and maintain raw data. Arbitrary meta-data can be linked to the data, allowing multi-modal aggregation. This memory system was successfully integrated in a cognitive robotic architecture called Cognitive Robot Abstract Machine (CRAMm) [25, 26]. As in [16], CRAMm is based on a separation between the
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+4
+
+IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. X, NO. Y, MONTH 2016
+
+knowledge and continuous database. The continuous database is thus an episodic long term memory. It is able to store low level data, as well as complex motions and their effects. However, images are stored only at key moments, usually at the beginning and the end of an action. This limits their a-posteriori reasoning to non-vision based algorithms. Furthermore, CRAMm is targeted towards the robot system itself rather than human-robot interaction, and the memory is queried using Prolog.
+To summarise, we subscribe to the idea of separating the episodic long term memory from reasoning and inference mechanisms [16, 24]. Our memory is generic, allowing different robots to access a full episodic memory [7]. In contrast to an explicit (often procedural) long-term memory [21, 22] or reduced episodic memory [23, 26], we propose a full episodic memory system which may be useful to a larger spectrum of reasoning applications, as well as being able to reproduce actions in an exact manner. We store all available data at a high frequency (sensor dependent, tested up to 100Hz) from multiple modalities during the whole episode, including original and augmented images. That allows the usage of newly emerged or implemented reasoning modules to work aposteriori and store augmented memories. It is also possible to retrieve and recall precise episodes, using multiple modalities including visual imagery of the scene.
+III. AUTOBIOGRAPHICAL MEMORY FRAMEWORK
+In this section, we introduce the design of our autobiographical memory (ABM) framework, as well as its implementation. Discrete data about the situation (e.g. localisation of objects, human positions) present in a short-term memory are transferred to the long-term memory at the beginning and at the end of an episode, following [9]. Episodes are delineated in two ways, depending on who is acting. When the iCub is acting (e.g. doing motor babbling), the corresponding module automatically provides the begin and end of an episode. When the human is acting, spoken cues are extracted to delineate and annotate the episode (e.g. “I am doing babbling with my right hand” as beginning cue, and “I ﬁnished babbling” as cue for the end).
+We will present the framework’s features (unifying previous works), linked to the possibility to handle high-frequency streaming data (e.g. joint angles, camera images, tactile sensor values). We will discuss its A) platform independence, B) performance, C) multi-modality, with each modality covering multiple levels of abstraction, and D) synchronisation of data.
+A. Platform and robot independence
+The platform independence is conditional on the libraries used in our framework, as well as how the data is represented within the framework. PostgreSQL4 and Yet Another Robot Platform (YARP) [27] are the two dependencies of the ABM. PostgreSQL is a SQL database management system, and YARP is a robotic middleware used for the communication with external modules. Both dependencies are known to work in Windows, Linux and OS X amongst others.
+4http://www.postgresql.org/
+
+Visual
+
+Proprioception
+
+Image Visualisation
+
+Tactile Sensors
+
+Multi-Modal Remembering
+
+Fig. 2. iCub setup. Our autobiographical memory framework acquires data from various sensors of the robot, namely of the two eye cameras, the state of the joints, and tactile information. The range of sensors can be easily extended, in this setup we use an external Kinect camera. When recalling episodes, the robot visualises the original memories together with augmented memories if they are available. Also, the iCub relives the episode using its motor system. The human can interact with the iCub, and for example can provide feedback about remembered data.
+
+YARP allows algorithms running on different machines to exchange data. The data is transmitted through connection points called ports (equivalent to topics in the Robot Operating System [ROS]). The programs do not need to know details about the underlying operating system or protocol, and can be relocated across the different computers on the network. The communication is therefore platform and transport layer independent. The interfaces between modules are speciﬁed by a) the port names, b) type of data these ports are receiving / sending and c) the connections between these ports (e.g. port /writer will be connected to port /receiver). The connections used in our framework are represented by arrows in Figure 1.
+We propose also an optional human-robot interface system based on spoken language interaction. We use the Microsoft Speech Recognition which detects the spoken utterance, and also provides the semantic roles of the words, as deﬁned by a given grammar. The grammar allows the extraction of keywords corresponding to the semantic role. For example, “Can you remember the last time HyungJin showed you motor babbling?” is recognised using the grammar rule “Can you remember the <temporal cue> time <agent cue> showed you <action cue>?”. Therefore, not only the sentence as a whole is sent to the ABM, but also the role of semantic words. The question is about an action “motor babbling” done by an agent called “HyungJin” for the “last” time. This annotation can then be used to retrieve the instance of a speciﬁc episode from the memory using SQL queries (see Section IV and Figure 1: Annotation Modules).
+In our experiments, we focus on the iCub humanoid robot platform [28], which is built upon YARP. We represent its internal state by saving joint positions and velocities, as well as pressure sensed by its skin. Furthermore, we store images captured by the two eye cameras and the Kinect camera mounted above the robot, as well as the spoken utterance of the human partner. See Figure 2 for our set-up with iCub.
+Using the Baxter and NAO robots, we show that our framework is generic and not bound to a speciﬁc robot. The
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+M. PETIT, T. FISCHER AND Y. DEMIRIS: LIFELONG AUGMENTATION OF MULTI-MODAL STREAMING AUTOBIOGRAPHICAL MEMORIES
+
+5
+
+TABLE I OVERVIEW OF STORED DATA FOR THE DIFFERENT ROBOTIC SYSTEMS, INCLUDING THE SENSOR FREQUENCY
+
+Robot
+
+Data
+
+Type
+
+Number/frame Frequency (Hz)
+
+All
+
+RGB Kinect
+
+RGB Image (640*480)
+
+1
+
+30
+
+iCub
+
+Joints
+
+Double
+
+53
+
+100
+
+iCub RGB cameras (high res) RGB Image (640*480)
+
+2
+
+15
+
+iCub RGB cameras (low res) RGB Image (320*240)
+
+2
+
+25
+
+iCub
+
+Skin
+
+Double
+
+4224
+
+50
+
+NAO
+
+Joints
+
+Double
+
+25
+
+50
+
+NAO
+
+RGB camera
+
+RGB Image (320*240)
+
+1
+
+15
+
+Baxter
+
+Joints
+
+Double
+
+16
+
+100
+
+Baxter
+
+RGB head camera
+
+RGB Image (640*400)
+
+1
+
+25
+
+robots differ in various aspects: a) joints (number, position, range), b) cameras (number, resolution), c) tactile sensors are absent from the Baxter and NAO robots, d) the underlying middleware (YARP for the iCub, ROS for the Baxter, NAOqi for the NAO). See Table I for an overview of stored data for the different robotic systems.
+The platform independence is achieved by choosing a data representation that is generic. Internally, the continuous data are stored in two database tables, one for textual/numerical data and another one for binary data (e.g. images and sound). We suggest to separate these data due to their different nature, with a very high information amount for binary data on the one hand, and a vector of numbers or text on the other hand. Table II shows a representation of the database table which is designed to store data in a general manner using key-value pairs. To anchor one row in the database to other data, the instance of the episode, and the time the data was acquired are needed. This allows the bundling of data which was acquired at the same time. In addition, we save the port where the data originated. For each port, there are N rows representing the N values acquired from the sensor. Instead of pre-coding a speciﬁc subset of values (e.g. Njoints,l arm,iCub = 16 joints for the left arm of the iCub, against Njoints,l arm,NAO = 6 for the NAO and Njoints,l arm,Baxter = 7 for the Baxter), the streaming data groups are split (with key from 1 to N ) and the value are stored one by one, allowing as many values per source as needed. Therefore, the key-value representation is independent of the number of robot limbs, tactile pressure sensors, etc.
+Table III shows the storage of binary data. The structure is similar to that of Table II, but the value column is replaced by the columns relative path and oid (object identiﬁer). The former is used to store the path to a ﬁle on the hard disk containing binary data such as an image or sound, to either import this ﬁle to the database or export an ﬁle with the identiﬁer oid on the hard drive. The latter is a link to an object ﬁle within the database. Images can be stored using any image format (we use tif ). The additional column augmented is used to indicate the origin of this image (a sensor or an a-posteriori reasoning module). Sound (e.g. utterance said by the human) is stored as one uncompressed .wav ﬁle per sentence. The sound serves as discrete meta-information, and is therefore not treated as continuous data.
+The framework, written in C++, can be extended using a variety of programming languages which are currently supported by YARP: Java, Python, Perl, C#, Lisp, TCL, Ruby,
+
+FPS (percentage of maximum)
+
+MATLAB, etc. As a proof of concept, we use the algorithm presented in [14], which is written in MATLAB, with our memory framework. The data is exchanged via YARP ports. The algorithm along with the minor modiﬁcations needed for our framework is described in Section IV-A.
+B. Performance optimisation A common problem is the storage of images in a database in
+real time [26]. This is due to the limited computational power of an embedded system, especially when multiple modules are running as typically during interactions. However, recording images in real-time is desirable to be able to replay them without lag, as well as to provide them to reasoning modules in a continuous manner. We suggest to store the images temporarily as image ﬁles on the hard drive (in folder relative path) while an episode is memorised. Once the episode has ended, the images are then stored as objects in the database (oid links to the object), which allows shared memories, but is computationally and input/output expensive. Similarly, we use this concept of delayed processing to store textual/numerical data ﬁrst in memory (rather than the hard drive), and record it in the database after the end of an episode.
+Another performance gain is achieved by discarding data which is below a baseline. For example, storing the values of all 4224 skin taxels of the iCub skin at 50 Hz is compu-
+camera joints kinect skin 100
+75
+50
+25
+0 BaNseolnineeBa/ sPealirnaellelisatioBnaDseellainyeed/ FDuelllaOyepdtimisation
+Fig. 3. Performance comparison. The obtained frames per second of the non-optimised version are compared with each optimisation individually ﬁrst, and then with a combination of the optimisation techniques. Only the combination of all optimisation techniques allows storing of all data at the highest frequency. We plot the average frames per second as percentage of the maximum, which is depending on the sensor type (see Table I).
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+6
+
+IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. X, NO. Y, MONTH 2016
+
+TABLE II ABM SQL TABLE FOR TEXTUAL AND NUMERICAL STREAMING DATA
+
+instance
+
+time
+
+port
+
+id value
+
+1042 2015-01-15 13:51:15.186846 /icub/head/state:o
+
+1 12.0
+
+1042 2015-01-15 13:51:15.186846 /icub/head/state:o
+
+2 42.0
+
+...
+
+...
+
+...
+
+... ...
+
+1042 2015-01-15 13:51:15.186846 /icub/skin/torso comp 1 198.0
+
+1042 2015-01-15 13:51:15.186846 /icub/skin/torso comp 2 174.0
+
+...
+
+...
+
+...
+
+... ...
+
+1042 2015-01-15 13:51:15.186846 /kinect/skeleton:o
+
+1 3.2
+
+...
+
+...
+
+...
+
+... ...
+
+instance 1042 1042 ... 1042 ...
+
+time 2015-01-15 13:51:15.186846 2015-01-15 13:51:15.186846
+... 2015-01-15 13:51:15.186846
+...
+
+TABLE III ABM SQL TABLE FOR BINARY DATA
+
+port /icub/camLeft /icub/camRight ... /icub/camLeft/kinstructure ...
+
+relative path 1042/camLeft1.tif 1042/camRight1.tif ... 1042/kinstructure1.tif ...
+
+oid 46889 46890
+... 51511
+...
+
+augmented ...
+kinematic structure ...
+
+instance 1042 1043 ...
+
+TABLE IV ABM SQL TABLES FOR EPISODES MAIN INFORMATION AND ANNOTATION
+
+Main-information table
+
+Annotation table
+
+time 2015-01-15 13:51:15.186846 2015-01-15 13:51:26.924655
+...
+
+activityname motor babbling motor babbling
+...
+
+activitytype action action ...
+
+begin TRUE FALSE
+...
+
+instance 1042 1042 ...
+
+argument HyungJin
+hand ...
+
+role agent part
+...
+
+tationally expensive. However, most of the time the iCub is either not touched at all or just on a small sub-part of the skin. Therefore, the output vi of the skin taxel i is near a known baseline θ when the skin is not touched; and these data are not stored in the autobiographical memory:
+
+vi,memory =
+
+vi ∅
+
+if vi > θ . otherwise
+
+The memory is still complete: all values can be recovered, as the value is equal to the baseline if no value is found in the memory:
+
+vi,recall =
+
+vi,memory θ
+
+if ∃vi,memory . otherwise
+
+We further improve the performance of the framework by parallelising the data acquisition from the network ports and subsequent data pre-processing and storage. We suggest one thread for the binary data providers, and another thread for the textual/numerical data providers. As shown in Figure 3, this allows recording at maximum frequency for all providers. If the maximum performance still cannot be achieved, the framework is designed in a way that the data acquisition can be performed using one thread per incoming port, which can further increase the performance if needed.
+Sometimes we do not want to acquire data at the maximum frequency fmax due to computational and memory limitations in robotic systems. In our framework, we can enforce the throttling of high-frequency data, similar to [26]. Rather than requesting data from the incoming ports as often as possible, data is requested only flimit times per second. This reduces the amount of stored data by
+
+1 N fmax,i , N i=1 flimit
+
+where fmax,i is the maximum frequency of sensor i ∈ {1, . . . , N } (assuming flimit ≤ fmax,i, ∀i).
+C. Multiple Modalities and Abstraction Levels
+Recent robotic platforms such as the iCub have a vast amount of sensors to sense the environment, as well as dozens of actuators to interact with it. It is desirable to record the output of all sensors, as well as the state of the actuators, in the full autobiographical memory. This allows remembering events in an exact manner, which is especially important in case algorithms are asked to reason about these events. Saving all this information is also crucial to be able to recall knowledge in a multi-modal manner. If information is missing, the visualisation of images would be laggy, and recalling motor states would be jerky. Perzanowski et al. propose the recognition of multiple modalities of a human in order to ease the interaction with the robot [18]. We believe that the interaction is further improved if the robot itself employs multiple modalities. Therefore, we think that using the wide range of data stored in the autobiographical memory will lead to a more natural human-robot interaction in the future.
+Using our framework, we are able to store data from all common sensors in real-time: images from cameras, sentences acquired by speech recognition, localisation of the robot, pressure exerted on the skin, values read by the encoders of the motors, as well as force applied to the limbs (see Figure 1: Sensors). Due to its modular design, the framework can easily be extended should additional data be required.
+More interestingly, our framework supports multiple abstraction levels for each of the modalities. Starting from raw data (e.g. microphone recordings), over intermediate complexity (e.g. sentences) to reﬁned complexity (e.g. semantic
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+M. PETIT, T. FISCHER AND Y. DEMIRIS: LIFELONG AUGMENTATION OF MULTI-MODAL STREAMING AUTOBIOGRAPHICAL MEMORIES
+
+7
+
+Leavbesltroafction
+
+Action Predictions
+
+Joint Velocities
+
+Joint Positions
+
+Labeled Scenes
+Processed Images
+RGB and Depth Images
+
+Proprioception
+
+Visual
+
+Extracted Meanings
+
+Sentences
+
+Raw Sound Signals
+Language
+
+Modality
+
+Fig. 4. Overview of supported modalities, with examples given for each abstraction level. As discussed in the text, the framework is not limited to these data, and can be easily extended due to the underlying YARP middleware. Typically, the framework just needs to be made aware of the name of the new YARP port (or ROS topic) the data is incoming from.
+
+annotations); all data are stored in a single memory. Figure 4 provides an overview of the supported data so far.
+
+D. Synchronisation
+Anchoring is the problem of establishing “a correspondence between the names of things and their perceptual image” [29]. A similar problem is faced when building a memory system, as a correspondence between the i ∈ {1, . . . , N } sensor inputs is desirable. We solve this problem by referring to the time Trequested,i, which denotes the time the data was requested for sensor i. We propose to request all sensor data at the same time Trequested, and therefore:
+Trequested,i = Trequested ∀i ∈ S ⊆ {1, . . . , N }.
+This provides the advantage that at time Trequested, the whole state of the robot is known (Sfull = {1, . . . , N }). This is in contrast with storing the time Tpublished,i, which denotes the time the data was sent to the port by sensor i, and generally differs across sensors:
+
+Tpublished,i = Tpublished,j
+
+i = j; i, j ∈ {1, . . . , N }.
+
+Therefore, there is no single time Tpublished where the state of the robot is known as a whole.
+Given the synchronisation by Trequested, external modules can acquire the full robot state for given times. For example, one could imagine a module applying sensor fusion to decrease the uncertainty of sensory inputs [30].
+
+memories using a-posteriori reasoning, the ability to actively recall past episodes, as well as the capacity to ask for human feedback.
+A. A-Posteriori Reasoning in a Lifelong, Complete Memory
+In order to be able to reason about past episodes in a framework with separated memories and reasoning algorithms, the memories have to be accessible by the reasoning algorithms. First, we show how data about past episodes can be extracted, and we then describe the process of adding augmented memories.
+Annotation of Episodes: Our framework provides a synergy between a complete memory and automatically annotated data. As deﬁned earlier, a complete memory requires that all available data is stored. Our framework also allows to store meta information. The meta information is currently automatically acquired from a spoken language dialogue; however any other module can annotate data (see Figure 1: Annotation Modules). For example, a face recognition module might annotate the entry and leaving of a speciﬁc person in a scene. Also, reasoning modules might reﬁne or add meta information to episodes.
+Extracting Knowledge for Modules: The autobiographical memory is designed within a SQL database. The framework thus beneﬁts from the intrinsic qualities of such a language to store and extract knowledge, from creating a subset of episodes sharing common properties to ﬁnding a unique instance based on speciﬁc cues. Extracting knowledge requires sending data related to the requested episode. Note that the amount of data which can be accessed is substantially higher in our framework compared to other works, due to the higher frequency of data which is being recorded.
+Two steps are needed to extract knowledge: i) The ﬁrst step is ﬁnding the desired identiﬁers of the episodes which are of interest. This depends on the problem at hand. For example, after recognising a person, the identiﬁer of the episode when the robot ﬁrst met this person might be needed by the module. In another scenario, all episodes where a speciﬁc object was involved might be of interest. ii) The second step is the retrieval of data related to these episodes using SQL queries. For instance, based on the main and annotation tables linked to episodes, “Can you remember the <last> time <HyungJin> showed you <motor babbling>?” spoken request from the human can be translated to the SQL request in Listing 1, targeting the database tables shown in Table IV:
+
+IV. A-POSTERIORI REASONING AND MULTI-MODAL REMEMBERING
+So far, we have discussed how the data is stored within the autobiographical memory framework. In this section, we describe ways of accessing and modifying the data, including the interfaces allowing for the communication between the ABM and other modules (typically reasoning modules). Examples are provided for each of the interfaces, including cloud based solutions for face recognition and scene understanding. In particular, we focus on modules providing augmented
+
+−−E x t r a c t t h e i n s t a n c e and t h e t i m e SELECT main . i n s t a n c e , main . t i m e −−Both , t h e main and a n n o t a t i o n t a b l e a r e i n v o l v e d FROM main INNER JOIN a n n o t a t i o n
+ON a n n o t a t i o n . i n s t a n c e =main . i n s t a n c e −−L o o k i n g f o r e p i s o d e s i n v o l v i n g ’ m o t o r b a b b l i n g ’ , where ’
+HyungJin ’ was the ’ agent ’ WHERE main . a c t i v i t y n a m e = ’ m o t o r b a b b l i n g ’ AND a n n o t a t i o n .
+a r g u m e n t = ’ H y u n g J i n ’ AND a n n o t a t i o n . r o l e = ’ a g e n t ’ −−R e t r i e v e t h e l a s t i n s t a n c e o f s u c h an e p i s o d e ORDER BY i n s t a n c e DESC LIMIT 1 ;
+Listing 1. Example of a SQL request showing the extraction of an instance for a speciﬁc agent performing a certain action.
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+8
+
+IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. X, NO. Y, MONTH 2016
+
+This query is designed to retrieve only a unique and precise episode, but a request can also provide subsets of episodes. For example, to extract regularities a reasoning algorithm might want to extract all the “motor babbling” actions done by “HyungJin”. It can then use the previous SQL query without the “ORDER BY instance DESC LIMIT 1” (which limits the result to the row with the highest instance number). Using the same principle, we implemented the ability to either retrieve all related sensor data Sfull, or a subset Ssub ⊂ Sfull (e.g. just the joints positions, or just the images from the left camera) from one or several episodes. An interface for the most frequently used queries is provided in the framework, e.g. ﬁnding episodes where something failed or extracting augmented images for episodes of a certain activity.
+This knowledge is usually extracted by action modules. For example, a module for visual search of an object retrieves previous locations of the desired object. The module could then adapt its search strategy for the object accordingly. In this scenario, the autobiographical memories could help reducing the search time by providing information about past episodes [31].
+A-Posteriori Reasoning: As the memory is fully episodic, i.e. storing all data without forgetting, one can take advantage of using a-posteriori reasoning about episodes in the lifelong memory. This is in contrast to creating ad-hoc experiments in non-complete memory systems because data is missing in these systems. A-posteriori reasoning in our framework requires three steps. First, the data for speciﬁed episode(s) needs to be acquired (as above). Second, the data needs to be processed, i.e. the actual reasoning step (in an external module). Third, the reasoned data is sent back to the autobiographical memory. In comparison to previous works, the data is not limited to the state of the world before and after the episode. In our framework, modules can access the state of the world in a continuous manner, and include this knowledge in their reasoning.
+As many algorithms in a robotics environment employ batch learning rather than online learning [32], it is crucial that past episodes (serving as inputs) can be associated with the result of these algorithms. In our system, we allow accessing past episodes in a standardised form, supplying meta information together with the actual streaming data (see Figure 1: Request Data). The meta information contains the instance, port and time. The algorithm can then perform the required computations, and return the result along with the meta information so it can be associated to the original data. This allows the outcome of ofﬂine reasoning algorithms to be stored, and more importantly recalled, alongside the original data (see Figure 1: Add Reasoned Data and Memories).
+This feature is crucial to provide human feedback as reward function to reinforcement learning algorithms. This allows to explore and learn from unsupervised experiences, as well as to show the most promising results to a human. Such a strategy was already employed in robotics to learn navigation [33] or manipulation [34] tasks, as well as the rules of the rock-paperscissors game [35]. However, in these cases, the algorithm was able to produce the computed candidate action in realtime. Here, we also allow algorithms which work as ofﬂine
+
+i n s t = 1042; % Specify instance number % 1 ) Open p o r t t o ABM and p o r t t o r e c e i v e i m a g e s port2ABM . open ( ’ / k i n S t r u c t / to ABM ’ ) ; Network . c o n n e c t ( ’ / k i n S t r u c t / to ABM ’ , ’ /ABM/ r p c ’ ) ; portIncoming . open ( ’ / kinStruct / img in ’ ) ; Network . c o n n e c t ( ’ /ABM/ i c u b / cam / l e f t ’ , ’ / k i n S t r u c t / i m g i n ’ ) ; portIncoming . s e t S t r i c t ( ) % Keep a l l images in b u f f e r % 2) S t a r t streaming and e x t r a c t number of images for i n s t bStartStreaming = [ ’triggerStreaming ’ , inst ]; port2ABM . w r i t e ( b S t a r t S t r e a m i n g , bResponseStreaming ) ; num images = bResponseStreaming . get (0) ; % 3) Extract meta information and raw image one by one for frame =1: num images
+bRawImages{frame} = portIncoming . read ( ) ; bImageMeta{frame} = portIncoming . getEnvelope () ; end % 4) Process images bAugmentedImages = g e t k i n S t r u c t u r e ( bRawImages ) ; % 5) send augmented images back portOutgoing . open ( ’ / kinStruct / img out ’ ) ; Network . c o n n e c t ( ’ / k i n S t r u c t / i m g o u t ’ , ’ /ABM/ a u g m e n t e d i n ’ ) ; for frame =1: num images %p r o v i d e l a b e l bImageMeta{frame }. addString ( ’ kinematic structure ’ ) portOutgoing . setEnvelope ( bImageMeta{frame }) ; portOutgoing . write ( bAugmentedImages{frame }) ; end
+Listing 2. Simpliﬁed MATLAB code showing the interaction between the kinematic structure learning algorithm and the ABM.
+reasoning processes, i.e. where computing the proposed model takes a substantial amount of time. By remembering original and a-posteriori created augmented memories at the same time, the robot can obtain the human feedback/reward as if the reasoning happened in real-time. Moreover, the framework is also compatible with the active learning approach where the learner queries the data which is labelled by a human oracle. This is known to achieve better accuracy with less examples compared to passive learning implementations [36].
+One ofﬂine reasoning algorithm which was incorporated in the framework is that of [14]. It is using a stream of images to extract the kinematic structure of objects. The whole algorithm was written in MATLAB, and was extended to work with our framework after the implementation of the core algorithm was already done. The extraction of the kinematic structure for a 30 seconds video sequence takes approximately three minutes. The extensions needed to connect a reasoning algorithm to the autobiographical memory are as follows: 1) a YARP port needs to be opened to communicate with the autobiographical memory framework. 2) The number of images related to the desired episode are retrieved. 3) Each image is retrieved in a loop, together with the belonging meta information (which is stored in a temporary variable). 4) Then, the kinematic structure of the object in the video is computed. Note that this is the only step which depends on the algorithm used, all other steps remain the same. 5) Sending of the augmented images to the ABM, where the images are sent one by one together with the appropriate meta information. The code related to this communication can be found in Listing 2 and contains only small additions to a typical reasoning module.
+We also implement the provision of images to cloud based services which are based on RESTful APIs, and exchange data via JSON (see Figure 1: Reasoning Modules - Recognition). RESTful APIs using JSON is a widely used combination by cloud based services (for a thorough list, see http://www.mashape.com). The reasoning with cloud based
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+M. PETIT, T. FISCHER AND Y. DEMIRIS: LIFELONG AUGMENTATION OF MULTI-MODAL STREAMING AUTOBIOGRAPHICAL MEMORIES
+
+9
+
+services differs in several ways from the kinematic structure learning algorithm. First, the data communication is done via JSON rather than YARP ports. Second, instead of augmented images as in the kinematic structure learning, the cloud based service is employed to gain additional meta information. We use the services provided by ReKognition to automatically annotate images by the name of the person as soon as a person greets the iCub. This requires a training step where a small amount of images (in the range of 5-10 images) of people to recognise are uploaded to the web service. Then, the service provides the name of the recognised person together with a certainty. If the certainty is above a threshold θ = 0.85, a new row in the annotation database table (see Table IV) is inserted with “role=agent” and “argument=name”, whereas “name” is the name of the recognised person. This information is then used in return to greet the person. Please note that the annotation of the images therefore happens fully automatic in a short amount of time (∼1 second). Furthermore, we integrated the “tagging” service by Imagga, which allows the automated annotation of images. This can in turn be used by the robot to proactively engage a conversation with a human by describing the scene the robot is currently perceiving, and thus improving the human-robot interaction.
+B. Multi-Modal Remembering
+We provide data in a multi-modal, natural manner. The robot expresses itself using language, visual information as well as its body (see Figure 1: Multi-Modal Remembering). Language is an important modality for developmental robots, as it is a natural form for humans to express knowledge and is needed in a large range of social learning applications. For example, using language humans can teach behaviours [37], categories [38] or shared plans [39] to a robot.
+Additionally to language, streams of videos associated with an episode can be recalled. This has been previously used to provide a memory prosthesis for elderly users [17]. We are going further by also allowing for proprioceptive recalling. The action which was performed in an episode can be performed again using the actuators of the robot. Using all these modalities, a robot can act in a more expressive manner.
+V. EXAMPLE HUMAN-ROBOT INTERACTION
+To examine the usability of our framework, we have tested it in a human-robot interaction5. In the designed scenario, the iCub retrieves knowledge about past episodes from the ABM, and uses language, visual imagery as well as motor actions to express itself. We also show how feedback acquired from a human can be used to improve the reasoning skills of the robot. It is important to notice that this dialogue is just an example, and can be easily extended using additional external modules, which are beyond the scope of this paper.
+A. Interaction A: Greeting the human
+A1) Human walks into scene. As soon as the face of the human is detected, an episode NewPerson is triggered
+5Video available online: http://www.imperial.ac.uk/PersonalRobotics
+
+automatically. The new episode is annotated with the current time and the state of the environment, including an image of one of the robots eye cameras. Furthermore, an agent whose name is “unknown” is linked to the episode. Then, the autobiographical memory module automatically provides the face recognition module with the image of the human. The image is uploaded to ReKognition, which provides the name of the human and conﬁdence of the recognition in return (e.g. <Martina, θ = 0.92>). A2) Based on the recognition in A1), the human is greeted. • In case of a high conﬁdence that the person is known
+(θ > 0.85), the iCub answers: “Hello Martina. What do you want to discuss?” • In case of a low conﬁdence (i.e. the person is not known), the iCub asks the human for his/her name: “Hello. I have not met you yet, what is your name?”
+In this example, we follow the case when the human is known. From this point, four kind of interactions are supported: B) remembering a unique event, with and without augmented memories, C) remembering a subset of events, including active recalling with the robot’s body, D) creation of new memories using an action module, and E) acquiring human feedback about the quality of reasoning results. Here, we will show each of them in this order.
+B. Interaction B: Remembering a unique event, with and without augmented memories
+B1) Martina: “Do you remember the last time Hyung-Jin showed you motor babbling?” The iCub extracts the semantic role and words using the Microsoft Speech Recognition software. Based on a given grammar, the iCub detects it is asked for the last time (rather than e.g. ﬁrst or second time) a speciﬁc agent (Hyung-Jin) did a certain action (motor babbling).
+B2) An SQL query is generated based on B1, to get information about the referred episode, and the iCub answers: iCub: “Yes, it was one month ago, on January 26th”. The iCub then goes ahead and uses visual imagery to clarify its memories, only using original data by default.
+• Martina: “Have you extracted a kinematic structure of his hand?” The iCub detects that Martina still refers to the same episode, rather than asking about a new episode, as no time point is mentioned.
+• The iCub would answer accordingly if instead asked the following at this point (not further followed here): Martina: “Do you remember the ﬁrst time I showed you motor babbling?”
+B3) Based on the same episode identiﬁer, the autobiographical memory is then queried to retrieve images where the “augmented” column equals “kinematic structure”. iCub: “Yes, let me show you.” Then, the original stream of images (as above), as well as the stream of augmented images is visualised. Both streams are replayed synchronised, so that a human can clearly see how the images relate to each other.
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+10
+
+IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. X, NO. Y, MONTH 2016
+
+(a) External view
+
+(b) Current view from iCub eye
+
+D. Interaction D: Creation of new memories
+D1) Martina: “Can you do motor babbling with your arm instead of your hand?”
+D2) As this question does not involve remembering, an action module is executed. Rather than doing motor babbling with the hand, as in item C4), the babbling is done with the arm in this instance. The action module requests the autobiographical memory to record the following episode, automatically providing the following annotations for the episode: agent name, action label, and the body part used. Then, the ABM records the state of the iCub, including images from the cameras, joint positions, and so forth. iCub: “Yes, let me show you.”
+
+(c) View from iCub eye from a past (d) View from iCub eye from a past
+
+episode; synchronised with (b)
+
+episode; overlaid with the kinematic
+
+structure deﬁned a-posteriori
+
+Fig. 5. Different views of the human-robot interaction example described in Section V. (a): experimental setup with a human partner interacting with the iCub. (b): iCub doing motor babbling at the time of the experiment. (c): the remembered image when the iCub ﬁrst has done motor babbling is visualised by the iCub. This can serve as memory prosthesis for a human partner. (d): Here, this image was used to reason about the kinematic structure of the iCub. As this reasoning algorithm cannot run in real-time, the autobiographical memory is needed to store the augmented images provided by an external module. In this particular case, the algorithm needs a stream of images in a relatively high frame rate to work. With previous attempts of implementing an autobiographical memory, this requirement was not fulﬁlled. Note that the background was removed in (c) and (d) for better contrast with the iCub hand.
+
+C. Interaction C: Remembering a subset of events, including active recalling with the robot’s body
+C1) Martina: “Have you done motor babbling yourself in the past?” Compared to the question asked in the third item, this question is more general, as it does not specify a time point.
+C2) Therefore, information about all episodes where the iCub did motor babbling are acquired from the memory. Also, the iCub answers in a more general way. iCub: “Yes, I already have done this action 20 times. The ﬁrst time I did motor babbling was one week ago. Do you want me to remember?” Here, the iCub is picking one unique event among the subset deﬁned by the general request. This allows this interaction to use a common subpart with the interaction A starting from this point.
+C3) Martina : “Yes, please do it.” Here, Martina could also have said: Martina : “No, thank you.”
+C4) Following the principle of items B2) & B3), visual imagery is used to replay the recorded episode. Also, as the iCub was the actor of the episode requested in item C2), the iCub can use its motors to replay the recorded motor states. In addition to the original image stream, the iCub also visualises the kinematic structure of its own hand. Therefore, remembering the past episode also allows the iCub to reason about its own body, by combining proprioceptive data and augmented images. iCub: “Okay, let’s recall.” The images which are visualised are shown in Figure 5.
+
+E. Interaction E: Acquiring human feedback about the quality of reasoning results
+E1) iCub: “Hello Martina, are you willing to give me some feedback about one of my reasoning processes?”
+E2) Martina: “Yes, of course.” E3) iCub: “Can you rank this kinematic structure between 1
+and 10 please.” The robot collects augmented memories of kinematic structures without feedback from Martina. The iCub then presents the original episode along with the kinematic structure to allow Martina ranking the quality of the kinematic structure. The iCub also provides currently best kinematic structure (if it exists) as comparison at the same time, and the robot will for example say “The currently best structure is shown on your left. The ranking is 7.” E4) Martina: “It is an 8.” E5) iCub: “So for you, this kinematic structure is an 8?” E6) Martina: “Yes, this is correct.” The iCub is asking Martina for conﬁrmation in order to avoid speech misrecognition. The feedback is stored in the autobiographical memory of the iCub, and linked to the corresponding kinematic structure. In case of misrecognition, Martina could have said “No, this is incorrect”, and the system would have gone back to E3. E7) iCub: “Thank you, I have improved my skills. The best rank is now 8!” The iCub is updating the currently best kinematic structure and rank, in order to propose a suitable comparison for a future E3 step. E8) iCub: “Do you want to provide feedback for another kinematic structure?” If the robot had other augmented memories about kinematic structures that are lacking Martina’s feedback, it would ask whether to continue. If all kinematic structures are ranked, the system jumps to step E10. E9) Martina: “Yes, please show me another one.” Martina agrees to continue, and the interaction loops to step E3 with the next kinematic structure to be ranked. If Martina wants to stop the interaction, she can say “No, thank you” and the iCub will return to Interaction A2. E10) iCub: “I have no more kinematic structure to rank. Thank you for your feedback!”.
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+M. PETIT, T. FISCHER AND Y. DEMIRIS: LIFELONG AUGMENTATION OF MULTI-MODAL STREAMING AUTOBIOGRAPHICAL MEMORIES
+
+11
+
+F. Improving reasoning algorithms using interaction E)
+We have shown how the robot provides access to its autobiographical memory for a human in the previously detailed human-robot interactions. Additionally, the autobiographical memory can be used to improve the reasoning capabilities of the robot. In particular, the robot can employ human feedback to estimate the quality of the results of reasoning algorithms. As an example, the robot can reason about the kinematic structure of a human hand and provide the guesses to a human expert, until an emerged kinematic structure fulﬁls some heuristics and is thus validated.
+We used interaction E) with 5 subjects, and the robot asks for feedback about 4 different kinematic structures per session (i.e. per day). If there is no kinematic structure with a sufﬁciently high quality, 4 new kinematic structures are generated and a new session is conducted. Each session lasted approximately 4 minutes, whereas the visualisation of the kinematic structures took roughly half the time. The kinematic structures were obtained with randomly introduced noise to generate variability in the quality. The generated augmented images for one kinematic structure take ∼30 megabytes of space in the memory. As shown in Figure 6, the score distribution is not normal (see e.g. kinematic structures f and o). Therefore, a non-parametric pairwise Wilcoxon signedrank test is used to choose between candidates. As we are only interested in high quality candidates, the results are ﬁltered using a heuristic. We use thresholds involving quartiles Q1 ≥ 6 and Q2 ≥ 7 as estimators of the data.
+For the ﬁrst day, kinematic structure d (Q1,d = 4, Q2,d = 4) is the best one. However, it does not meet the criteria described above and thus new kinematic structures are created. On the second day, kinematic structure h (Q1,h = 5, Q2,h = 6) shows improved results, however still not meeting the quality criteria. On day three, the reasoning algorithm does not provide a kinematic structure better than that of h, so h is kept as the best kinematic structure. On day four, kinematic structures n (Q1,n = 6, Q2,n = 8) and p (Q1,p = 6, Q2,p = 7) are above our heuristic threshold. The Wilcoxon signed-rank test provides p = 0.5862, showing that both kinematic structure are equivalent. Therefore, both candidates are kept as templates for a high quality human hand kinematic structure.
+G. Summary human-robot interaction studies
+The main features of our framework are as follows: In A), we show the integration of a cloud based reasoning algorithm. In B1) and B2), an episode is remembered visually only using the original memories. In B3), the memories are extended by augmented images. In interaction C), the iCub employs active recalling with its body in addition to visual imagery. In interaction D), we show how new memories can emerge using an action module which annotates the episode. We used interaction E) to acquire feedback about 16 different kinematic structures of a human hand with the help of 5 human partners.
+VI. DISCUSSION AND FUTURE WORKS
+Robotic memory frameworks often come with the ability of forgetting [40, 41]. In our current work such a feature is not
+
+10
+
+Day 1
+
+Day 2
+
+Day 3
+
+Day 4
+
+8
+
+6
+
+Score
+
+4
+
+2
+
+Q1 threshold Q2 threshold
+a b c d e f g h i j k l mn o p
+Kinematic Structure #
+Fig. 6. Plot of the scores provided by ﬁve human partners for the 16 different kinematic structures which were obtained. The upper images show the best kinematic structure found so far. The bottom line shows the threshold for Q1, and the upper line the threshold for Q2. Only kinematic structures n and p fulﬁl both criteria, thus indicating that these kinematic structures possess the highest quality among all of them.
+implemented, as we aim to implement a full episodic memory which allows a-posteriori reasoning. However, in future works our framework will be extended such that compressed copies of the eidetic (full) memory are created using different forgetting mechanisms. This will allow a comparison of these mechanisms. Our framework is particularly compatible with a forgetting mechanism based on abstraction. As shown in Figure 4, our framework supports linking low-level abstractions with high-level abstractions. Discarding low-level abstractions, which typically are memory intensive, while maintaining highlevel abstractions, allows tackling scalability issues (especially that of an unbounded memory size) while still maintaining a coherent memory. We aim to integrate our framework with our previous work [42], where we proposed a memory compaction based on abstraction using context free grammars, which allowed to learn reusable structures from visual input streams.
+Another forgetting mechanism we plan to compare to has been proposed by Gurrin et al. with the forgetting view, which manages most of the memory retrieval [41]. It is based on a simpliﬁed version of Experience Merging, and the complete memory is only accessed when it is absolutely needed (e.g. remembering a precise, particular or novel event).
+In the future, we will 1) use the ABM to provide the training data for faces, 2) use cloud based services to gain an understanding of the gist of a scene as well as to 3) recognise objects. We think that the integration of such cloud based services will be a great advantage in the future, as they offer a wide range of different services without the need to implement any of them locally.
+We will also add more reasoning algorithms. It will be
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+12
+
+IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. X, NO. Y, MONTH 2016
+
+interesting to see how parameter tuning can be improved by the ability to provide feedback, as the kinematic structure algorithm is parameter free. Our heuristic based on the quartiles of the scores might be extended to allow not only qualitative but also descriptive feedback. The heuristic will then be used to determine when the parameter tuning has converged, i.e. the quality of the reasoning is high enough. Then, the robot can focus on another learning task.
+Eventually, we are also interested to design a human-robot interaction study to identify and tune parameters during a remembering interaction in order to provide the best experience for a human. Previously, Brom et al. [43] have found that humans prefer fuzzy categories for temporal notations in episodic memories, as opposed to precise timing information. We would like to expand this hypothesis to other notions. Among others, key aspects are the speed of the remembering and the amplitude of the movement. Currently, we reproduce with high ﬁdelity what happened, but increasing the speed and/or reducing the amplitude might reduce the episode time without any degradation in the message quality and thus produce a more appealing interaction.
+VII. CONCLUSION
+We have presented a generic framework for a full autobiographical memory, which can be used for a large variety of applications in autonomous systems because of a unique set of features. The framework is not dependent on an exact conﬁguration of sensors from a speciﬁc robotic platform; we have shown that it can be used for different robots, including the iCub, the Baxter and the NAO. It is simple to store data from external sources, e.g. images from a Kinect camera or distance measurements from an external laser scanner, as long as a YARP interface is established. A bridge to use data provided on ROS topics is provided, substantially extending the amount of supported robots.
+The ABM can store different kinds of data, and is not speciﬁc to a task: angles of the robot joints and images from embedded cameras may be the most commonly used (e.g. for imitation), but high frequency and numerous tactile pressure values have also been successfully stored (e.g. for tactile human feedback).
+The long-term memory can gather high frequency data (tested up to 100Hz) with a high information content (4224 tactile values, 640*480 RGB images from multiple sources, etc.) without loosing information. They are organised among episodes and can then be retrieved at a later time (even after several months or years) using the annotations linked to these events (time, agent, action, objects, etc.). For example, we have shown a complex request in order to identify the precise episode behind ”Can you remember the <temporal cue> time <agent cue> showed you <action cue>?”.
+Not only can the robot remember these precise events, but the robot can also relive the event, providing images from the cameras and reproducing the movements done. The robot can even add additional information about this memory event, with the knowledge of a-posteriori reasoning modules that have had access to this episode between its origin and the time of recall.
+
+This new information is automatically linked to the events they originate from, using meta-information attached to each event. For instance, we have shown how the kinematic structure of a limb can be added to a memory of hand-babbling and can be remembered when a human is asking for it. Thus, our ABM provides a way to revisit both original and augmented memories in real-time side by side, where the augmented memories might originate from algorithms that cannot run in real-time.
+ACKNOWLEDGEMENTS
+This research was funded in part by the EU projects WYSIWYD (grant FP7-ICT-612139) and PAL (grant H2020PHC-643783). The authors thank the members of the Personal Robotics Lab for their continued support, particularly Hyung Jin Chang (providing the kinematic structure learning module) and Martina Zambelli for helping with the human-robot interaction.
+REFERENCES
+[1] D. Vernon, G. Metta, and G. Sandini, “A Survey of Artiﬁcial Cognitive Systems: Implications for the Autonomous Development of Mental Capabilities in Computational Agents,” IEEE Transactions on Evolutionary Computation, vol. 11, no. 2, pp. 151–180, 2007.
+[2] P. F. Verschure, “Distributed Adaptive Control: A theory of the Mind, Brain, Body Nexus,” Biologically Inspired Cognitive Architectures, vol. 1, pp. 55–72, jul 2012.
+[3] E. Tulving, “Episodic and Semantic Memory,” in Organization of Memory. New York: Academic Press, 1972, pp. 381–403.
+[4] M. A. Conway and C. W. Pleydell-Pearce, “The Construction of Autobiographical Memories in the Self-Memory System,” Psychological Review, vol. 107, no. 2, pp. 261–288, 2000.
+[5] R. Wood, P. Baxter, and T. Belpaeme, “A review of long-term memory in natural and synthetic systems,” Adaptive Behavior, vol. 20, no. 2, pp. 81–103, 2012.
+[6] L. Squire and S. Zola-Morgan, “The medial temporal lobe memory system,” Science, vol. 253, no. 5026, pp. 1380–1386, 1991.
+[7] C. Brom and J. Lukavsky´, “Towards Virtual Characters with a Full Episodic Memory II: The Episodic Memory Strikes Back,” in International Conference on Autonomous Agents and Multiagent Systems, Budapest, Hungary, 2009.
+[8] G. Pointeau, M. Petit, and P. F. Dominey, “Robot Learning Rules of Games by Extraction of Intrinsic Properties,” in International Conference on Advances in Computer-Human Interactions, Nice, France, 2013, pp. 109–116.
+[9] ——, “Successive Developmental Levels of Autobiographical Memory for Learning Through Social Interaction,” IEEE Transactions on Autonomous Mental Development, vol. 6, no. 3, pp. 200–212, 2014.
+[10] G. Pointeau, M. Petit, G. Gibert, and P. F. Dominey, “Emergence of the Use of Pronouns and Names in Triadic Human-Robot Spoken Interaction,” in International Conference on Development and Learning and on Epigenetic Robotics, Genoa, Italy, 2014, pp. 85–91.
+[11] R. Davis, H. Shrobe, and P. Szolovits, “What Is a Knowledge Representation?” AI Magazine, vol. 14, no. 1, p. 17, 1993.
+[12] M. Zambelli and Y. Demiris, “Online Ensemble Learning of Sensorimotor Contingencies,” in IEEE/RSJ International Conference on Intelligent Robots and Systems Workshop on Sensorimotor Contingencies for Robotics, 2015, p. to be published.
+[13] Y. Demiris and A. Dearden, “From motor babbling to hierarchical learning by imitation: a robot developmental pathway,” in International Workshop on Epigenetic Robotics: Modeling Cognitive Development in Robotic Systems, Nara, Japan, 2005, pp. 31–37.
+[14] H. J. Chang and Y. Demiris, “Unsupervised Learning of Complex Articulated Kinematic Structures combining Motion and Skeleton Information,” in IEEE Conference on Computer Vision and Pattern Recognition, Boston, MA, USA, 2015, pp. 3138–3146.
+[15] J. E. Laird, “Extending the Soar Cognitive Architecture,” in Conference on Artiﬁcial General Intelligence, Memphis, TN, USA, 2008, pp. 224– 235.
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+This article has been accepted for publication in a future issue of this journal, but has not been fully edited. Content may change prior to final publication. Citation information: DOI 10.1109/TAMD.2015.2507439, IEEE Transactions on Autonomous Mental Development
+
+M. PETIT, T. FISCHER AND Y. DEMIRIS: LIFELONG AUGMENTATION OF MULTI-MODAL STREAMING AUTOBIOGRAPHICAL MEMORIES
+
+13
+
+[16] D. G. Tecuci and B. W. Porter, “A Generic Memory Module for Events,” in International Florida Artiﬁcial Intelligence Research Society Conference, Key West, FL, USA, 2007, pp. 152–157.
+[17] W. Ho, K. Dautenhahn, N. Burke, J. Saunders, and J. Saez-Pons, Episodic memory visualization in robot companions providing a memory prosthesis for elderly users. IOS Press, 2013, vol. 33, pp. 120–125.
+[18] D. Perzanowski, A. C. Schultz, W. Adams, E. Marsh, and M. Bugajska, “Building a Multimodal Human-Robot Interface,” IEEE Intelligent Systems and Their Applications, vol. 16, no. 1, pp. 16–21, 2001.
+[19] P. Baxter and T. Belpaeme, “Pervasive Memory: the Future of LongTerm Social HRI Lies in the Past,” in International Symposium on New Frontiers in Human-Robot Interaction at AISB, London, UK, 2014.
+[20] S. Lallee, V. Vouloutsi, M. B. Munoz, K. Grechuta, J.-Y. P. Llobet, M. Sarda, and P. F. Verschure, “Towards the synthetic self: Making others perceive me as an other,” Paladyn, Journal of Behavioral Robotics, vol. 6, no. 1, pp. 136–164, 2015.
+[21] J. Laird, A. Newell, and P. S. Rosenbloom, “SOAR: An Architecture for General Intelligence,” Artiﬁcial Intelligence, vol. 33, pp. 1–64, 1987.
+[22] F. Bellas, R. J. Duro, A. Fain˜a, and D. Souto, “Multilevel Darwinist Brain (MDB): Artiﬁcial Evolution in a Cognitive Architecture for Real Robots,” IEEE Transactions on Autonomous Mental Development, vol. 2, no. 4, pp. 340–354, 2010.
+[23] F. Broz, C. L. Nehaniv, H. Kose-Bagci, and K. Dautenhahn, “Interaction histories and short term memory: Enactive development of turn-taking behaviors in a childlike humanoid robot,” CoRR, vol. abs/1202.5600, 2012.
+[24] T. D. Niemueller, G. Lakemeyer, and S. Srinivasa, “A Generic Robot Database and its Application in Fault Analysis and Performance Evaluation,” in IEEE International Conference on Intelligent Robots and Systems, Vilamoura, Portugal, 2012, pp. 364–369.
+[25] M. Beetz, M. Lorenz, and M. Tenorth, “CRAM - A Cognitive Robot Abstract Machine for Everyday Manipulation in Human Environments,” in IEEE/RSJ International Conference on Intelligent Robots and Systems, Taipei, Taiwan, 2010, pp. 1012–1017.
+[26] J. Winkler, M. Tenorth, A. K. Bozcuoglu, and M. Beetz, “CRAMm - Memories for Robots Performing Everyday Manipulation Activities,” Advances in Cognitive Systems, vol. 3, pp. 47–66, 2014.
+[27] P. Fitzpatrick, G. Metta, and L. Natale, “YARP: Yet Another Robot Platform,” International Journal of Advanced Robotic Systems, vol. 3, no. 1, pp. 43–48, 2006.
+[28] G. Metta, L. Natale, F. Nori, G. Sandini, D. Vernon, L. Fadiga, C. von Hofsten, K. Rosander, M. Lopes, J. Santos-Victor, A. Bernardino, and L. Montesano, “The iCub humanoid robot: An open-systems platform for research in cognitive development,” Neural Networks, vol. 23, no. 8-9, pp. 1125–1134, 2010.
+[29] S. Coradeschi and A. Safﬁotti, “An Introduction to the Anchoring Problem,” Robotics and Autonomous Systems, vol. 43, no. 2-3, pp. 85– 96, 2003.
+[30] R. C. Luo, C.-C. Yih, and K. L. Su, “Multisensor Fusion and Integration: Approaches, Applications, and Future Research Directions,” IEEE Sensors Journal, vol. 2, no. 2, pp. 107–119, 2002.
+[31] M. Samadi, T. Kollar, and M. Veloso, “Using the Web to Interactively Learn to Find Objects,” in AAAI Conference on Artiﬁcial Intelligence, Toronto, Canada, 2012, pp. 2074–2080.
+[32] J. Cunha, R. Serra, N. Lau, L. S. Lopes, and A. J. R. Neves, “Batch Reinforcement Learning for Robotic Soccer Using the Q-Batch UpdateRule,” Journal of Intelligent & Robotic Systems, 2015.
+[33] W. B. Knox, P. Stone, and C. Breazeal, “Training a Robot via Human Feedback: A Case Study,” in International Conference on Social Robotics, Bristol, UK, 2013, pp. 460–470.
+[34] A. Leo´n, E. F. Morales, L. Altamirano, and J. R. Ruiz, “Teaching a Robot to Perform Task through Imitation and On-line Feedback,” in Progress in Pattern Recognition, Image Analysis, Computer Vision, and Applications, 2011, pp. 549–556.
+[35] A. Soltoggio, F. Reinhart, A. Lemme, and J. Steil, “Learning the rules of a game: Neural conditioning in human-robot interaction with delayed rewards,” in IEEE International Conference on Development and Learning and Epigenetic Robotics, Osaka, Japan, 2013.
+[36] B. Settles, “From Theories to Queries: Active Learning in Practice,” JMLR: Workshop and Conference Proceedings, vol. 16, pp. 1–18, 2011.
+[37] P. E. Rybski, K. Yoon, J. Stolarz, and M. M. Veloso, “Interactive Robot Task Training through Dialog and Demonstration,” in ACM/IEEE International Conference on Human-Robot Interaction, Washington DC, USA, 2007, pp. 49–56.
+[38] L. Steels and T. Belpaeme, “Coordinating perceptually grounded categories through language: A case study for colour,” Behavioral and Brain Sciences, vol. 28, no. 4, pp. 469–489, 2005.
+
+[39] M. Petit, S. Lallee, J.-D. Boucher, G. Pointeau, P. Cheminade, D. Ognibene, E. Chinellato, U. Pattacini, I. Gori, U. Martinez-Hernandez, H. Barron-Gonzalez, M. Inderbitzin, A. Luvizotto, V. Vouloutsi, Y. Demiris, G. Metta, and P. F. Dominey, “The Coordinating Role of Language in Real-Time Multimodal Learning of Cooperative Tasks,” IEEE Transactions on Autonomous Mental Development, vol. 5, no. 1, pp. 3–17, 2013.
+[40] W. C. Ho, M. Y. Lim, P. A. Vargas, S. Enz, K. Dautenhahn, and R. Aylett, “An Initial Memory Model for Virtual and Robot Companions Supporting Migration and Long-term Interaction,” in IEEE International Symposium on Robot and Human Interactive Communication, Toyama, Japan, 2009, pp. 277–284.
+[41] C. Gurrin, H. Lee, and J. Hayes, “iForgot: A Model of Forgetting in Robotic Memories,” in International Conference on Human-Robot Interaction, Osaka, Japan, 2010, pp. 93–94.
+[42] K. Lee, Y. Su, T.-K. Kim, and Y. Demiris, “A syntactic approach to robot imitation learning using probabilistic activity grammars,” Robotics and Autonomous Systems, vol. 61, pp. 1323–1334, 2013.
+[43] C. Brom, O. Burkert, and R. Kadlec, “Timing in Episodic Memory for Virtual Characters,” in IEEE Conference on Computational Intelligence and Games, Copenhagen, Denmark, 2010, pp. 305–312.
+Maxime Petit received the M.Sc. degree in computer science from the University of Paris-Sud, France, and an engineering degree in biosciences (bio-informatics and modelling) from the National Institute of Applied Sciences (INSA) Lyon, France, both in 2010. In 2014, he received a Ph.D. in Neurosciences from the National Institute of Science and Medical Research (INSERM), in the Stem-Cell and Brain Research Institute (SBRI) in Lyon, within the Robot Cognition Laboratory (RCL). He is now a Research Associate at the Personal Robotics Lab, Imperial College London. His research interests include developmental robotics, memory and reasoning in robotics, especially linked to social interaction through spoken language with a human.
+Tobias Fischer received the B.Sc. degree from the Ilmenau University of Technology, Germany, in 2013, and the M.Sc. degree in Artiﬁcial Intelligence from the University of Edinburgh, United Kingdom, in 2014. He is currently pursuing the Ph.D degree in robotics under Yiannis Demiris’ supervision with the Personal Robotics Lab at Imperial College London.
+His research interests include a variety of topics including both computer vision and human vision, visual attention, machine learning and computational neuroscience. Tobias is interested in applying this knowledge to robotics, to imitate human-like behaviour.
+Yiannis Demiris is a Reader (Associate Professor) at Imperial College London where he heads the Personal Robotics Laboratory. His research interests include assistive robotics, cognitive and developmental robotics multi robot systems, robothuman interaction, and applications of intelligent robotics in healthcare. His research is funded by the EU FP7 and H2020 programs through projects WYSIWYD and PAL, both addressing novel machine learning approaches to humanrobot interaction. He received the Rectors Award for Teaching Excellence, and the Faculty of Engineering Award for Excellence in Engineering Education in 2012. He is a Fellow of the Royal Statistical Society (FRSS), the British Computer Society (FBCS) and the Institute of Engineering and Technology (FIET).
+
+1943-0604 (c) 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+

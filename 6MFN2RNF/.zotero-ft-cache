@@ -1,0 +1,2633 @@
+arXiv:1809.10756v1 [stat.ML] 27 Sep 2018
+
+An Introduction to Probabilistic Programming
+Jan-Willem van de Meent College of Computer and Information Science
+Northeastern University j.vandemeent@northeastern.edu
+Brooks Paige Alan Turing Institute University of Cambridge bpaige@turing.ac.uk
+Hongseok Yang School of Computing
+KAIST hongseok.yang@kaist.ac.kr
+Frank Wood Department of Computer Science
+University of British Columbia fwood@cs.ubc.ca
+
+Contents
+
+Abstract
+
+1
+
+Acknowledgements
+
+3
+
+1 Introduction
+
+8
+
+1.1 Model-based Reasoning . . . . . . . . . . . . . . . . . . . 10
+
+1.2 Probabilistic Programming . . . . . . . . . . . . . . . . . 21
+
+1.3 Example Applications . . . . . . . . . . . . . . . . . . . . 26
+
+1.4 A First Probabilistic Program . . . . . . . . . . . . . . . . 29
+
+2 A Probabilistic Programming Language Without Recursion 31 2.1 Syntax . . . . . . . . . . . . . . . . . . . . . . . . . . . . 32 2.2 Syntactic Sugar . . . . . . . . . . . . . . . . . . . . . . . 37 2.3 Examples . . . . . . . . . . . . . . . . . . . . . . . . . . . 42 2.4 A Simple Purely Deterministic Language . . . . . . . . . . 48
+
+3 Graph-Based Inference
+
+51
+
+3.1 Compilation to a Graphical Model . . . . . . . . . . . . . 51
+
+3.2 Evaluating the Density . . . . . . . . . . . . . . . . . . . 66
+
+3.3 Gibbs Sampling . . . . . . . . . . . . . . . . . . . . . . . 74
+
+3.4 Hamiltonian Monte Carlo . . . . . . . . . . . . . . . . . . 80
+
+3.5 Compilation to a Factor Graph . . . . . . . . . . . . . . . 89
+
+3.6 Expectation Propagation . . . . . . . . . . . . . . . . . . 94
+
+4 Evaluation-Based Inference I
+
+102
+
+4.1 Likelihood Weighting . . . . . . . . . . . . . . . . . . . . 105
+
+4.2 Metropolis-Hastings . . . . . . . . . . . . . . . . . . . . . 116
+
+4.3 Sequential Monte Carlo . . . . . . . . . . . . . . . . . . . 125
+
+4.4 Black Box Variational Inference . . . . . . . . . . . . . . . 131
+
+5 A Probabilistic Programming Language With Recursion 138 5.1 Syntax . . . . . . . . . . . . . . . . . . . . . . . . . . . . 142 5.2 Syntactic sugar . . . . . . . . . . . . . . . . . . . . . . . 143 5.3 Examples . . . . . . . . . . . . . . . . . . . . . . . . . . . 144
+
+6 Evaluation-Based Inference II
+
+155
+
+6.1 Explicit separation of model and inference code . . . . . . 156
+
+6.2 Addressing Transformation . . . . . . . . . . . . . . . . . 161
+
+6.3 Continuation-Passing-Style Transformation . . . . . . . . . 165
+
+6.4 Message Interface Implementation . . . . . . . . . . . . . 171
+
+6.5 Likelihood Weighting . . . . . . . . . . . . . . . . . . . . 175
+
+6.6 Metropolis-Hastings . . . . . . . . . . . . . . . . . . . . . 175
+
+6.7 Sequential Monte Carlo . . . . . . . . . . . . . . . . . . . 178
+
+7 Advanced Topics
+
+181
+
+7.1 Inference Compilation . . . . . . . . . . . . . . . . . . . . 181
+
+7.2 Model Learning . . . . . . . . . . . . . . . . . . . . . . . 186
+
+7.3 Hamiltonian Monte Carlo and Variational Inference . . . . 191
+
+7.4 Nesting . . . . . . . . . . . . . . . . . . . . . . . . . . . . 193
+
+7.5 Formal Semantics . . . . . . . . . . . . . . . . . . . . . . 196
+
+8 Conclusion
+
+201
+
+References
+
+205
+
+Abstract
+This document is designed to be a ﬁrst-year graduate-level introduction to probabilistic programming. It not only provides a thorough background for anyone wishing to use a probabilistic programming system, but also introduces the techniques needed to design and build these systems. It is aimed at people who have an undergraduate-level understanding of either or, ideally, both probabilistic machine learning and programming languages.
+We start with a discussion of model-based reasoning and explain why conditioning as a foundational computation is central to the ﬁelds of probabilistic machine learning and artiﬁcial intelligence. We then introduce a simple ﬁrst-order probabilistic programming language (PPL) whose programs deﬁne static-computation-graph, ﬁnite-variablecardinality models. In the context of this restricted PPL we introduce fundamental inference algorithms and describe how they can be implemented in the context of models denoted by probabilistic programs.
+In the second part of this document, we introduce a higher-order probabilistic programming language, with a functionality analogous to that of established programming languages. This aﬀords the opportunity to deﬁne models with dynamic computation graphs, at the cost of requiring inference methods that generate samples by repeatedly executing the program. Foundational inference algorithms for this kind of probabilistic programming language are explained in the context of
+1
+
+Abstract
+
+2
+
+an interface between program executions and an inference controller. This document closes with a chapter on advanced topics which
+we believe to be, at the time of writing, interesting directions for probabilistic programming research; directions that point towards a tight integration with deep neural network research and the development of systems for next-generation artiﬁcial intelligence applications.
+
+Acknowledgements
+We would like to thank the very large number of people who have read through preliminary versions of this manuscript. Comments from the reviewers have been particularly helpful, as well as general interactions with David Blei and Kevin Murphy in particular. Some people we would like to individually thank are, in no particular order, Tobias Kohn, Rob Zinkov, Marcin Szymczak, Gunes Baydin, Andrew Warrington, Yuan Zhou, and Celeste Hollenbeck, as well as numerous other members of Frank Wood’s Oxford and UBC research groups graciously answered the call to comment and contribute.
+We would also like to acknowledge colleagues who have contributed intellectually to our thinking about probabilistic programming. First among these is David Tolpin, whose work with us at Oxford decisively shaped the design of the Anglican probabilistic programming language, and forms the basis for the material in Chapter 6. We would also like to thank Josh Tenenbaum, Dan Roy, Vikash Mansinghka, and Noah Goodman for inspiration, periodic but important research interactions, and friendly competition over the years. Chris Heunen, Ohad Kammar and Sam Staton helped us to understand subtle issues about the semantics of higher-order probabilistic programming languages. Lastly we would like to thank Mike Jordan for asking us to do this, providing the impetus to collate everything we thought we learned while having put together a NIPS tutorial years ago.
+3
+
+Acknowledgements
+
+4
+
+During the writing of this manuscript the authors received generous support from various granting agencies. Most critically, while all of the authors were at Oxford together, three of them were explicitly supported at various times by the DARPA under its Probabilistic Programming for Advanced Machine Learning (PPAML) (FA8750-14-2-0006) program. Jan-Willem van de Meent was additionally supported by startup funds from Northeastern University. Brooks Paige and Frank Wood were additionally supported by the Alan Turing Institute under the EPSRC grant EP/N510129/1. Frank Wood was also supported by Intel, DARPA via its D3M (FA8750-17-2-0093) program, and NSERC via its Discovery grant program. Hongseok Yang was supported by the Engineering Research Center Program through the National Research Foundation of Korea (NRF) funded by the Korean Government MSIT (NRF-2018R1A5A1059921), and also by Next-Generation Information Computing Development Program through the National Research Foundation of Korea (NRF) funded by the Ministry of Science, ICT (2017M3C4A7068177).
+
+Notation
+
+Grammars
+
+c ::= v ::= f ::=
+
+A constant value or primitive function. A variable. A user-deﬁned procedure.
+
+e ::=
+
+c | v | (let [v e1] e2) | (if e1 e2 e3) | (f e1 ... en) | (c e1 ... en) | (sample e) | (observe e1 e2) An expression in the ﬁrst-order probabilistic programming language (FOPPL).
+
+E ::= c | v | (if E1 E2 E3) | (c E1 ... En) An expression in the (purely deterministic) target language.
+
+e ::=
+
+c | v | f | (if e e e) | (e e1 ... en) | (sample e) | (observe e e) | (fn [v1 ... vn] e) An expression in the higher-order probabilistic programming language (HOPPL).
+
+q ::= e | (defn f [v1 ... vn] e) q A program in the FOPPL or the HOPPL.
+
+Sets, Lists, Maps, and Expressions
+
+C = {c1, ..., cn} C = (c1, ..., cn)
+
+A set of constants (ci ∈ C refers to elements). A list of constants (Ci indexes elements ci).
+5
+
+Notation
+C = [v1 → c1, ..., vn → cn] C = C[vi → ci] C(vi) = ci C = dom(C) = {v1, ..., vn} E = (* v v) E = E[v := c] = (* c c) free-vars(e)
+
+6
+A map from variables to constants (C(vi) indexes entries ci). A map update in which C (vi) = ci replaces C(vi) = ci. An in-place update in which C(vi) = ci replaces C(vi) = ci. The set of keys in a map.
+An expression literal. An expression in which a constant c replaces the variable v. The free variables in an expression.
+
+Directed Graphical Models
+
+G = (V, A, P, Y)
+
+A directed graphical model.
+
+V = {v1, ..., v|V |} Y = dom(Y) ⊆ V X =V \Y ⊆V y∈Y x∈X
+
+The variable nodes in the graph. The observed variable nodes. The unobserved variable nodes. An observed variable node. An unobserved variable node.
+
+A = {(u1, v1), ..., (u|A|, v|A|)} P = [v1 → E1, ..., v|V | → E|V |]
+Y = [y1 → c1, ..., y|Y | → c|Y |]
+
+The directed edges (ui, vi) between parents ui ∈ V and children vi ∈ V . The probability mass or density for each variable vi, represented as a target language expression P(vi) = Ei The observed values Y(yi) = ci.
+
+pa(v) = {u : (u, v) ∈ A}
+
+The set of parents of a variable v.
+
+Notation
+
+7
+
+Factor Graphs
+
+G = (V, F, A, Ψ)
+
+A factor graph.
+
+V = {v1, ..., v|V |} F = {f1, ..., f|F |} A = {(v1, f1), ..., (v|A|, f|A|)}
+Ψ = [f1 → E1, ..., f|F | → E|F |]
+Probability Densities
+
+The variable nodes in the graph. The factor nodes in the graph. The undirected edges between variables vi and factors fi. Potentials for factors fi, represented as target language expressions Ei.
+
+p(Y, X) = p(V ) p(X ) p(Y | X)
+p(X | Y )
+
+The joint density over all variables. The prior density over unobserved variables. The likelihood of observed variables Y given unobserved variables X. The posterior density for unobserved variables X given unobserved variables Y .
+
+X = [x1 → c1, ..., xn → cn] p(X = X ) = p(x1 = c1, ..., xn = cn)
+
+A trace of values X (xi) = ci assocated with the instantiated set of variables X = dom(X ). The probability density p(X) evaluated at a trace X .
+
+p0(v0 ; c1, ..., cn) P (v0) = (p0 v0 c1 . . . cn)
+
+A probability mass or density function for a variable v0 with parameters c1, ..., cn. The language expression that evaluates to the probability mass or density p0(v0; c1, ..., cn).
+
+1
+Introduction
+How do we engineer machines that reason? This is a question that has long vexed humankind. The answer to this question is fantastically valuable. There exist various hypotheses. One major division of hypothesis space delineates along lines of assertion: that random variables and probabilistic calculation are more-or-less an engineering requirement (Ghahramani, 2015; Tenenbaum et al., 2011) and the opposite (LeCun et al., 2015; Goodfellow et al., 2016). The ﬁeld ascribed to the former camp is roughly known as Bayesian or probabilistic machine learning; the latter as deep learning. The ﬁrst requires inference as a fundamental tool; the latter optimization, usually gradient-based, for classiﬁcation and regression.
+Probabilistic programming languages are to the former as automated diﬀerentiation tools are to the latter. Probabilistic programming is fundamentally about developing languages that allow the denotation of inference problems and evaluators that “solve” those inference problems. We argue that the rapid exploration of the deep learning, big-dataregression approach to artiﬁcial intelligence has been triggered largely by the emergence of programming language tools that automate the tedious and troublesome derivation and calculation of gradients for optimization.
+8
+
+9
+Probabilistic programming aims to build and deliver a toolchain that does the same for probabilistic machine learning; supporting supervised, unsupervised, and semi-supervised inference. Without such a toolchain one could argue that the complexity of inference-based approaches to artiﬁcial intelligence systems are too high to allow rapid exploration of the kind we have seen recently in deep learning.
+While such a next-generation artiﬁcial intelligence toolchain is of particular interest to the authors, the fact of the matter is that the probabilistic programming tools and techniques are already transforming the way Bayesian statistical analyses are performed. Traditionally the majority of the eﬀort required in a Bayesian statistical analysis was in iterating model design where each iteration often involved a painful implementation of an inference algorithm speciﬁc to the current model. Automating inference, as probabilistic programming systems do, signiﬁcantly lowers the cost of iterating model design leading to both a better overall model in a shorter period of time and all of the consequent beneﬁts.
+This introduction to probabilistic programming covers the basics of probabilistic programming from language design to evaluator implementation with the dual aim of explaining existing systems at a deep enough level that readers of this text should have no trouble adopting and using any of both the languages and systems that are currently out there and making it possible for the next generation of probabilistic programming language designers and implementers to use this as a foundation upon which to build.
+This introduction starts with an important, motivational look at what a model is and how model-based inference can be used to solve many interesting problems. Like automated diﬀerentiation tools for gradient-based optimization, the utility of probabilistic programming systems is grounded in applications simpler and more immediately practical than futuristic artiﬁcial intelligence applications; building from this is how we will start.
+
+1.1. Model-based Reasoning
+
+10
+
+1.1 Model-based Reasoning
+Model-building starts early. Children build model airplanes then blow them up with ﬁrecrackers just to see what happens. Civil engineers build physical models of bridges and dams then see what happens in scale-model wave pools and wind tunnels. Disease researchers use mice as model organisms to simulate how cancer tumors might respond to diﬀerent drug dosages in humans.
+These examples show exactly what a model is: a stand-in, an imposter, an artiﬁcial construct designed to respond in the same way as the system you would like to understand. A mouse is not a human but it is often close enough to get a sense of what a particular drug will do at particular concentrations in humans anyway. A scale-model of an earthen embankment dam has the wrong relative granularity of soil composition but studying overtopping in a wave pool still tells us something about how an actual dam might respond.
+As computers have become faster and more capable, numerical models have come to the fore and computer simulations have replaced physical models. Such simulations are by nature approximations. However, now in many cases they can be as exacting as even the most highly sophisticated physical models – consider that the US was happy to abandon physical testing of nuclear weapons.
+Numerical models emulate stochasticity, i.e. using pseudorandom number generators, to simulate actually random phenomena and other uncertainties. Running a simulator with stochastic value generation leads to a many-worlds-like explosion of possible simulation outcomes. Every little kid knows that even the slightest variation in the placement of a ﬁrecracker or the most seemly minor imperfection of a glue joint will lead to dramatically diﬀerent model airplane explosions. Eﬀective stochastic modeling means writing a program that can produce all possible explosions, each corresponding to a particular set of random values, including for example the random ﬁnal resting position of a rapidly dropped lit ﬁrecracker.
+Arguably this intrinsic variability of the real world is the most signiﬁcant complication for modeling and understanding. Did the mouse die in two weeks because of a particular individual drug sensitivity,
+
+1.1. Model-based Reasoning
+
+11
+
+because of its particular phenotype, or because the drug regiment trial arm it was in was particularly aggressive? If we are interested in average eﬀects, a single trial is never enough to learn anything for sure because random things almost always happen. You need a population of mice to gain any kind of real knowledge. You need to conduct several windtunnel bridge tests, numerical or physical, because of variability arising everywhere – the particular stresses induced by a particular vortex, the particular frailty of an individual model bridge or component, etc. Stochastic numerical simulation aims to computationally encompass the complete distribution of possible outcomes.
+When we write model we generally will mean stochastic simulator and the measurable values it produces. Note, however, that this is not the only notion of model that one can adopt. Notably there is a related family of models that is speciﬁed solely in terms of an unnormalized density or “energy” function; this is treated in Chapter 3.
+Models produce values for things we can measure in the real world; we call such measured values observations. What counts as an observation is model, experiment, and query speciﬁc – you might measure the daily weight of mice in a drug trial or you might observe whether or not a particular bridge design fails under a particular load.
+Generally one does not observe every detail produced by a model, physical or numerical, and sometimes one simply cannot. Consider the standard model of physics and the large hadron collider. The standard model is arguably the most precise and predictive model ever conceived. It can be used to describe what can happen in fundamental particle interactions. At high energies these interactions can result in a particle jet that stochastically transitions between energy-equivalent decompositions with varying particle-type and momentum constituencies. It is simply not possible to observe the initial particle products and their ﬁrst transitions because of how fast they occur. The energy of particles that make up the jet deposited into various detector elements constitute the observables.
+So how does one use models? One way is to use them to falsify theories. To this one needs encode the theory as a model then simulate from it many times. If the population distribution of observations generated by the model is not in agreement with observations generated
+
+1.1. Model-based Reasoning
+
+12
+
+by the real world process then there is evidence that the theory can be falsiﬁed. This describes science to a large extent. Good theories take the form of models that can be used to make testable predictions. We can test those predictions and falsify model variants that fail to replicate observed statistics.
+Models also can be used to make decisions. For instance when playing a game you either consciously or unconsciously use a model of how your opponent will play. To use such a model to make decisions about what move to play next yourself, you simulate taking a bunch of diﬀerent actions, then pick one amongst them by simulating your opponent’s reaction according to your model of them, and so forth until reaching a game state whose value you know, for instance, the end of the game. Choosing the action that maximizes your chances of winning is a rational strategy that can be framed as model-based reasoning. Abstracting this to life being a game whose score you attempt to maximize while living requires a model of the entire world, including your own physical self, and is where model-based probabilistic machine learning meets artiﬁcial intelligence.
+A useful model can take a number of forms. One kind takes the form of a reusable, interpretable abstraction with a good associated inference algorithm that describes summary statistic or features extracted from raw observable data. Another kind consists of a reusable but noninterpretable and entirely abstract model that can accurately generate complex observable data. Yet another kind of model, notably models in science and engineering, takes the form of a problem-speciﬁc simulator that describes a generative process very precisely in engineering-like terms and precision. Over the course of this introduction it will become apparent how probabilistic programming addresses the complete spectrum of them all.
+All model types have parameters. Fitting these parameters, when few, can sometimes be performed manually, by intensive theory-based reasoning and a priori experimentation (the masses of particles in the standard model), by measuring conditional subcomponents of a simulator (the compressive strength of various concrete types and their action under load), or by simply ﬁddling with parameters to see which values produce the most realistic outputs.
+
+1.1. Model-based Reasoning
+
+13
+
+Automated model ﬁtting describes the process of using algorithms to determine either point or distributional estimates for model parameters and structure. Such automation is particularly useful when the parameters of a model are uninterpretable or many. We will return to model ﬁtting in Chapter 7 however it is important to realize that inference can be used for model learning too, simply by lifting the inference problem to include uncertainty about the model itself (e.g. see the neural network example in 2.3 and the program induction example in 5.3).
+The key point now is to understand that models come in many forms, from scientiﬁc and engineering simulators in which the results of every subcomputation are interpretable to abstract models in statistics and computer science which are, by design, signiﬁcantly less interpretable but often are valuable for predictive inference none-the-less.
+
+1.1.1 Model Denotation
+An interesting thing to think about, and arguably the foundational idea that led to the ﬁeld of probabilistic programming, is how such models are denoted and, respectively, how such models are manipulated to compute quantities of interest.
+To see what we mean about model denotation let us ﬁrst look at a simple statistical model and see how it is denoted. Statistical models are typically denoted mathematically, subsequently manipulated algebraically, then “solved” computationally. By “solved” we mean that an inference problem involving conditioning on the values of a subset of the variables in the model is answered. Such a model denotation stands in contrast to simulators which are often denoted in terms of software source code that is directly executed. This also stands in contrast, though less so, to generative models in machine learning which usually take the form of probability distributions whose factorization properties can be read from diagrams like graphical models or factor graphs.
+Nearly the simplest possible model one could write down is a betaBernoulli model for generating a coin ﬂip from a potentially biased coin.
+
+1.1. Model-based Reasoning
+
+14
+
+Such a model is typically denoted
+
+x ∼ Beta(α, β) y ∼ Bernoulli(x)
+
+(1.1)
+
+where α and β are parameters, x is a latent variable (the bias of the coin) and y is the value of the ﬂipped coin. A trained statistician will also ascribe a learned, folk-meaning to the symbol ∼ and the keywords Beta and Bernoulli. For example Beta(a, b) means that, given the value of arguments a and b we can construct what is eﬀectively an object with two methods. The ﬁrst method being a probability density (or distribution) function that computes
+p(x|a, b) = Γ(a + b) xa−1(1 − x)b−1, Γ(a)Γ(b)
+and the second a method that draws exact samples from said distribution. A statistician will also usually be able to intuit not only that some variables in a model are to be observed, here for instance y, but that there is an inference objective, here for instance to characterize p(x|y). This denotation is extremely compact, and being mathematical in nature means that we can use our learned mathematical algebraic skills to manipulate expressions to solve for quantities of interest. We will return to this shortly.
+In this tutorial we will generally focus on conditioning as the goal, namely the characterization of some conditional distribution given a speciﬁcation of a model in the form of a joint distribution. This will involve the extensive use of Bayes rule
+
+p(Y |X)p(X) p(X, Y )
+
+p(X, Y )
+
+p(X|Y ) =
+
+=
+
+=
+
+.
+
+p(Y )
+
+p(Y )
+
+p(X, Y )dX
+
+(1.2)
+
+Bayes rule tells us how to derive a conditional probability from a joint, conditioning tells us how to rationally update our beliefs, and updating beliefs is what learning and inference are all about.
+The constituents of Bayes rule have common names that are well known and will appear throughout this text: p(Y |X) the likelihood, p(X) the prior, p(Y ) the marginal likelihood (or evidence), and p(X|Y ) the
+
+1.1. Model-based Reasoning
+
+15
+
+Table 1.1: Probabilistic Programming Models
+
+X scene description
+simulation program source code policy prior and world simulator cognitive decision making process
+
+Y image simulator output program return value rewards observed behavior
+
+posterior. For our purposes a model is the joint distribution p(Y, X) = p(Y |X)p(X) of the observations Y and the random choices made in the generative model X, also called latent variables.
+The subject of Bayesian inference, including both philosophical and methodological aspects, is in and of itself worthy of book length treatment. There are a large number of excellent references available, foremost amongst them the excellent book by Gelman et al. (2013). In the space of probabilistic programming arguably the recent books by Davidson-Pilon (2015) and Pfeﬀer (2016) are the best current references. They all aim to explain what we expect you to gain an understanding of as you continue to read and build experience, namely, that conditioning a joint distribution – the fundamental Bayesian update – describes a huge number of problems succinctly.
+Before continuing on to the special-case analytic solution to the simple Bayesian statistical model and inference problem, let us build some intuition about the power of both programming languages for model denotation and automated conditioning by considering Table 1.1. In this table we list a number of X,Y pairs where denoting the joint distribution of P (X, Y ) is realistically only doable in a probabilistic programming language and the posterior distribution P (X|Y ) is of interest. Take the ﬁrst, “scene description” and “image.” What would such a joint distribution look like? Thinking about it as P (X, Y ) is somewhat hard, however, thinking about P (X) as being some kind of distribution over a so-called scene graph – the actual object geometries, textures, and poses in a physical environment – is not unimaginably
+
+1.1. Model-based Reasoning
+
+16
+
+hard, particularly if you think about writing a simulator that only needs to stochastically generate reasonably plausible scene graphs. Noting that P (X, Y ) = P (Y |X)P (X) then all we need is a way to go from scene graph to observable image and we have a complete description of a joint distribution. There are many kinds of renderers that do just this and, although deterministic in general, they are perfectly ﬁne to use when specifying a joint distribution because they map from some latent scene description to observable pixel space and, with the addition of some image-level pixel noise reﬂecting, for instance, sensor imperfections or Monte-Carlo ray-tracing artifacts, form a perfectly valid likelihood.
+An example of this “vision as inverse graphics” idea (Kulkarni et al., 2015b) appearing ﬁrst in Mansinghka et al. (2013) and then subsequently in Le et al. (2017b,a) took the image Y to be a Captcha image and the scene description X to include the obscured string. In all three papers the point was not Captcha-breaking per se but instead demonstrating both that such a model is denotable in a probabilistic programming language and that such a model can be solved by general purpose inference.
+Let us momentarily consider alternative ways to solve such a “Captcha problem.” A non-probabilistic programming approach would require gathering a very large number of Captchas, hand-labeling them all, then designing and training a neural network to regress from the image to a text string (Bursztein et al., 2014). The probabilistic programming approach in contrast merely requires one to write a program that generates Captchas that are stylistically similar to the Captcha family one would like to break – a model of Captchas – in a probabilistic programming language. Conditioning such a model on its observable output, the Captcha image, will yield a posterior distribution over text strings. This kind of conditioning is what probabilistic programming evaluators do.
+Figure 1.1 shows a representation of the output of such a conditioning computation. Each Captcha/bar-plot pair consists of a held-out Captcha image and a truncated marginal posterior distribution over unique string interpretations. Drawing your attention to the middle of the bottom row, notice that the noise on the Captcha makes it more-or-less impossible to tell if the string is “aG8BPY” or “aG8RPY.” The posterior distribution
+
+1.1. Model-based Reasoning
+
+17
+
+Fig. 4. Posteriors of real Facebook and Wikipedia Captchas. Conditioning on each Captcha, we show an approximate posterior produced by a set of weighted importance sampling particles {(wm, x(m))}M m==1100.
+
+Figure 1.1: Posterior uncertainties after inference in a probabilistic programming language model of 2017 Facebook Captchas (reproduced from Le et al. (2017a))
+
+P (X|Y ) arrived at by conditioning reﬂects this uncertainty.
+
+By this simple example, whose source code appears in Chapter 5 in
+
+a simpliﬁed form, we aim only to liberate your thinking in regards to
+
+what a model is (a joint distribution, potentially over richly structured
+
+objects, produced by adding stochastic choice to normal computer pro-
+
+gfsroyrnathfmuettuicsredalthtiaekogereyneCtrhaattaiveqpumatnoctdihﬁeleasseatsgndaenbneomuenprdirsaicttahloecroimrsnp)earsctatononef d whvIniasteutranlatdtoihocnueaml eonCtuoanntfaeplryeusnicste,” ioonnfPrDoaocceuecdmioenngnts doAfnitathleiyosSiesnveainnnthdg cmpoeormfdoerlmpmauinscmtea.atcthioon nneurcalannetwobrkeanldiakpper.oxiWmatehinafetrenpcerobabDReCicl:oigIsEnEittiEiocnC-opmVoprluuotmegreSr2o,acsimeetry. ,ImC20D0iA3nR, gp’p0.3l9.a58nW–9ga6s2uh.inagtgone, s
+
+do
+
+is
+
+to
+
+allowACKdNOeWnLEoDtGaMtENioTSn
+
+of
+
+any
+
+suc[3h] Am. Korizdheevslk.y, WI. Suhtskaevter,tahndiGs. Et.uHitnotonr,i“aImlagcenoevt classiﬁcation with deep convolutional neural networks,”
+
+ersTuainnAnghrLeeaistsudppeotrteadilby iEsPShRCowDTAtoanddGeoovgleelop iinn AfdevranecnescineNeaurlagl oInrfoirtmhatimon sProtcehssaintg Saysltelmosw,
+
+c(FoprramonjkecpWt ucooodtdeaDatrFei6o7su0np0pa) oslrtutedcdehnutsnahdirepras.DcAAttıRleıPmrAiGzPu¨aPnAets¸MiBoLayntdhirnoouafgnhdthe[4]
+
+2012, pp. 1097–1105.
+pMo. sJatdeerrbieorg,rKd. iSsimtorniybanu, Ati. oVnedalodif,
+
+ainndtAe.rZeiss-t,
+
+increasingly very rapidly as well (see Chapter 7). the U.S. AFRL under Cooperative Agreement FA8750-14-20006, Sub Award number 61160290-111668. Robert Zinkov
+
+serman, “Synthetic data and artiﬁcial neural networks for natural scene text recognition,” arXiv preprint
+
+is supported under DARPA grant FA8750-14-2-0007.
+
+arXiv:1406.2227, 2014.
+
+REFERENCES
+1.[11] .Y2. LeCuCn,oYn. Bdenigtiioo, anndinG.gHinton, “Deep learning,”
+
+[5] ——, “Reading text in the wild with convolutional neural networks,” International Journal of Computer Vision, vol. 116, no. 1, pp. 1–20, 2016.
+
+Nature, vol. 521, no. 7553, pp. 436–444, 2015.
+
+[6] A. Gupta, A. Vedaldi, and A. Zisserman, “Synthetic Data
+
+R[e2]tuPp.rracYnt.icieSnsimgfoarrdt,cooDnv.oolSuutteriionnksarliamunse,upraanlldeneJct.woCori.knsP-laaﬂpttp,ilip“eBd estsott atistfiocr Tsexet xLoacamlisaptiolne,in lNeatturaul Ismacgoesn,” tininPruoceeedainngsd
+
+write out the joint probability density for the distribution on X and Y .
+
+The reason to do this is to paint a picture, by this simple example, of
+
+what the mathematical operations involved in conditioning are like and
+
+why the problem of conditioning is, in general, hard.
+
+Assume that the symbol Y denotes the observed outcome of the
+
+coin ﬂip and that we encode the event “comes up heads” using the
+
+mathematical value of the integer 1 and 0 for the converse. We will
+
+denote the bias of the coin, i.e. the probability it comes up heads, using
+
+1.1. Model-based Reasoning
+
+18
+
+the symbol x and encode it using a real positive number between 0 and 1 inclusive, i.e. x ∈ R ∩ [0, 1]. Then using standard deﬁnitions for the distributions indicated by the joint denotation in Equation (1.1) we can write
+
+p(x, y) = xy(1 − x)1−y Γ(α + β) xα−1(1 − x)β−1 Γ(α)Γ(β)
+
+(1.3)
+
+and then use rules of algebra to simplify this expression to
+
+p(x, y) = Γ(α + β) xy+α−1(1 − x)β−y. Γ(α)Γ(β)
+
+(1.4)
+
+Note that we have been extremely pedantic here, using words like “symbol,” “denotes,” “encodes,” and so forth, to try to get you, the reader, to think in advance about other ways one might denote such a model and to realize if you don’t already that there is a fundamental diﬀerence between the symbol or expression used to represent or denote a meaning and the meaning itself. Where we haven’t been pedantic here is probably the most interesting thing to think about: What does it mean to use rules of algebra to manipulate Equation (1.3) into Equation (1.4)? To most reasonably trained mathematicians, applying expression transforming rules that obey the laws of associativity, commutativity, and the like are natural and are performed almost unconsciously. To a reasonably trained programming languages person these manipulations are meta-programs, i.e. programs that consume and output programs, that perform semantics-preserving transformations on expressions. Some probabilistic programming systems operate in exactly this way (Narayanan et al., 2016). What we mean by semantics preserving in general is that, after evaluation, expressions in pre-simpliﬁed and post-simpliﬁed form have the same meaning; in other words, evaluate to the same object, usually mathematical, in an underlying formal language whose meaning is well established and agreed. In probabilistic programming semantics preserving generally means that the mathematical objects denoted correspond to the same distribution (Staton et al., 2016). Here, after algebraic manipulation, we can agree that, when evaluated on inputs x and y, the expressions in Equations (1.3) and (1.4) would evaluate to the same value and thus are semantically equivalent alternative denotations. In Chapter 7 we touch on some of the
+
+1.1. Model-based Reasoning
+
+19
+
+challenges in deﬁning the formal semantics of probabilistic programming languages.
+That said, our implicit objective here is not to compute the value of the joint probability of some variables, but to do conditioning instead, for instance, to compute p(x|y = “heads ). Using Bayes rule this is theoretically easy to do. It is just
+
+p(x|y) =
+
+p(x, y) =
+p(x, y)dx
+
+Γ(α+β) Γ(α)Γ(β)
+
+xy+α−1(1
+
+−
+
+Γ(α+β) Γ(α)Γ(β)
+
+xy+α−1(1
+
+−
+
+x)β−y x)β −y dx
+
+.
+
+(1.5)
+
+In this special case the rules of algebra and semantics preserving transformations of integrals can be used to algebraically solve for an analytic form for this posterior distribution.
+To start the preceding expression can be simpliﬁed to
+
+xy+α−1(1 − x)β−y p(x|y) = xy+α−1(1 − x)β−ydx .
+
+(1.6)
+
+which still leaves a nasty looking integral in the denominator. This is the complicating crux of Bayesian inference. This integral is in general intractable as it involves integrating over the entire space of the latent variables. Consider the Captcha example: simply summing over the latent character sequence itself would require an exponential-time operation.
+This special statistics example has a very special property, called conjugacy, which means that this integral can be performed by inspection, by identifying that the integrand is the same as the non-constant part of the beta distribution and using the fact that the beta distribution must sum to one
+
+xy+α−1(1
+
+−
+
+x)β −y dx
+
+=
+
+Γ(α
+
++
+
+y)Γ(β
+
+−
+
+y
+
++
+
+1) .
+
+Γ(α + β + 1)
+
+(1.7)
+
+Consequently,
+
+p(x|y) = Beta(α + y, β − y + 1),
+
+(1.8)
+
+which is equivalent to
+
+x|y ∼ Beta(α + y, β − y + 1).
+
+(1.9)
+
+1.1. Model-based Reasoning
+
+20
+
+There are several things that can be learned about conditioning from even this simple example. The result of the conditioning operation is a distribution parameterized by the observed or given quantity. Unfortunately this distribution will in general not have an analytic form because, for instance, we usually won’t be so lucky that the normalizing integral has an algebraic analytic solution nor, in the case that it is not, will it usually be easily calculable.
+This does not mean that all is lost. Remember that the ∼ operator is overloaded to mean two things, density evaluation and exact sampling. Neither of these are possible in general. However the latter, in particular, can be approximated, and often consistently even without being able to do the former. For this reason amongst others our focus will be on sampling-based characterizations of conditional distributions in general.
+
+1.1.3 Query
+Either way, having such a handle on the resulting posterior distribution, density function or method for drawing samples from it, allows us to ask questions, “queries” in general. These are best expressed in integral form as well. For instance, we could ask: what is the probability that the bias of the coin is greater than 0.7, given that the coin came up heads? This is mathematically denoted as
+
+p(x > 0.7|y = 1) = I(x > 0.7)p(x|y = 1)dx
+
+(1.10)
+
+where I(·) is an indicator function which evaluates to 1 when its argument takes value true and 0 otherwise, which in this instance can be directly calculated using the cumulative distribution function of the beta distribution.
+Fortunately we can still answer queries when we only have the ability to sample from the posterior distribution owing to the Markov strong law of large numbers which states under mild assumptions that
+
+1L
+
+lim
+
+f (X ) →
+
+L→∞ L
+
+=1
+
+f (X)p(X)dX,
+
+X ∼ p(X),
+
+(1.11)
+
+for general distributions p and functions f . This technique we will
+
+exploit repeatedly throughout. Note that the distribution on the right
+
+1.2. Probabilistic Programming
+
+21
+
+hand side is approximated by a set of L samples on the left and that diﬀerent functions f can be evaluated at the same sample points chosen to represent p after the samples have been generated.
+This more or less completes the small part of the computational statistics story we will tell, at least insofar as how models are denoted then algebraically manipulated. We highly recommend that unfamiliar readers interested in the fundamental concepts of Bayesian analysis and mathematical evaluation strategies common there to read and study the “Bayesian Data Analysis” book by Gelman et al. (2013).
+The ﬁeld of statistics long-ago, arguably ﬁrst, recognized that computerized systemization of the denotation of models and evaluators for inference was essential and so developed specialized languages for model writing and query answering, amongst them BUGS (Spiegelhalter et al., 1995) and, more recently, STAN (Stan Development Team, 2014). We could start by explaining these and only these languages but this would do signiﬁcant injustice to the emerging breadth and depth of the the ﬁeld, particularly as it applies to modern approaches to artiﬁcial intelligence, and would limit our ability to explain, in general, what is going on under the hood in all kinds of languages not just those descended from Bayesian inference and computational statistics in ﬁnite dimensional models. What is common to all, however, is inference via conditioning as the objective.
+1.2 Probabilistic Programming
+The Bayesian approach, in particular the theory and utility of conditioning, is remarkably general in its applicability. One view of probabilistic programming is that it is about automating Bayesian inference. In this view probabilistic programming concerns the development of syntax and semantics for languages that denote conditional inference problems and the development of corresponding evaluators or “solvers” that computationally characterize the denoted conditional distribution. For this reason probabilistic programming sits at the intersection of the ﬁelds of machine learning, statistics, and programming languages, drawing on the formal semantics, compilers, and other tools from programming languages to build eﬃcient inference evaluators for models and applica-
+
+1.2. Probabilistic Programming
+
+22
+
+Parameters
+
+Intuition
+Inference
+
+Parameters
+
+p(x|y)
+
+Program
+
+Program
+
+p( | )p( ) yx x
+
+Output
+
+Observations
+
+y
+
+CS
+
+Probabilistic Programming Statistics
+
+Figure 1.2: Probabilistic programming, an intuitive view.
+tions from machine learning using the inference algorithms and theory from statistics.
+Probabilistic programming is about doing statistics using the tools of computer science. Computer science, both the theoretical and engineering discipline, has largely been about ﬁnding ways to eﬃciently evaluate programs, given parameter or argument values, to produce some output. In Figure 1.2 we show the typical computer science programming pipeline on the left hand side: write a program, specify the values of its arguments or situate it in an evaluation environment in which all free variables can be bound, then evaluate the program to produce an output. The right hand side illustrates the approach taken to modeling in statistics: start with the output, the observations or data Y , then specify a usually abstract generative model p(X, Y ), often denoted mathematically, and ﬁnally use algebra and inference techniques to characterize the posterior distribution, p(X | Y ), of the unknown quantities in the model given the observed quantities. Probabilistic programming is about performing Bayesian inference using the tools of computer science: programming language for model denotation and statistical inference algorithms for computing the conditional distribution of program inputs that could have given rise to the observed program output.
+
+1.2. Probabilistic Programming
+
+23
+
+Thinking back to our earlier example, reasoning about the bias of a coin is an example of the kind of inference probabilistic programming systems do. Our data is the outcome, heads or tails, of one coin ﬂip. Our model, speciﬁed in a forward direction, stipulates that a coin and its bias is generated according to the hand-speciﬁed model then the coin ﬂip outcome is observed and analyzed under this model. One challenge, the writing of the model, is a major focus of applied statistics research where “useful” models are painstakingly designed for every new important problem. Model learning also shows up in programming languages taking the name of program induction, machine learning taking the form of model learning, and deep learning, particularly with respect to the decoder side of autoencoder architectures. The other challenge is computational and is what Bayes rule gives us a theoretical framework in which to calculate: to computationally characterize the posterior distribution of the latent quantities (e.g. bias) given the observed quantity (e.g. “heads” or “tails”). In the beta-Bernoulli problem we were able to analytically derive the form of the posterior distribution, in eﬀect, allowing us to transform the original inference problem denotation into a denotation of a program that completely characterizes the inverse computation.
+When performing inference in probabilistic programming systems, we need to design algorithms that are applicable to any program that a user could write in some language. In probabilistic programming the language used to denote the generative model is critical, ranging from intentionally restrictive modeling languages, such as the one used in BUGS, to arbitrarily complex computer programming languages like C, C++, and Clojure. What counts as observable are the outputs generated from the forward computation. The inference objective is to computationally characterize the posterior distribution of all of the random choices made during the forward execution of the program given that the program produces a particular output.
+There are subtleties, but that is a fairly robust intuitive deﬁnition of probabilistic programming. Throughout most of this tutorial we will assume that the program is ﬁxed and that the primary objective is inference in the model speciﬁed by the program. In the last chapter we will talk some about connections between probabilistic programming
+
+1.2. Probabilistic Programming
+
+24
+
+and deep learning, in particular through the lens of semi-supervised learning in the variational autoencoder family where parts of or the whole generative model itself, i.e. the probabilistic program or “decoder,” is also learned from data.
+Before that, though, let us consider how one would recognize or distinguish a probabilistic program from a non-probabilistic program. Quoting Gordon et al. (2014), “probabilistic programs are usual functional or imperative programs with two added constructs: the ability to draw values at random from distributions, and the ability to condition values of variables in a program via observations.” We emphasize conditioning here. The meaning of a probabilistic program is that it simultaneously denotes a joint and conditional distribution, the latter by syntactically indicating where conditioning will occur, i.e. which random variable values will be observed. Almost all languages have pseudo-random value generators or packages; what they lack in comparison to probabilistic programming languages is syntactic constructs for conditioning and evaluators that implement conditioning. We will call languages that include such constructs probabilistic programming languages. We will call languages that do not but that are used for forward modeling stochastic simulation languages or, more simply, programming languages.
+There are many libraries for constructing graphical models and performing inference; this software works by programmatically constructing a data structure which represents a model, and then, given observations, running graphical model inference. What distinguishes between this kind of approach and probabilistic programming is that a program is used to construct a model as a data structure, rather than considering the “model” that arises implicitly from direct evaluation of the program expression itself. In probabilistic programming systems, either a model data structure is constructed explicitly via a non-standard interpretation of the probabilistic program itself (if it can be, see Chapter 3), or it is a general Markov model whose state is the evolving evaluation environment generated by the probabilistic programming language evaluator (see Chapter 4). In the former case, we often perform inference by compiling the model data structure to a density function (see Chapter 3), whereas in the latter case, we employ
+
+1.2. Probabilistic Programming
+
+25
+
+methods that are fundamentally generative (see Chapters 4 and 6).
+1.2.1 Existing Languages
+The design of any tutorial on probabilistic programming will have to include a mix of programming languages and statistical inference material along with a smattering of models and ideas germane to machine learning. In order to discuss modeling and programming languages one must choose a language to use in illustrating key concepts and for showing examples. Unfortunately there exist a very large number of languages from a number of research communities; programming languages: Hakaru (Narayanan et al., 2016), Augur (Tristan et al., 2014), R2 (Nori et al., 2014), Figaro (Pfeﬀer, 2009), IBAL (Pfeﬀer, 2001)), PSI (Gehr et al., 2016); machine learning: Church (Goodman et al., 2008), Anglican (Wood et al., 2014a) (updated syntax (Wood et al., 2015)), BLOG (Milch et al., 2005), Turing.jl (Ge et al., 2018), BayesDB (Mansinghka et al., 2015), Venture (Mansinghka et al., 2014), Probabilistic-C (Paige and Wood, 2014), webPPL (Goodman and Stuhlmüller, 2014), CPProb (Casado, 2017), (Koller et al., 1997), (Thrun, 2000); and statistics: Biips (Todeschini et al., 2014), LibBi (Murray, 2013), Birch (Murray et al., 2018), STAN (Stan Development Team, 2014), JAGS (Plummer, 2003), BUGS (Spiegelhalter et al., 1995)1.
+In this tutorial we will not attempt to explain each of the languages and catalogue their numerous similarities and diﬀerences. Instead we will focus on the concepts and implementation strategies that underlie most, if not all, of these languages. We will highlight one extremely important distinction, namely, between languages in which all programs induce models with a ﬁnite number of random variables and languages for which this is not true. The language we choose for the tutorial has to be a language in which a coherent shift from the former to the latter is possible. For this and other reasons we chose to write the tutorial using an abstract language similar in syntax and semantics to Anglican. Anglican is similar to WebPPL, Church, and Venture and is essentially a Lisp-like language which, by virtue of its syntactic simplicity, also makes for eﬃcient and easy meta-programming, an approach many
+1sincere apologies to the authors of any languages left oﬀ this list
+
+1.3. Example Applications
+
+26
+
+implementors will take. That said the real substance of this tutorial is entirely language agnostic and the main points should be understood in this light.
+We have left oﬀ of the preceding extensive list of languages both one important class of language – probabilistic logic languages ((Kimmig et al., 2011),(Sato and Kameya, 1997) – and sophisticated, useful, and widely deployed libraries/embedded domain-speciﬁc languages for modeling and inference (Infer.NET (Minka et al., 2010a), Factorie (McCallum et al., 2009), Edward (Tran et al., 2017), PyMC3 (Salvatier et al., 2016)). One link between the material presented in this tutorial and these additional languages and libraries is that the inference methodologies we will discuss apply to advanced forms of probabilistic logic programs (Alberti et al., 2016; Kimmig and De Raedt, 2017) and, in general, to the graph representations constructed by such libraries. In fact the libraries can be thought of as compilation targets for appropriately restricted languages. In the latter case strong arguments can be made that these are also languages in the sense that there is an (implicit) grammar, a set of domain-speciﬁc values, and a library of primitives that can be applied to these values. The more essential distinction is the one we have structured this tutorial around, that being the diﬀerence between static languages in which the denoted model can be compiled to a ﬁnite-node graphical model and dynamic languages in which no such compilation can be performed.
+1.3 Example Applications
+Before diving into speciﬁcs, let us consider some motivating examples of what has been done with probabilistic programming languages and how phrasing things in terms of a model plus conditioning can lead to elegant solutions to otherwise extremely diﬃcult tasks.
+We argue that, besides the obvious beneﬁts that derive from having an evaluator that implements inference automatically, the main beneﬁt of probabilistic programming is having additional expressivity, signiﬁcantly more compact and readable than mathematical notation, in the modeling language. While it is possible to write down the mathematical formalism for a model of latents X and observables Y for each of the
+
+1.3. Example Applications
+
+27
+
+examples shown in Table 1.1, doing so is usually neither eﬃcient nor helpful in terms of intuition and clarity. We have already given one example, Captcha from earlier in this chapter. Let us proceed to more.
+Constrained Simulation
+
+Figure 1.3: Posterior samples of procedurally generated, constrained trees (reproduced from (Ritchie et al., 2015))
+The constrained procedural graphics (Ritchie et al., 2015) is a visually compelling and elucidating application of probabilistic programming. Consider how one makes a computer graphics forest for a movie or computer game. One does not hire one thousand designers to make each create a tree. Instead one hires a procedural graphics programmer who writes what we call a generative model – a stochastic simulator that generates a synthetic tree each time it is run. A forest is then constructed by calling such a program many times and arranging the trees on a landscape. What if, however, a director enters the design process and stipulates, for whatever reason, that the tree cannot touch some other elements in the scene, i.e. in probabilistic programming lingo we “observe” that the tree cannot touch some elements? Figure 1.3 shows examples of such a situation where the tree on the left must miss the back wall and grey bars and the tree on the right must miss the blue and red logo. In these ﬁgures you can see, visually, what we will examine in a high level of detail throughout the tutorial. The random choices made by the generative procedural graphics model correspond to branch elongation lengths, how many branches diverge from the trunk and subsequent branch locations, the angles that the diverged
+
+1.3. Example Applications
+
+28
+
+branches take, the termination condition for branching and elongation, and so forth. Each tree literally corresponds to one execution path or setting of the random variables of the generative program. Conditioning with hard constraints like these transforms the prior distribution on trees into a posterior distribution in which all posterior trees conform to the constraint. Valid program variable settings (those present in the posterior) have to make choices at all intermediate sampling points that allow all other sampling points to take at least one value that can result in a tree obeying the statistical regularities speciﬁed by the prior and the speciﬁed constraints as well.
+
+Program Induction
+How do you automatically write a program that performs an operation you would like it to? One approach is to use a probabilistic programming system and inference to invert a generative model that generates normal, regular, computer program code and conditions on its output, when run on examples, conforming to the observed speciﬁcation. This is the central idea in the work of Perov and Wood (2016) whose use of probabilistic programming is what distinguishes their work from the related literature (Gulwani et al., 2017; Hwang et al., 2011; Liang et al., 2010). Examples such as this, even more than the preceding visually compelling examples, illustrate the denotational convenience of a rich and expressive programming language as the generative modeling language. A program that writes programs is most naturally expressed as a recursive program with random choices that generates abstract syntax trees according to some learned prior on the same space. While models from the natural language processing literature exist that allow speciﬁcation and generation of computer source code (e.g. adaptor grammars (Johnson et al., 2007)), they are at best cumbersome to denote mathematically.
+
+Recursive Multi-Agent Reasoning
+Some of the most interesting uses for probabilistic programming systems derive from the rich body of work around the Church and WebPPL
+
+1.4. A First Probabilistic Program
+
+29
+
+systems. The latter, in particular, has been used to study the mutuallyrecurisive reasoning among multiple agents. A number of examples on this are detailed in an excellent online tutorial (Goodman and Stuhlmüller, 2014).
+The list goes on and could occupy a substantial part of a book itself. The critical realization to make is that, of course, any traditional statistical model can be expressed in a probabilistic programming framework, but, more importantly, so too can many others and with signiﬁcantly greater ease. Models that take advantage of existing source code packages to do sophisticated nonlinear deterministic computations are particularly of interest. One exciting example application under consideration at the time of writing is to instrument the stochastic simulators that simulate the standard model and the detectors employed by the large hadron collider (Baydin et al., 2018). By “observing” the detector outputs, inference in the generative model speciﬁed by the simulation pipeline may prove to be able to produce the highest ﬁdelity event reconstruction and science discoveries.
+This last example highlights one of the principle promises of probabilistic programming. There exist a large number of software simulation modeling eﬀorts to simulate, stochastically and deterministically, engineering and science phenomena of interest. Unlike in machine learning where often the true generative model is not well understood, in engineering situations (like building, engine, or other system modeling) the forward model is sometimes in fact incredibly well understood and already written. Probabilistic programming techniques and evaluators that work within the framework of existing languages should prove to be very valuable in disciplines where signiﬁcant eﬀort has been put into modeling complex engineering or science phenomena of interest and the power of general purpose inverse reasoning has not yet been made available.
+1.4 A First Probabilistic Program
+Just before we dig in deeply, it is worth considering at least one simple probabilistic program to informally introduce a bit of syntax and relate
+
+1.4. A First Probabilistic Program
+
+30
+
+a model denotation in a probabilistic programming language to the underlying mathematical denotation and inference objective. There will be source code examples provided throughout, though not always with accompanying mathematical denotation.
+Recall the simple beta-Bernoulli model from Section 1.1. This is one in which the probabilistic program denotation is actually longer than the mathematical denotation. But that is largely unique to such trivially simple models. Here is a probabilistic program that represents the beta-Bernoulli model.
+(let [prior (beta a b) x (sample prior) likelihood (bernoulli x) y 1]
+(observe likelihood y) x))
+Program 1.1: The beta-Bernoulli model as a probabilistic program
+This program is written in the Lisp dialect we will use throughout, and which we will deﬁne in glorious detail in the next chapter. Evaluating this program performs the same inference as described mathematically before, speciﬁcally to characterize the distribution on the return value x that is conditioned on the observed value y. The details of what this program means and how this is done form the majority of the remainder of this tutorial.
+
+2
+A Probabilistic Programming Language Without Recursion
+In this and the next two chapters of this tutorial we will present the key ideas of probabilistic programming using a carefully designed ﬁrst-order probabilistic programming language (FOPPL). The FOPPL includes most common features of programming languages, such as conditional statements (e.g. if) and primitive operations (e.g. +,-, etc.), and userdeﬁned functions. The restrictions that we impose are that functions must be ﬁrst order, which is to say that functions cannot accept other functions as arguments, and that they cannot be recursive.
+These two restrictions result in a language where models describe distributions over a ﬁnite number of random variables. In terms of expressivity, this places the FOPPL on even footing with many existing languages and libraries for automating inference in graphical models with ﬁnite graphs. As we will see in Chapter 3, we can compile any program in the FOPPL to a data structure that represents the corresponding graphical model. This turns out to be a very useful property when reasoning about inference, since it allows us to make use of existing theories and algorithms for inference in graphical models.
+A corollary to this characteristic is that the computation graph of any FOPPL program can be completely determined in advance. This
+31
+
+2.1. Syntax
+
+32
+
+v ::= variable c ::= constant value or primitive operation f ::= procedure e ::= c | v | ( let [v e1 ] e2 ) | ( if e1 e2 e3 )
+| (f e1 . . . en ) | (c e1 . . . en ) | ( sample e) | ( observe e1 e2 ) q ::= e | ( defn f [v1 . . . vn ] e) q
+Language 2.1: First-order probabilistic programming language (FOPPL)
+
+suggests a place for FOPPL programs in the spectrum between static and dynamic computation graph programs. While in a FOPPL program conditional branching might dictate that not all of the nodes of its computation graph are active in the sense of being on the controlﬂow path, it is the case that all FOPPL programs can be unrolled to computation graphs where all possible control-ﬂow paths are explicitly and completely enumerated at compile time. FOPPL programs have static computation graphs.
+Although we have endeavored to make this tutorial as self-contained as possible, readers unfamiliar with graphical models or wishing to brush up on them are encouraged to refer to the textbooks by Bishop (2006), Murphy (2012), or Koller and Friedman (2009), all of which contain a great deal of material on graphical models and associated inference algorithms.
+2.1 Syntax
+The FOPPL is a Lisp variant that is based on Clojure (Hickey, 2008). Lisp variants are all substantially similar and are often referred to as dialects. The syntax of the FOPPL is speciﬁed by the grammar in Language 2.1. A grammar like this formulates a set of production rules, which are recursive, from which all valid programs must be constructed.
+We deﬁne the FOPPL in terms of two sets of production rules: one for expressions e and another for programs q. Each set of rules is shown on the right hand side of ::= separated by a |. We will here provide a very brief self-contained explanation of each of the production rules.
+
+2.1. Syntax
+
+33
+
+For those who wish to read about programming languages essentials in further detail, we recommend the books by Abelson et al. (1996) and Friedman and Wand (2008).
+The rules for q state that a program can either be a single expression e, or a function declaration (defn f . . .) followed by any valid program q. Because the second rule is recursive, these two rules together state that a program is a single expression e that can optionally be preceded by one or more function declarations.
+The rules for expressions e are similarly deﬁned recursively. For example, in the production rule (if e1 e2 e3), each of the sub-expressions e1, e2, and e3 can be expanded by choosing again from the matching rules on the left hand side. The FOPPL deﬁnes eight expression types. The ﬁrst six are “standard” in the sense that they are commonly found in non-probabilistic Lisp dialects:
+1. A constant c can be a value of a primitive data type such as a number, a string, or a boolean, a built-in primitive function such as +, or a value of any other data type that can be constructed using primitive procedures, such as lists, vectors, maps, and distributions, which we will brieﬂy discuss below.
+2. A variable v is a symbol that references the value of another expression in the program.
+3. A let form (let [v e1] e2) binds the value of the expression e1 to the variable v, which can then be referenced in the expression e2, which is often referred to as the body of the let expression.
+4. An if form (if e1 e2 e3) takes the value of e2 when the value of e1 is logically true and the value of e3 when e1 is logically false.
+5. A function application (f e1 . . . en) calls the user-deﬁned function f , which we also refer to as a procedure, with arguments e1 through en. Here the notation e1 . . . en refers to a variable-length sequence of arguments, which includes the case (f) for a procedure call with no arguments.
+6. A primitive procedure applications (c e1 . . . en) calls a built-in function c, such as +.
+
+2.1. Syntax
+
+34
+
+The remaining two forms are what makes the FOPPL a probabilistic programming language:
+7. A sample form (sample e) represents an unobserved random variable. It accepts a single expression e, which must evaluate to a distribution object, and returns a value that is a sample from this distribution. Distributions are constructed using primitives provided by the FOPPL. For example, (normal 0.0 1.0) evaluates to a standard normal distribution.
+8. An observe form (observe e1 e2) represents an observed random variable. It accepts an argument e1, which must evaluate to a distribution, and conditions on the next argument e2, which is the value of the random variable.
+Some things to note about this language are that it is simple, i.e. the grammar only has a small number of special forms. It also has no input/output functionality which means that all data must be inlined in the form of an expression. However, despite this relative simplicity, we will see that we can express any graphical model as a FOPPL program. At the same time, the relatively small number of expression forms makes it much easier to reason about implementations of compilation and evaluation strategies.
+Relative to other Lisp dialects, the arguably most critical characteristic of the FOPPL is that, provided that all primitives halt on all possible inputs, potentially non-halting computations are disallowed; in fact, there is a ﬁnite upper bound on the number of computation steps and this upper bound can be determined in compilation time. This design choice has several consequences. The ﬁrst is that all data needs to be inlined so that the number of data points is known at compile time. A second consequence is that FOPPL grammar precludes higher-order functions, which is to say that user-deﬁned functions cannot accept other functions as arguments. The reason for this is that a reference to user-deﬁned function f is in itself not a valid expression type. Since arguments to a function call must be expressions, this means that we cannot pass a function f as an argument to another function f .
+Finally, the FOPPL does not allow recursive function calls, although
+
+2.1. Syntax
+
+35
+
+the syntax does not forbid them. This restriction can be enforced via the scoping rules in the language. In a program q of the form
+( defn f1 . . .) ( defn f2 . . .) e
+we can call f1 inside of f2, but not vice versa, since f2 is deﬁned after f1. Similarly, we impose the restriction that we cannot call f1 inside f1, which we can intuitively think of as f1 not having been deﬁned yet. Enforcing this restriction can be done using a pre-processing step.
+A second distinction between the FOPPL relative to other Lisp is that we will make use of vector and map data structures, analogous to the ones provided by Clojure:
+- Vectors (vector e1 . . . en) are similar to lists. A vector can be represented with the literal [e1 . . . en]. This is often useful when representing data. For example, we can use [1 2] to represent a pair, whereas the expression (1 2) would throw an error, since the constant 1 is not a primitive function.
+- Hash maps (hash-map e1 e1 . . . en en) are constructed from a sequence of key-value pairs ei ei. A hash-map can be represented with the literal {e1 e1 . . . en en} .
+Note that we have not explicitly enumerated primitive functions in the FOPPL. We will implicitly assume existence of arithmetic primitives like +, -, *, and /, as well as distribution primitives like normal and discrete. In addition we will assume the following functions for interacting with data structures
+• (first e) retrieves the ﬁrst element of a list or vector e.
+• (last e) retrieves the last element of a list or vector e.
+• (append e1 e2) appends e2 to the end of a list or vector e1.1
+• (get e1 e2) retrieves an element at index e2 from a list or vector e1, or the element at key e2 from a hash map e1.
+1Readers familiar with Lisp dialects will notice that append diﬀers somewhat from the semantics of primitives like cons, which prepends to a list, or the Clojure primitive conj which prepends to a list and appends to a vector.
+
+2.1. Syntax
+
+36
+
+(defn observe-data [slope intercept x y] (let [fx (+ (* slope x) intercept)] (observe (normal fx 1.0) y)))
+(let [slope (sample (normal 0.0 10.0))] (let [intercept (sample (normal 0.0 10.0))] (let [y1 (observe-data slope intercept 1.0 2.1)] (let [y2 (observe-data slope intercept 2.0 3.9)] (let [y3 (observe-data slope intercept 3.0 5.3)] (let [y4 (observe-data slope intercept 4.0 7.7)] (let [y5 (observe-data slope intercept 5.0 10.2)] [slope intercept ]))))))).
+Program 2.2: Bayesian linear regression in the FOPPL.
+
+• (put e1 e2 e3) replaces the element at index/key e2 with the value e3 in a vector or hash-map e1.
+• (remove e1 e2) removes the element at index/key e2 with the value e2 in a vector or hash-map e1.
+Note that FOPPL primitives are pure functions. In other words, the append, put, and remove primitives do not modify e1 in place, but instead return a modiﬁed copy of e1. Eﬃcient implementations of such functionality may be advantageously achieved via pure functional data structures (Okasaki, 1999).
+Finally we note that we have not speciﬁed any type system or speciﬁed exactly what values are allowable in the language. For example, (sample e) will fail if at runtime e does not evaluate to a distributiontyped value.
+Now that we have deﬁned our syntax, let us illustrate what a program in the FOPPL looks like. Program 2.2 shows a simple univariate linear regression model. The program deﬁnes a distribution on lines expressed in terms of their slopes and intercepts by ﬁrst deﬁning a prior distribution on slope and intercept and then conditioning it using ﬁve observed data pairs. The procedure observe-data conditions the generative model given a pair (x,y), by observing the value y from a normal centered around the value (+ (* slope x) intercept). Using a
+
+2.2. Syntactic Sugar
+
+37
+
+procedure lets us avoid rewriting observation code for each observation pair. The procedure returns the observed value, which is ignored in our case. The program deﬁnes a prior on slope and intercept using the primitive procedure normal for creating an object for normal distribution. After conditioning this prior with data points, the program return a pair [slope intercept], which is a sample from the posterior distribution conditioned on the 5 observed values.
+
+2.2 Syntactic Sugar
+The fact that the FOPPL only provides a small number of expression types is a big advantage when building a probabilistic programming system. We will see this in Chapter 3, where we will deﬁne a translation from any FOPPL program to a Bayesian network using only 8 rules (one for each expression type). At the same time, for the purposes of writing probabilistic programs, having a small number of expression types is not always convenient. For this reason we will provide a number of alternate expression forms, which are referred to as syntactic sugar, to aid readability and ease of use.
+We have already seen two very simple forms of syntactic sugar: [. . .] is a sugared form of (vector . . .) and {. . .} is a sugared form for (hash-map . . .). In general, each sugared expression form can be desugared, which is to say that it can be reduced to an expression in the grammar in Language 2.1. This desugaring is done as a preprocessing step, often implemented as a macro rewrite rule that expands each sugared expression into the equivalent desugared form.
+2.2.1 Let forms
+The base let form (let [v e1] e2) binds a single variable v in the expression e2. Very often, we will want to deﬁne multiple variables, which leads to nested let expressions like the ones in Program 2.2. Another distracting piece of syntax in this program is that we deﬁne dummy variables y1 to y5 which are never used. The reason for this is that we are not interested in the values returned by calls to observe-data; we are using this function in order to observe values, which is a side-eﬀect
+
+2.2. Syntactic Sugar
+
+38
+
+of the procedure call. To accommodate both these use cases in let forms, we will make use
+of the following generalized let form
+( let [v1 e1 ... vn en ]
+en+1 . . . em−1 em ).
+This allows us to simplify the nested let forms in Program 2.2 to
+(let [slope (sample (normal 0.0 10.0)) intercept (sample (normal 0.0 10.0))]
+(observe-data slope intercept 1.0 2.1) (observe-data slope intercept 2.0 3.9) (observe-data slope intercept 3.0 5.3) (observe-data slope intercept 4.0 7.7) (observe-data slope intercept 5.0 10.2) [slope intercept])
+This form of let is desugared to the following expression in the FOPPL
+( let [v1 e1 ] ... ( let [vn en ] ( let [ _ en+1 ] ... ( let [ _ em−1 ] em )· · ·))).
+Here the underscore _ is a second form of syntactic sugar, that will be expanded to a fresh (i.e. previously unused) variable. For instance
+(let [_ (observe (normal 0 1) 2.0)] . . .)
+will be expanded by generating some fresh variable symbol, say x284xu,
+(let [x284xu (observe (normal 0 1) 2.0)] . . .)
+We will assume each instance of _ is a guaranteed-to-be-unique or fresh symbol that is generated by some gensym primitive in the implementing language of the evaluator. We will use the concept of a fresh variable extensively throughout this tutorial, with the understanding that fresh variables are unique symbols in all cases.
+
+2.2. Syntactic Sugar
+
+39
+
+2.2.2 For loops
+A second syntactic inconvenience in Program 2.2 is that we have to repeat the expression (observe-data . . .) once for each data point. Just about any language provides looping constructs for this purpose. In the FOPPL we will make use of two such constructs. The ﬁrst is the foreach form, which has the following syntax
+(foreach c [v1 e1 . . . vn en ] e1 . . . ek )
+This form desugars into a vector containing c let forms
+(vector ( let [v1 ( get e1 0) ... vn ( get en 0)] e1 . . . ek ) ... ( let [v1 ( get e1 ( - c 1)) ... vn ( get en ( - c 1))] e1 . . . ek ))
+Note that this syntax looks very similar to that of the let form. However, whereas let binds each variable to a single value, the foreach form associates each variable vi with a sequence ei and then maps over the values in this sequence for a total of c steps, returning a vector of results. If the length of any of the bound sequences is less than c, then let form will result in a runtime error.
+With the foreach form, we can rewrite Program 2.2 without having to make use of the helper function observe-data
+(let [y-values [2.1 3.9 5.3 7.7 10.2] slope (sample (normal 0.0 10.0)) intercept (sample (normal 0.0 10.0))]
+(foreach 5 [x (range 1 6) y y-values] (let [fx (+ (* slope x) intercept)]
+
+2.2. Syntactic Sugar
+
+40
+
+(observe (normal fx 1.0) y))) [slope intercept])
+There is a very speciﬁc reason why we deﬁned the foreach syntax using a constant for the number of loop iterations (foreach c [. . .] . . .). Suppose we were to deﬁne the syntax using an arbitrary expression (foreach e [. . .] . . .). Then we could write programs such as
+(let [m (sample (poisson 10.0))] (foreach m [] (sample (normal 0 1))))
+This deﬁnes a program in which there is no upper bound on the number of times that the expression (sample (normal 0 1)) will be evaluated. By requiring c to be a constant, we can guarantee that the number of iterations is known at compile time.
+Note that there are less obtrusive mechanisms for achieving the functionality of foreach, which is fundamentally a language feature that maps a function, here the body, over a sequence of arguments, here the let-like bindings. Such functionality is much easier to express and implement using higher-order language features like those discussed in Chapter 5.
+2.2.3 Loop forms
+The second looping construct that we will use is the loop form, which has the following syntax.
+( loop c e f e1 . . . en )
+Once again, c must be a non-negative integer constant and f a procedure, primitive or user-deﬁned. This notation can be used to write most kinds of for loops. Desugaring this syntax rolls out a nested set of lets and function calls in the following precise way
+( let [a1 e1 a2 e2 ... an en ]
+( let [v0 (f 0 e a1 . . . an )] ( let [v1 (f 1 v0 a1 . . . an )]
+
+2.2. Syntactic Sugar
+
+41
+
+(defn regr-step [n r2 xs ys slope intercept] (let [x (get xn n) y (get ys n) fx (+ (* slope x) intercept) r (- y fx)] (observe (normal fx 1.0) y) (+ r2 (* r r))))
+(let [xs [1.0 2.0 3.0 4.0 5.0] ys [2.1 3.9 5.3 7.7 10.2] slope (sample (normal 0.0 10.0)) bias (sample (normal 0.0 10.0)) r2 (loop 5 0.0 regr-step xs ys slope bias)]
+[slope bias r2])
+Program 2.3: The Bayesian linear regression model, written using the loop form.
+
+( let [v2 (f 2 v1 a1 . . . an )] ... ( let [vc−1 (f ( - c 1) vc−2 a1 . . . an )] vc−1 ) · · · )))
+where v0, . . . , vc−1 and a0, . . . , an are fresh variables. Note that the loop sugar computes an iteration over a ﬁxed set of indices.
+To illustrate how the loop form diﬀers from the foreach form, we show a new variant of the linear regression example in Program 2.3. In this version of the program, we not only observe a sequence of values yn according to a normal centered at f (xn), but we also compute the sum of the squared residuals r2 = n5=1(yn − f (xn))2. To do this, we deﬁne a function regr-step, which accepts an argument n, the index of the loop iteration. It also accepts a second argument r2, which represents the sum of squares for the preceding datapoints. Finally it accepts the arguments xs, ys, slope, and intercept, which we have also used in previous versions of the program.
+At each loop iteration, the function regr-step computes the residual r = yn − f (xn) and returns the value (+ r2 (* r r)), which becomes the new value for r2 at the next iteration. The value of the entire loop form is the value of the ﬁnal call to regr-step, which is the sum of
+
+2.3. Examples
+
+42
+
+squared residuals. In summary, the diﬀerence between loop and foreach is that loop
+can be used to accumulate a result over the course of the iterations. This is useful when you want to compute some form of suﬃcient statistics, ﬁlter a list of values, or really perform any sort of computation that iteratively builds up a data structure. The foreach form provides a much more speciﬁc loop type that evaluates a single expression repeatedly with diﬀerent values for its variables. From a statistical point of view, we can thing of loop as deﬁning a sequence of dependent variables, whereas foreach creates conditionally independent variables.
+2.3 Examples
+Now that we have deﬁned the fundamental expression forms in the FOPPL, along with syntactic sugar for variable bindings and loops, let us look at how we would use the FOPPL to deﬁne some models that are commonly used in statistics and machine learning.
+2.3.1 Gaussian mixture model
+We will begin with a three-component Gaussian mixture model (McLachlan and Peel, 2004). A Gaussian mixture model is a density estimation model often used for clustering, in which each data point yn is assigned to a latent class zn. We will here consider the following generative model
+
+σk ∼ Gamma(1.0, 1.0), µk ∼ Normal(0.0, 10.0), π ∼ Dirichlet(1.0, 1.0, 1.0),
+
+for k = 1, 2, 3, for k = 1, 2, 3,
+
+(2.1) (2.2) (2.3)
+
+zn ∼ Discrete(π), yn|zn = k ∼ Normal(µk, σk).
+
+for n = 1, . . . , 7,
+
+(2.4) (2.5)
+
+Program 2.4 shows a translation of this generative model to the FOPPL. In this model we ﬁrst sample the mean mu and standard deviation sigma for 3 mixture components. For each observation y we then sample a class assignment z, after which we observe according to the likelihood of the sampled assignment. The return value from this
+
+2.3. Examples
+
+43
+
+(let [data [1.1 2.1 2.0 1.9 0.0 -0.1 -0.05] likes (foreach 3 [] (let [mu (sample (normal 0.0 10.0)) sigma (sample (gamma 1.0 1.0))] (normal mu sigma))) pi (sample (dirichlet [1.0 1.0 1.0])) z-prior (discrete pi)]
+(foreach 7 [y data] (let [z (sample z-prior)] (observe (get likes z) y) z)))
+Program 2.4: FOPPL - Gaussian mixture model with three components
+
+program is the sequence of latent class assignments, which can be used to ask questions like, “Are these two datapoints similar?”, etc.
+
+2.3.2 Hidden Markov model
+As a second example, let us consider Program 2.5 which denotes a hidden Markov model (HMM) (Rabiner, 1989) with known initial state, transition, and observation distributions governing 16 sequential observations.
+In this program we begin by deﬁning a vector of data points data, a vector of transition distributions trans-dists and a vector of state likelihoods likes. We then loop over the data using a function hmm-step, which returns a sequence of states.
+At each loop iteration, the function hmm-step does three things. It ﬁrst samples a new state z from the transition distribution associated with the preceding state. It then observes data point at time t according to the likelihood component of the current state. Finally, it appends the state z to the sequence states. The vector of accumulated latent states is the return value of the program and thus the object whose joint posterior distribution is of interest.
+
+2.3. Examples
+
+44
+
+(defn hmm-step [t states data trans-dists likes] (let [z (sample (get trans-dists (last states)))] (observe (get likes z) (get data t)) (append states z)))
+(let [data [0.9 0.8 0.7 0.0 -0.025 -5.0 -2.0 -0.1 0.0 0.13 0.45 6 0.2 0.3 -1 -1]
+trans-dists [(discrete [0.10 0.50 0.40]) (discrete [0.20 0.20 0.60]) (discrete [0.15 0.15 0.70])]
+likes [(normal -1.0 1.0) (normal 1.0 1.0) (normal 0.0 1.0)]
+states [(sample (discrete [0.33 0.33 0.34]))]] (loop 16 states hmm-step
+data trans-dists likes))
+Program 2.5: FOPPL - Hidden Markov model
+
+2.3.3 A Bayesian Neural Network
+Traditional neural networks are ﬁxed-dimension computation graphs which means that they too can be expressed in the FOPPL. In the following we demonstrate this with an example taken from the documentation for Edward (Tran et al., 2016), a probabilistic programming library based on ﬁxed computation graph. The example shows a Bayesian approach to learning the parameters of a three-layer neural network with input of dimension one, two hidden layer of dimension ten, an independent and identically Gaussian distributed output of dimension one, and tanh activations at each layer. The program inlines ﬁve data points and represents the posterior distribution over the parameters of the neural network. We have assumed, in this code, the existence of matrix primitive functions, e.g. mat-mul, whose meaning is clear from context (matrix multiplication), sensible matrix-dimension-sensitive pointwise mat-add and mat-tanh functionality, vector of vectors matrix storage, etc.
+
+2.3. Examples
+
+45
+
+(let [weight-prior (normal 0 1) W_0 (foreach 10 [] (foreach 1 [] (sample weight-prior ))) W_1 (foreach 10 [] (foreach 10 [] (sample weight-prior ))) W_2 (foreach 1 [] (foreach 10 [] (sample weight-prior )))
+b_0 (foreach 10 [] (foreach 1 [] (sample weight-prior )))
+b_1 (foreach 10 [] (foreach 1 [] (sample weight-prior )))
+b_2 (foreach 1 [] (foreach 1 [] (sample weight-prior )))
+x (mat-transpose [[1] [2] [3] [4] [5]]) y [[1] [4] [9] [16] [25]] h_0 (mat-tanh (mat-add (mat-mul W_0 x)
+(mat-repmat b_0 1 5))) h_1 (mat-tanh (mat-add (mat-mul W_1 h_0)
+(mat-repmat b_1 1 5))) mu (mat-transpose
+(mat-tanh (mat-add (mat-mul W_2 h_1) (mat-repmat b_2 1 5))))]
+(foreach 5 [y_r y mu_r mu]
+(foreach 1 [y_rc y_r mu_rc mu_r]
+(observe (normal mu_rc 1) y_rc))) [W_0 b_0 W_1 b_1])
+Program 2.6: FOPPL - A Bayesian Neural Network
+
+2.3. Examples
+
+46
+
+This example provides an opportunity to reinforce the close relationship between optimization and inference. The task of estimating neural-network parameters is typically framed as an optimization in which the free parameters of the network are adjusted, usually via gradient descent, so as to minimize a loss function. This neural-network example can be seen as doing parameter learning too, except using the tools of inference to discover the posterior distribution over model parameters. In general, all parameter estimation tasks can be framed as inference simply by placing a prior over the parameters of interest as we do here.
+It can also be noted that, in this setting, any of the activations of the neural network trivially could be made stochastic, yielding a stochastic computation graph (Schulman et al., 2015), rather than a purely deterministic neural network.
+Finally, the point of this example is not to suggest that the FOPPL is the language that should be used for denoting neural network learning and inference problems, it is instead to show that the FOPPL is suﬃciently expressive to neural networks based on ﬁxed computation graphs. Even though we have shown only one example of a multilayer perceptron, it is clear that convolutional neural networks, recurrent neural networks of ﬁxed length, and the like, can all be denoted in the FOPPL.
+
+2.3.4 Translating BUGS models
+
+The FOPPL language as speciﬁed is suﬃciently expressive to, for instance, compile BUGS programs to the FOPPL. Program 2.7 shows one of the examples included with the BUGS system (OpenBugs, 2009). This model is a conjugate gamma-Poisson hierarchical model, which is to say that it has the following generative model:
+
+a ∼ Exponential(1), b ∼ Gamma(0.1, 1), θi ∼ Gamma(a, b), yi ∼ Poisson(θiti)
+
+for i = 1, . . . , 10, for i = 1, . . . , 10.
+
+(2.6) (2.7) (2.8) (2.9)
+
+Program 2.7 shows this model in the BUGS language. Program 2.8
+
+2.3. Examples
+
+47
+
+# data list(t = c(94.3, 15.7, 62.9, 126, 5.24,
+31.4, 1.05, 1.05, 2.1, 10.5), y = c(5, 1, 5, 14, 3, 19, 1, 1, 4, 22), N = 10) # inits list(a = 1, b = 1) # model { for (i in 1 : N) { theta[i] ~ dgamma(a, b) l[i] <- theta[i] * t[i] y[i] ~ dpois(l[i]) } a ~ dexp(1) b ~ dgamma(0.1, 1.0) }
+Program 2.7: The Pumps example model from BUGS (OpenBugs, 2009).
+
+show a translation to the FOPPL that was returned by an automated BUGS-to-FOPPL compiler. Note the similarities between these languages despite the substantial syntactic diﬀerences. In particular, both require that the number of loop iterations N = 10 is ﬁxed and ﬁnite. In BUGS the variables whose values are known appear in a separate data block. The symbol ∼ is used to deﬁne random variables, which can be either latent or observed, depending on whether a value for the random variable is present. In our FOPPL the distinction between observed and latent random variables is made explicit through the syntactic diﬀerence between sample and observe. A second diﬀerence is that a BUGS program can in principle be used to compute a marginal on any variable in the program, whereas a FOPPL program speciﬁes a marginal of the full posterior through its return value. As an example, in this particular translation, we treat θi as a nuisance variable, which is not returned by the program, although we could have used the loop construct to accumulate a sequence of θi values.
+These minor diﬀerences aside, the BUGS language and the FOPPL essentially deﬁne equivalent families of probabilistic programs. An ad-
+
+2.4. A Simple Purely Deterministic Language
+
+48
+
+(defn data [] [[94.3 15.7 62.9 126 5.24 31.4 1.05 1.05 2.1 10.5] [5 1 5 14 3 19 1 1 4 22] [10]])
+
+(defn t [i] (get (get (data) 0) i)) (defn y [i] (get (get (data) 1) i))
+
+(defn loop-iter [i _ alpha beta]
+
+(let [theta (sample (gamma a b))
+
+l
+
+(* theta (t i))]
+
+(observe (poisson l) (y i))))
+
+(let [a (sample (exponential 1)) b (sample (gamma 0.1 1.0))]
+(loop 10 nil loop-iter a b) [a b])
+Program 2.8: FOPPL - the Pumps example model from BUGS
+
+vantage of writing this text using the FOPPL rather than an existing language like BUGS is that FOPPL program are comparatively easy to reason about and manipulate, since there are only 8 expression forms in the language. In the next chapter we will exploit this in order to mathematically deﬁne a translation from FOPPL programs to Bayesian networks and factor graphs, keeping in mind that all the basic concepts that we will employ also apply to other probabilistic programming systems, such as BUGS.
+2.4 A Simple Purely Deterministic Language
+There is no optimal place to put this section so it appears here, although it is very important for understanding what is written in the remainder of this tutorial.
+In subsequent chapters it will become apparent that the FOPPL can be understood in two diﬀerent ways – one way as being a language for specifying graphical-model data-structures on which traditional inference algorithms may be run, the other as a language that requires a
+
+2.4. A Simple Purely Deterministic Language
+
+49
+
+non-standard interpretation in some implementing language to characterize the denoted posterior distribution.
+In the case of graphical-model construction it will be necessary to have a language for purely deterministic expressions. To foreshadow, this language will be used to express link functions in the graphical model. More precisely, and contrasting to the usual deﬁnition of link function from statistics, the pure deterministic language will encode functions that take values of parent random variables and produce distribution objects for children. These link functions cannot have random variables inside them; such a variable would be another node in the graphical model instead.
+Moreover we can further simplify this link function language by removing user deﬁned functions, eﬀectively requiring their function bodies, if used, to be inlined. This yields a cumbersome language in which to manually program but an excellent language to target and evaluate because of its simplicity.
+
+2.4.1 Deterministic Expressions
+We will call expressions in the FOPPL that do not involve userdeﬁned procedure calls and involve only deterministic computations, e.g. (+ (/ 2.0 6.0) 17) “0th-order expressions”. Such expressions will play a prominent role when we consider the translation of our probabilistic programs to graphical models in the next chapter. In order to identify and work with these deterministic expressions we deﬁne a language with the following extremely simple grammar:
+c ::= constant value or primitive operation v ::= variable E ::= c | v | ( if E1 E2 E3 ) | (c E1 . . . En )
+Language 2.2: Sub-language for purely deterministic computations
+Note that neither sample nor observe statements appear in the syntax, and that procedure calls are allowed only for primitive operations, not for deﬁned procedures. Having these constraints ensures that expressions E cannot depend on any probabilistic choices or conditioning.
+
+2.4. A Simple Purely Deterministic Language
+
+50
+
+The examples provided in this chapter should convince you that many common models and inference problems from statistics and machine learning can be denoted as FOPPL programs. What remains is to translate FOPPL programs into other mathematical or programming language formalisms whose semantics are well established so that we can deﬁne, at least operationally, the semantics of FOPPL programs, and, in so doing, establish in your mind a clear idea about how probabilistic programming languages that are formally equivalent in expressivity to the FOPPL can be implemented.
+
+3
+Graph-Based Inference
+
+3.1 Compilation to a Graphical Model
+
+Programs written in the FOPPL specify probabilistic models over ﬁnitely many random variables. In this section, we will make this aspect clear by presenting the translation of these programs into ﬁnite graphical models. In the subsequent sections, we will show how this translation can be exploited to adapt inference algorithms for graphical models to probabilistic programs.
+We specify translation using the following ternary relation ⇓, similar to the so called big-step evaluation relation from the programming language community.
+
+ρ, φ, e ⇓ G, E
+
+(3.1)
+
+In this relation, ρ is a mapping from procedure names to their deﬁnitions, φ is a logical predicate for the ﬂow control context, and e is an expression we intend to compile. This expression is translated to a graphical model G and an expression E in the deterministic sub-language described in Section 2.4.1. The expression E is deterministic in the sense that it does not involve sample nor observe. It describes the return value of the original expression e in terms of random variables in G. Vertices in
+
+51
+
+3.1. Compilation to a Graphical Model
+
+52
+
+G represent random variables, and arcs dependencies among them. For each random variable in G, we will deﬁne a probability density or mass in the graph. For observed random variables, we additionally deﬁne the observed value, as well as a logical predicate that indicates whether the observe expression is on the control ﬂow path, conditioned on the values of the latent variables.
+Deﬁnition of a Graphical Model
+We deﬁne a graphical model G as a tuple (V, A, P, Y) containing (i) a set of vertices V that represent random variables; (ii) a set of arcs A ⊆ V × V (i.e. directed edges) that represent conditional dependencies between random variables; (iii) a map P from vertices to deterministic expressions that specify the probability density or mass function for each random variable; (iv) a partial map Y that for each observed random variable contains a pair (E, Φ) consisting of a deterministic expression E for the observed value, and a predicate expression Φ that evaluates to true when this observation is on the control ﬂow path.
+Before presenting a set of translation rules that can be used to compile any FOPPL program to a graphical model, we will illustrate the intended translation using a simple example:
+(let [z (sample (bernoulli 0.5)) mu (if (= z 0) -1.0 1.0) d (normal mu 1.0) y 0.5]
+(observe d y) z)
+Program 3.1: A simple example FOPPL program.
+This program describes a two-component Gaussian mixture with a single observation. The program ﬁrst samples z from a Bernoulli distribution, based on which it sets a likelihood parameter µ to −1.0 or 1.0, and observes a value y = 0.5 from a normal distribution with mean µ. This program deﬁnes a joint distribution p(y = 0.5, z). The inference problem is then to characterize the posterior distribution p(z | y). Figure 3.1 shows the graphical model and pure deterministic link functions that correspond to Program 3.1.
+
+3.1. Compilation to a Graphical Model
+
+53
+
+(pnorm y 0.5) z
+
+(pbern z (if (= z 0) -1.0 1.0) 1.0)
+y
+Figure 3.1: The graphical model corresponding to Program 3.1
+In the evaluation relation ρ, φ, e ⇓ G, E, the source code of the program is represented as a single expression e. The variable ρ is an empty map, since there are no procedure deﬁnitions. At the top level, the ﬂow control predicate φ is true. The graphical model G = (V, A, P, Y) and the result expression E that this program translates to are
+V = {z, y}, A = {(z, y)}, P = [z → (pbern z 0.5),
+y → (pnorm y (if (= z 0) -1.0 1.0) 1.0)], Y = [y → 0.5] E= z
+The vertex set V of the net G contains two variables, whereas the arc set A contains a single pair (z, y) to mark the conditional dependence relationship between these two variables. In the map P , the probability mass for z is deﬁned as the target language expression (pbern z 0.5). Here pbern refers to a function in the target languages that implements probability mass function for the Bernoulli distribution. Similarly, the density for y is deﬁned using pnorm, which implements the probability density function for the normal distribution. Note that the expression for the program variable mu has been substituted into the density for y. Finally, the map Y contains a single entry that holds the observed value for y.
+
+3.1. Compilation to a Graphical Model
+
+54
+
+Assigning Symbols to Variable Nodes
+In the above example we used the mathematical symbol z to refer to the random variable associated with the expression (sample (bernoulli 0.5)) and the symbol y to refer to the observed variable with expression (observe d y). In general there will be one node in the network for each sample and observe expression that is evaluated in a program. In the above example, there also happens to be a program variable z that holds the value of the sample expression for node z, and a program variable y that holds the observed value for node y, but this is of course not necessarily always the case. A particularly common example of this arises in programs that have procedures. Here the same sample and observe expressions in the procedure body can be evaluated multiple times. Suppose for example that we were to modify our program as follows:
+(defn norm-gamma [m l a b] (let [tau (sample (gamma a b)) sigma (/ 1.0 (sqrt tau)) mu (sample (normal m (/ sigma (sqrt l)))] (normal mu sigma ))))
+(let [z (sample (bernoulli 0.5)) d0 (norm-gamma -1.0 0.1 1.0 1.0) d1 (norm-gamma 1.0 0.1 1.0 1.0)]
+(observe (if (= z 0) d0 d1) 0.5) z)
+In this version of our program we deﬁne two distributions d0 and d1 which are created by sampling a mean mu and a precision tau from a normal-gamma prior. We then observe either according to d0 or d1. Clearly the mapping from random variables to program variables is less obvious here, since each sample expression in the body of norm-gamma is evaluated twice.
+Below, we will deﬁne a general set of translation rules that compile a FOPPL program to a graphical model, in which we assign each vertex in the graphical model a newly generated unique symbol. However, when discussing programs in this tutorial, we will generally explicitly give
+
+3.1. Compilation to a Graphical Model
+
+55
+
+names to returns from sample and observe expressions that correspond to program variables to aid readability.
+Recognize that assigning a label to each vertex is a way of assigning a unique “address” to each and every random variable in the program. Such unique addresses are important for the correctness and implementation of generic inference algorithms. In Chapter 6, Section 6.2 we develop a more explicit mechanism for addressing in the more diﬃcult situation where not all control ﬂow paths can be completely explored at compile time.
+If Expressions in Graphical Models
+When compiling a program to a graphical model, if expressions require special consideration. Before we set out to deﬁne translation rules that construct a graphical model for a program, we will ﬁrst spend some time building intuition about how we would like these translation rules to treat if expressions. Let us start by considering a simple mixture model, in which only the mean is treated as an unknown variable:
+(let [z (sample (bernoulli 0.5)) mu (sample (normal (if (= z 0) -1.0 1.0) 1.0)) d (normal mu 1.0) y 0.5]
+(observe d y) z)
+Program 3.2: A one-point mixture with unknown mean
+This is of course a really strange way of writing a mixture model. We deﬁne a single likelihood parameter µ, which is either distributed according to Normal(−1, 1) when z = 0 and according to Normal(1, 1) when z = 1. Typically, we would think of a mixture model as having two components with parameter µ0 and µ1 respectively, where z selects the component. A more natural way to write the model might be
+(let [z (sample (bernoulli 0.5)) mu0 (sample (normal -1.0 1.0)) mu1 (sample (normal 1.0 1.0)) d0 (normal mu0 1.0) d1 (normal mu1 1.0) y 0.5]
+
+3.1. Compilation to a Graphical Model
+
+56
+
+(observe (if (= z 0) d0 d1) y) z)
+Program 3.3: One-point mixture with explicit parameters
+Here we sample parameters µ0 and µ1, which then deﬁne two component likelihoods d0 and d1. The variable z then selects the component likelihood for an observation y.
+Even though the second program deﬁnes a joint density on four variables p(y, µ1, µ0, z), whereas the ﬁrst program deﬁnes a density on three variables p(y, µ, z), it seems intuitive that these programs are equivalent in some sense. The equivalence that we would want to achieve here is that both programs deﬁne the same marginal posterior on z
+p(z | y) = p(z, µ | y)dµ = p(z, µ0, µ1 | y)dµ0dµ1.
+So is there a diﬀerence between these two programs when both return z? The second program of course deﬁnes additional intermediate variables d0 and d1, but these do not change the set of nodes in the corresponding graphical model. The essential diﬀerence is that in the ﬁrst program, the if expression is placed inside the sample expression for mu, whereas in the second it sits outside. If we wanted to make the second program as similar as possible to the ﬁrst, then we could write
+(let [z (sample (bernoulli 0.5)) mu0 (sample (normal -1.0 1.0)) mu1 (sample (normal 1.0 1.0)) mu (if (= z 0) mu0 mu1) d (normal mu 1.0) y 0.5]
+(observe d y) z)
+Program 3.4: One-point mixture with explicit parameters simpliﬁed
+In other words, because we have moved the if expression, we now need two sample expressions rather than one, resulting in a network with 4 nodes rather than 3. However, the distributions on return values of the programs should be equivalent.
+This brings us to what turns out to be a fundamental design choice in probabilistic programming systems. Suppose we were to modify the above program to read
+
+3.1. Compilation to a Graphical Model
+
+57
+
+(let [z (sample (bernoulli 0.5)) mu (if (= z 0) (sample (normal -1.0 1.0)) (sample (normal 1.0 1.0))) d (normal mu 1.0) y 0.5]
+(observe d y) z)
+Program 3.5: One-point mixture with samples inside if.
+Is this program now equivalent to the ﬁrst program, or to the second? The answer to this question depends on how we evaluate if expressions in our language.
+In almost all mainstream programming languages, if expressions are evaluated in a lazy manner. In the example above, we would ﬁrst evaluate the predicate (= z 0), and then either evaluate the consequent branch, (sample (normal -1.0 1.0)), or the alternative branch, (sample (normal 1.0 1.0)), but never both. The opposite of a lazy evaluation strategy is an eager evaluation strategy. In eager evaluation, an if expression is evaluated like a normal function call. We ﬁrst evaluate the predicate and both branches. We then return the value of one of the branches based on the predicate value.
+If we evaluate if expressions lazily, then the program above is more similar to Program 3.2, in the sense that the program evaluates two sample expressions. If we use eager if, then the program evaluates three sample expressions and is therefore equivalent to Program 3.4. As it turns out, both strategies evaluation strategies oﬀer certain advantages.
+Suppose that we use µ0 and µ1 to refer to the sample expressions in both branches, then the joint p(y, µ0, µ1, z) would have a conditional dependence structure1
+p(y, µ0, µ1, z) = p(y | µ0, µ1, z)p(µ0|z)p(µ1|z)p(z).
+1It might be tempting to instead deﬁne a distribution p(y, µ, z) as in the ﬁrst program, by interpreting the entire if expression as a single random variable µ. For this particular example, this would work since both branches sample from a normal distribution. However, if we were for example to modify the z = 1 branch to sample from a Gamma distribution instead of a normal, then µ ∈ (−∞, ∞) when z = 0 and µ ∈ (0, ∞) when z = 1, which means that the variable µ would no longer have a well-deﬁned support.
+
+3.1. Compilation to a Graphical Model
+
+58
+
+Here the likelihood p(y|µ0, µ1, z) is relatively easy to deﬁne,
+
+p(y|µ0, µ1, z) = pnorm(y; µz, 1).
+
+(3.2)
+
+When translating our source code to a graphical model, the target language expression P(y) that evaluates this probability would read (pnorm y (if (= z 0) µ0 µ1) 1).
+The real question is how to deﬁne the probabilities for µ0 and µ1. One choice could be to simply set the probability of unevaluated branches to 1. One way to do this in this particular example is to write
+
+p(µ0|z) = pnorm(µ0; −1, 1)z p(µ1|z) = pnorm(µ1; 1, 1)1−z.
+
+In the target language we could achieve the same eﬀect by using if expressions deﬁning P (µ0) as (if (= z 0) (pnorm µ0 -1.0 1.0) 1.0) and deﬁning P(µ1) as (if (not (= z 0)) (pnorm µ1 1.0 1.0) 1.0).
+On ﬁrst inspection this design seems reasonable. Much in the way we would do in a mixture model, we either include p(µ0|z = 0) or p(µ1|z = 1) in the probability, and assume a probability 1 for unevaluated branches, i.e. p(µ0|z = 1) and p(µ1|z = 0).
+On closer inspection, however, it is not obvious what the support of this distribution should have. We might naively suppose that (y, µ0, µ1, z) ∈ R × R × R × {0, 1}, but this deﬁnition is problematic. To see this, let us try to calculate the marginal likelihood p(y),
+
+p(y) = p(y, z = 0) + p(y, z = 1),
+
+= p(z = 0) dµ0dµ1 p(y, µ0, µ1|z = 0)
+
++ p(z = 1) dµ0dµ1 p(y, µ0, µ1|z = 1),
+
+= 0.5 dµ1 dµ0 pnorm(y; µ0, 1)pnorm(µ0; −1, 1)
+
++ 0.5 dµ0 dµ1 pnorm(y; µ1, 1)pnorm(µ1; 1, 1) ,
+= ∞. So what is going on here? This integral does not converge because we have not assumed the correct support: We cannot marginalize
+
+3.1. Compilation to a Graphical Model
+
+59
+
+R dµ0 p(µ0|z = 0) and R dµ1 p(µ1|z = 1) if we assume p(µ0|z = 0) = 1 and p(µ1|z = 1) = 1. These uniform densities eﬀectively specify improper priors on unevaluated branches.
+In order to make lazy evaluation of if expressions more well-behaved, we could choose to deﬁne the support of the joint as a union over supports for individual branches
+(y, µ0, µ1, z) ∈ (R × R × {nil} × {0}) ∪ (R × {nil} × R × {1}). (3.3)
+In other words, we could restrict the support of variables in unevaluated branches to some special value nil to signify that the variable does not exist. Of course this can result in rather complicated deﬁnitions of the support in probabilistic programs with many levels of nested if expressions.
+Could eager evaluation of branches yield a more straightforward deﬁnition of the probability distribution associated with a program? Let us look at Program 3.5 once more. If we use eager evaluation, then this program is equivalent to Program 3.3 which deﬁnes a distribution
+p(y, µ0, µ1, z) = p(y|µ0, µ1, z)p(z)p(µ0)p(µ1).
+We can now simply deﬁne p(µ0) = pnorm(µ0; −1, 1) and p(µ1) = pnorm(µ1; 1, 1) and assume the same likelihood as in the equation in (3.2). This deﬁnes a joint density that corresponds to what we would normally assume for a mixture model. In this evaluation model, sample expressions in both branches are always incorporated into the joint.
+Unfortunately, eager evaluation would lead to counter-intuitive results when observe expressions occur in branches. To see this, Let us consider the following form for our program
+(let [z (sample (bernoulli 0.5)) mu0 (sample (normal -1.0 1.0)) mu1 (sample (normal 1.0 1.0)) y 0.5]
+(if (= z 0) (observe (normal mu0 1) y) (observe (normal mu1 1) y))
+z)
+Program 3.6: One-point mixture with observes inside if.
+
+3.1. Compilation to a Graphical Model
+
+60
+
+Clearly it is not the case that eager evaluation of both branches is equivalent to lazy evaluation of one of the branches. When performing eager evaluation, we would be observing two variables y0 and y1, both with value 0.5. When performing lazy evaluation, only one of the two branches would be included in the probability density. The lazy interpretation is a lot more natural here. In fact, it seems diﬃcult to imagine a use case where you would want to interpret observe expressions in branches in a eager manner.
+So where does all this thinking about evaluation strategies for if expressions leave us? Lazy evaluation of if expressions makes it diﬃcult to characterize the support of the probability distribution deﬁned by a program when branches contain sample expressions. However, at the same time, lazy evaluation is essential in order for branches containing observe expressions to make sense. So have we perhaps made a fundamentally ﬂawed design choice by allowing sample and observe to be used inside if branches?
+It turns out that this is not necessarily the case. We just need to understand that observe and sample expressions aﬀect the marginal posterior on a program output in very diﬀerent ways. Sample expressions that are not on the ﬂow control path cannot aﬀect the values of any expressions outside their branch. This means they can be safely incorporated into the model as auxiliary variables, since they do not aﬀect the marginal posterior on the return value. This guarantee does not hold for observed variables, which as a rule change the posterior on the return value when incorporated into a graphical model.2
+Based on this intuition, the solution to our problem is straightforward: We can assign probability 1 to observed variables that are not on the same ﬂow control path. Since observed variables have constant values, the interpretability of their support is not an issue in the way it is with sampled variables. Conversely we assign the same probability to sampled variables, regardless of the branch they occur in. We will describe how to accomplish this in the following sections.
+2The only exception to this rule is observe expressions that are conditionally independent of the program output, which implies that the graphical model associated with the program could be split into two independent networks out of which one could be eliminated without aﬀecting the distribution on return values.
+
+3.1. Compilation to a Graphical Model
+
+61
+
+Support-Related Subtleties
+As a last but important bit of understanding to convey before proceeding to the translation rules in the next section it should be noted that the following two programs are allowed by the FOPPL and are not problematic despite potentially appearing to be.
+(let [z (sample (poisson 10)) d (discrete (range 1 z))]
+(sample d))
+Program 3.7: Stochastic and potentially inﬁnite discrete support
+(let [z (sample (flip 0.5)) d (if z (normal 1 1) (gamma 1 1)]
+(sample d)).
+Program 3.8: Stochastic support and type
+Program 3.7 highlights a subtlety of FOPPL language design and interpretation, that being that the distribution d has support that has potentially inﬁnite cardinality. This is not problematic for the simple reason that samples from d cannot be used as a loop bound and therefore cannot possibly induce an unbounded number of random variables. It does serve as an indication that some care should be taken when reasoning about such programs and writing inference algorithms for the same. As is further highlighted in Program 3.8, which adds a seemingly innocuous bit of complexity to the control-ﬂow examples from earlier in this chapter, neither the support nor the distribution type of a random variable need be the same between two diﬀerent control ﬂow paths. The fact that the support might be quite large can yield substantial value-dependent variation in inference algorithm runtimes. Moreover, inference algorithm implementations must have distribution library support that is robust to the possibility of needing to score values outside of their support.
+Translation rules
+Now that we have developed some intuition for how one might translate a program to a data structure that represents a graphical model and
+
+3.1. Compilation to a Graphical Model
+
+62
+
+have been introduced to several subtleties that arise in designing ways to do this, we are in a position to formally deﬁne a set of translation rules. We deﬁne the ⇓ relation for translation using the so called inference-rules notation from the programming language community. This notation speciﬁes a recursive algorithm for performing the translation succinctly and declaratively. The inference-rules notation is
+
+top bottom
+
+(3.4)
+
+It states that if the statement top holds, so does the statement bottom. For instance, the rule
+
+ρ, φ, e ⇓ G, E ρ, φ, (− e) ⇓ G, (− E)
+
+(3.5)
+
+says that if e gets translated to G, E under ρ and φ, then its negation is translated to G, (− E) under the same ρ and φ.
+The grammar for the FOPPL in Language 2.1 describes 8 distinct expression types: (i) constants, (ii) variable references, (iii) let expressions, (iv) if expressions, (v) user-deﬁned procedure applications, (vi) primitive procedure applications, (vi) sample expressions, and ﬁnally (viii) observe expressions. Aside from constants and variable references, each expression type can have sub-expressions. In the remainder of this section, we will deﬁne a translation rule for f type, under the assumption that we are already able to translate its sub-expressions, resulting in a set of rules that can be used to deﬁne the translation of every possible expression in the FOPPL language in a recursive manner.
+
+Constants and Variables We translate constants c and variables z in FOPPL to themselves and the empty graphical model:
+ρ, φ, c ⇓ Gemp, c ρ, φ, z ⇓ Gemp, z
+where Gemp is the tuple (∅, ∅, [], []) and represents the empty graphical model.
+
+Let We translate (let [v e1] e2) by ﬁrst translating e1, then substituting the outcome of this translation for v in e2, and ﬁnally translating
+
+3.1. Compilation to a Graphical Model
+
+63
+
+the result of this substitution:
+ρ, φ, e1 ⇓ G1, E1 ρ, φ, e2[v := E1] ⇓ G2, E2 ρ, φ, (let [v e1] e2) ⇓ (G1 ⊕ G2), E2
+Here e2[v := E1] is a result of substituting E1 for v in the expression e1 (while renaming bound variables of e2 if needed). G1 ⊕ G2 is the combination of two disjoint graphical models: when G1 = (V1, A1, P1, Y1) and G2 = (V2, A2, P2, Y2),
+(G1 ⊕ G2) = (V1 ∪ V2, A1 ∪ A2, P1 ⊕ P2, Y1 ⊕ Y2)
+where P1 ⊕ P2 and Y1 ⊕ Y2 are the concatenation of two ﬁnite maps with disjoint domains. This combination operator assumes that the input graphical models G1 and G2 use disjoint sets of vertices. This assumption always holds because every graphical model created by our translation uses fresh vertices, which do not appear in other networks previously generated.
+We would like to note that this translation rule has not been optimized for computational eﬃciency. Because E2 is replace by v in E2, we will evaluate E1 once for each occurrence of v. We could avoid these duplicate computations by incorporating deterministic nodes into our graph, but we omit this optimization in favor of readability.
+If Our translation of the if expression is straightforward. It translates all the three sub-expressions, and puts the results from these translations together:
+ρ, φ, e1 ⇓ G1, E1 ρ, (and φ E1), e2 ⇓ G2, E2 ρ, (and φ (not E1)), e3 ⇓ G3, E3
+ρ, φ, (if e1 e2 e3) ⇓ (G1 ⊕ G2 ⊕ G3), (if E1 E2 E3)
+As we have explained already, the graphical models G1, G2 and G3 use disjoint vertices, and so their combination G1 ⊕ G2 ⊕ G3 is always deﬁned. When we translate the sub-expressions for the consequent and alternative branches, we conjoin the logical predicate φ with the expression E1 or its negation. The role of this logical predicate was established before; it being useful for including or excluding observe
+
+3.1. Compilation to a Graphical Model
+
+64
+
+statements that are on or oﬀ the current-sample control-ﬂow path. It will be used in the upcoming translation of observe statements.
+None of the rules for an expression e so far extends graphical models from e’s sub-exressions with any new vertices. This uninteresting treatment comes from the fact that the programming constructs involved in these rules perform deterministic, not probabilistic, computations, and the translation uses graphical models to express random variables. The next two rules about sample and observe show this usage.
+
+Sample We translate sample expressions using the following rule:
+
+ρ, φ, e ⇓ (V, A, P, Y), E Choose a fresh variable v
+
+Z = free-vars(E)
+
+F = score(E, v) = ⊥
+
+ρ, φ, (sample e) ⇓ (V ∪ {v}, A ∪ {(z, v) | z ∈ Z}, P ⊕ [v → F ], Y), v
+
+This rule states that we translate (sample e) in three steps. First, we translate the argument e to a graphical model (V, A, P, Y) and a deterministic expression E. Both the argument e and its translation E represent the same distribution, from which (sample e) samples. Second, we choose a fresh variable v, collect all free variables in E that are used as random variables of the network, and set Z to the set of these variables. Finally, we convert the expression E that denotes a distribution, to the probability density or mass function F of the distribution. This conversion is done by calling score, which is deﬁned as follows:
+
+score((if E1 E2 E3), v) = (if E1 F2 F3) (when Fi = score(Ei, v) for i ∈ {2, 3} and it is not ⊥)
+score((c E1 . . . En), v) = (pc v E1 . . . En) (when c is a constructor for distribution and pc its pdf or pmf)
+score(E, v) = ⊥ (when E is not one of the above cases)
+
+The ⊥ (called “bottom”, indicating terminating failure) case happens when the argument e in (sample e) does not denote a distribution. Our translation fails in that case.
+
+3.1. Compilation to a Graphical Model
+
+65
+
+Observe Our translation for observe expressions (observe e1 e2) is analogous to that of sample expressions, but we additionally need to account for the observed value e2, and the predicate φ:
+
+ρ, φ, e1 ⇓ G1, E1 (V, A, P, Y) = G1 ⊕ G2 F1 = score(E1, v) = ⊥ Z = (free-vars(F1) \ {v}) B = {(z, v) : z ∈ Z}
+
+ρ, φ, e2 ⇓ G2, E2 Choose a fresh variable v F = (if φ F1 1) free-vars(E2) ∩ V = ∅
+
+ρ, φ, (observe e1 e2) ⇓ (V ∪ {v}, A ∪ B, P ⊕ [v → F ], Y ⊕ [v → E2]), E2
+
+This translation rule ﬁrst translates the sub-expressions e1 and e2. We then construct a network (V, A, P, Y) by merging the networks of the sub-expressions and pick a new variable v that will represent the observed random variable. As in the case of sample statements, the deterministic expression E1 that is obtained by translating e1 must evaluate to a distribution. We use the score function to construct an expression F1 that represents the probability mass or density of v under this distribution. We then construct a new expression F = (if φ F1 1) to ensure that the probability of the observed variable evaluates to 1 if the observe expression occurs in a branch that was not followed. The free variables in this expression are the union of the free variables in E1, the free variables in φ and the newly chosen variable v. We add a set of arcs B to the network, consisting of edges from all free variables in F to v, excluding v itself. Finally we add the expression F to P and store the observed value E2 in Y.
+In order for this notion of an observed random variable to make sense, the expression E2 must be fully deterministic. For this reason we require that free-vars(E2) ∩ V = ∅, which ensures that E2 cannot reference any other random variables in the graphical model. Translation fails when this requirement is not met. Remember that free-vars refers to all unbound variables in an expression. Also note an important consequence of E2 being a value, namely, although the return value of an observe may be used in subsequent computation, no graphical model edges will be generated with the observed random variable as a parent. An alternative rule could return a null or nil value in place of E2 and,
+
+3.2. Evaluating the Density
+
+66
+
+as a result, might potentially be “safer” in the sense of ensuring clarity to the programmer. Not being able to bind the observed value would mean that there is no way to imagine that an edge could be created where one was not.
+
+Procedure Call The remaining two cases are those for procedure calls, one for a user-deﬁned procedure f and one for a primitive function c. In both cases, we ﬁrst translate arguments. In the case of primitive functions we then translate the expression for the call by substituting translated arguments into the original expression, and merging the graphs for the arguments
+
+ρ, φ, ei ⇓ Gi, Ei for all 1 ≤ i ≤ n ρ, φ, (c e1 . . . en) ⇓ G1 ⊕ . . . ⊕ Gn, (c E1 . . . En)
+
+For user-deﬁned procedures, we additionally transform the procedure body. We do this by replacing all instances of the variable vi with the expression for the argument Ei
+
+ρ, φ, ei ⇓ Gi, Ei for all 1 ≤ i ≤ n
+
+ρ(f ) = (defn f [v1 . . . vn] e)
+
+ρ, φ, e[v1 := E1, . . . vn := En] ⇓ G, E
+
+ρ, φ, (f e1 . . . en) ⇓ G1 ⊕ . . . ⊕ Gn ⊕ G, E
+
+3.2 Evaluating the Density
+
+Before we discuss algorithms for inference in FOPPL programs, ﬁrst we make explicit how we can use this representation of a probabilistic program to evaluate the probability of a particular setting of the variables in V . The Bayesian network G = (V, A, P, Y) that we construct by compiling a FOPPL program is a mathematical representation of a directed graphical model. Like any graphical model, G deﬁnes a probability density on its variables V . In a directed graphical model, each node v ∈ V has a set of parents
+
+pa(v) := {u : (u, v) ∈ A}.
+
+(3.6)
+
+3.2. Evaluating the Density
+
+67
+
+The joint probability of all variables can be expressed as a product over conditional probabilities
+
+p(V ) = p(v | pa(v)).
+v∈V
+
+(3.7)
+
+In our graph G, each term p(v | pa(v)) is represented as a deterministic expression P(v) = (c v E1 . . . En), in which c is either a probability mass function (for discrete variables) or a probability density function (for continuous variables) and E1, . . . , En are expressions that evaluate to parameters θ1, . . . , θn of this mass or density function.
+Implicit in this notation is the fact that each expression has some set of free variables. In order to evaluate an expression to a value, we must specify values for each of these free variables. In other words, we can think of each of these expressions Ei as a mapping from values of free variables to a parameter value. By construction, the set of parents pa(v) is nothing but the free variables in P(v) exclusive of v
+
+pa(v) = free-vars(P(v)) \ {v}.
+
+(3.8)
+
+Thus, the expression P(v) can be thought of as a function that maps the v and its parents pa(v) to a probability or probability density. We will therefore from now on treat these two as equivalent,
+
+p(v | pa(v)) ≡ P(v).
+
+(3.9)
+
+We can decompose the joint probability p(V ) into a prior and a likelihood term. In our speciﬁcation of the translation rule for observe, we require that the expression Y(v) for the observed value may not have free variables. Each expression Y(v) will hence simplify to a constant when we perform partial evaluation, a subject we cover extensively in Section 3.2.2 of this chapter. We will use Y to refer to all the nodes in V that correspond to observed random variables, which is to say Y = dom(Y). Similarly, we can use X to refer to all nodes in V that correspond to unobserved random variables, which is to say X = V \ Y . Since observed nodes y ∈ Y cannot have any children we can re-express the joint probability in Equation (3.7) as
+
+p(V ) = p(Y, X) = p(Y | X)p(X),
+
+(3.10)
+
+3.2. Evaluating the Density
+
+68
+
+where
+
+p(Y | X) = p(y | pa(y)), p(X) = p(x | pa(x)). (3.11)
+
+y∈Y
+
+x∈X
+
+In this manner, a probabilistic program deﬁnes a joint distribution
+
+p(Y, X). The goal of probabilistic program inference is to characterize
+
+the posterior distribution
+
+p(X | Y ) = p(X, Y )/p(Y ), p(Y ) := dX p(X, Y ). (3.12)
+
+3.2.1 Conditioning with Factors
+
+Not all inference problems for probabilistic programs target a posterior p(X | Y ) that is deﬁned in terms of unobserved and observed random variables. There are inference problems in which there is no notion of observed data, but it is possible to deﬁne some notion of loss, reward, or ﬁtness given a choice of X. In the probabilistic programs written in the FOPPL, the sample statements in a probabilistic program deﬁne a prior p(X) on the random variables, whereas the observe statements deﬁne a likelihood p(Y | X). To support a more general notion of soft constraints, we can replace the likelihood p(Y | X) with a strictly positive potential ψ(X) to deﬁne an unnormalized density
+
+γ(X) = ψ(X)p(X).
+
+(3.13)
+
+In this more general setting, the goal of inference is to characterize a target density π(X), which we deﬁne as
+
+π(X) := γ(X)/Z,
+
+Z := dX γ(X).
+
+(3.14)
+
+Here π(X) is the analogue to the posterior p(X | Y ), the unnormalized density γ(X) is the analogue to the joint p(Y, X), and the normalizing constant Z is the analogue to the marginal likelihood p(Y ).
+From a language design point of view, we can now ask how the FOPPL would need to be extended in order to support this more general form of soft constraint. For a probabilistic program in the FOPPL, the potential function is a product over terms
+
+ψ(X) = ψy(Xy),
+y∈Y
+
+(3.15)
+
+3.2. Evaluating the Density
+
+69
+
+where we deﬁne ψy and Xy as
+
+ψy(Xy) := p(y = Y(y) | pa(y)) ≡ P(y)[y := Y(y)] Xy := free-vars(P(y)) \ {y} = pa(y).
+
+(3.16) (3.17)
+
+Note that P(y)[y := Y(y)] is just some expression that evaluates to either a probability mass or a probability density if we specify values for its free variables Xy. Since we never integrate over y, it does not matter whether P(y) represents a (normalized) mass or density function. We could therefore in principle replace P(y) by any other expression with free variables Xy that evaluates to a number ≥ 0.
+One way to support arbitrary potential functions is to provide a special form (factor log-p) that takes an arbitrary log probability log-p (which can be both positive or negative) as an argument. We can then deﬁne a translation rule that inserts a new node v with probability P(v) = (exp log-p) and observed value nil into the graph:
+ρ, φ, e ⇓ (V, A, P, Y), E F = (if φ (exp E) 1)
+Choose a fresh variable v
+ρ, φ, (factor e) ⇓ (V, A, P ⊕ [v → F ], Y ⊕ [v → nil]), nil
+
+In practice, we don’t need to provide separate special forms for factor and observe, since each can be implemented as a special case of the other. One way of doing so is to deﬁne factor as a procedure
+
+(defn factor [log-p] (observe (factor-dist log-p) nil))
+
+in which factor-dist is a constructor for a "pseudo" distribution object with corresponding potential
+
+pfactor-dist(y; λ) :=
+
+exp λ y = nil
+
+0
+
+y = nil
+
+(3.18)
+
+We call this a pseudo distribution, because it deﬁnes a (unnormalized) potential function, rather than a normalized mass or density.
+Had we deﬁned the FOPPL language using factor as the primary conditioning form, then we could have implemented a primitive procedure (log-prob dist v) that returns the log probability mass or density for a value v under a distribution dist. This would then allow us to deﬁne observe as a procedure
+
+3.2. Evaluating the Density
+
+70
+
+(defn observe [dist v] (factor (log-prob dist v)) y)
+3.2.2 Partial Evaluation
+An important and necessary optimization for our compilation procedure is to perform a partial evaluation step. This step pre-evaluates expressions E in the target language that do not contain any free variables, which means that they take on the same value in every execution of the program. It turns out that partial evaluation of these expressions is necessary to avoid the appearance of "spurious" edges between variables that are in fact not connected, in the sense that the value of the parent does not aﬀect the conditional density of the child.
+Because our target language is very simple, we only need to consider if-expressions and procedure calls. We can update the compilation rules for these expressions to include a partial evaluation step
+ρ, φ, e1 ⇓ G1, E1 ρ, eval((and φ E1)), e2 ⇓ G2, E2 ρ, eval((and φ (not E1))), e3 ⇓ G3, E3
+ρ, φ, (if e1 e2 e3) ⇓ (G1 ⊕ G2 ⊕ G3), eval((if E1 E2 E3))
+and ρ, ei ⇓ Gi, Ei for all 1 ≤ i ≤ n
+ρ, φ, (c e1 . . . en) ⇓ G1 ⊕ . . . ⊕ Gn, eval((c E1 . . . En))
+The partial evaluation operation eval(e) can incorporate any number of rules for simplifying expressions. We will begin with the rules
+eval((if c1 E2 E3)) = E2 when c1 is logically true
+eval((if c1 E2 E3)) = E3 when c1 is logically false
+eval((c c1 . . . cn)) = c when calling c with arguments c1, . . . , cn evaluates to c
+eval(E) = E in all other cases
+
+3.2. Evaluating the Density
+
+71
+
+These rules state that an if statement (if E1 E2 E3) can be simpliﬁed when E1 = c1 can be fully evaluated, by simply selecting the expression for the appropriate branch. Primitive procedure calls can be evaluated when all arguments can be fully evaluated.
+In order to accommodate partial evaluation, we additionally modify the deﬁnition of the score function. Distributions in the FOPPL are constructed using primitive procedure applications. This means that a distribution with constant arguments such as (beta 1 1) will be partially evaluated to a constant c. To account for this, we need to extend our deﬁnition of the score conversion with one rule
+score(c, v) = (pc v) (when c is a distribution and pc is its pdf or pmf)
+To see how partial evaluation also reduce the number of edges in the Bayesian network, let us consider the expression (if true v1 v2). This expression nominally references two random variables v1 and v2. After partial evaluation, this expression simpliﬁes to v1, which eliminates the spurious dependence on v2.
+Another practical advantage of partial evaluation is that it gives us a simple way to identify expressions in a program that are fully deterministic (since such expression will be partially evaluated to constants). This is useful when translating observe statements (observe e1 e2), in which the expression e2 must be deterministic. In programs that use the (loop c v e e1 . . . en) syntactic sugar, we can now substitute any fully deterministic expression for the number of loop iterations c. For example, we could deﬁne a loop in which the number of iterations is given by the dataset size.
+Lists, vectors and hash maps. Eliminating spurious edges in the dependency graph becomes particularly important in programs that make use of data structures. Let us consider the following example, which deﬁnes a 3-state Markov chain
+(let [A [[0.9 0.1] [0.1 0.9]]
+x1 (sample (discrete [1. 1.])) x2 (sample (discrete (get A x1))) x3 (sample (discrete (get A x2)))]
+
+3.2. Evaluating the Density
+
+72
+
+[x1 x2 x3])
+Compilation to a Bayesian network will yield three variable nodes. If we refer to these nodes as v1, v2 and v3, then there will be arcs from v1 to v2 and from v2 to v3. Suppose we now rewrite this program using the loop syntactic sugar that we introduced in Chapter 2
+(defn markov-step [n xs A] (let [k (last xs) Ak (get A k)] (append xs (sample (discrete Ak)))))
+(let [A [[0.9 0.1] [0.1 0.9]]
+x1 (sample (discrete [1. 1.]))] (loop 2 markov-step [x1] A))
+In this version of the program, each call to markov-step accepts a vector of states xs and appends the next state in the Markov chain by calling (append xs (sample (discrete Ak))). In order to sample the next element, we need the row Ak for the transition matrix that corresponds to the current state k, which is retrieved by calling (last xs) to extract the last element of the vector.
+The program above generates the same sequence of random variables as the previous one, and has the advantage of allowing us to generalize to sequences of arbitrary length by changing the constant 2 in the loop to a diﬀerent value. However, under the partial evaluation rules that we have speciﬁed so far, we would obtain a diﬀerent set of edges. As in the previous version of the program, this version of the program evaluates three sample statements. For the ﬁrst statement, (sample (discrete [1. 1.])) there will be no arcs. Translation of the second sample statement (sample (discrete Ak)), which is evaluated in the body of markov-step, results in an arc from v1 to v2, since the expression for Ak expands to
+(get [[0.9 0.1] [0.1 0.9]] ( last [v1 ]))
+
+3.2. Evaluating the Density
+
+73
+
+However, for the third sample statement there will be arcs from both v1 and v2 to v3, since Ak expands to
+(get [[0.9 0.1] [0.1 0.9]] ( last ( append [v1 ] v2 )))
+The extra arc from v1 to v3 is of course not necessary here, since the expression (last (append [v1] v2)) will always evaluate to v2. What’s more, if we run this program to generate more than 3 states, the node vn for the n-th state will have incoming arcs from all preceding variables v1, . . . , vn−1, whereas the only real arc in the Bayesian network is the one from vn−1.
+We can eliminate these spurious arcs by implementing an additional set of partial evaluation rules for data structures,
+eval((vector E1 . . . En)) = [E1 . . . En], eval((hash-map c1 E1 . . . cn En)) ={c1 E1 . . . cn En} .
+These rules ensure that expressions which construct data structures are partially evaluated to data structures containing expressions. We can similarly partially evaluate functions that add or replace entries. For example, we can deﬁne the following rules for the conj primitive, which appends an element to a data structure,
+eval((append [E1 . . . En] En+1)) = [E1 . . . En En+1], eval((put {c1 E1 . . . cn En} ck Ek)) ={c1 E1 . . . ck Ek . . . cn En} .
+In the Markov chain example, the expression for Ak in the third sample statement then simpliﬁes to
+(get [[0.9 0.1] [0.1 0.9]] ( last [v1 v2 ]))
+Now that partial evaluation constructs data structures containing expressions, we can use partial evaluation of accessor functions to extract
+
+3.3. Gibbs Sampling
+
+74
+
+the expression corresponding to an entry
+eval((last [E1 . . . En])) = En,
+eval((get [E1 . . . En] k)) = Ek, eval((get {c1 E1 . . . cn En} ck)) = Ek.
+With these rules in place, the expression for Ak simpliﬁes to
+(get [[0.9 0.1] [0.1 0.9]] v2 )
+This yields the correct dependency structure for the Bayesian network.
+3.3 Gibbs Sampling
+So far, we have just deﬁned a way to translate probabilistic programs into a data structure for ﬁnite graphical models. One important reason for doing so is that many existing inference algorithms are deﬁned explicitly in terms of ﬁnite graphical models, and can now be applied directly to probabilistic programs written in the FOPPL. We will consider such algorithms now, starting with a general family of Markov chain Monte Carlo (MCMC) algorithms.
+MCMC algorithms perform Bayesian inference by drawing samples from the posterior distribution; that is, the conditional distribution of the latent variables X ⊆ V given the observed variables Y ⊂ V . This is accomplished by simulating from a Markov chain whose transition operator is deﬁned such that the stationary distribution is the target posterior p(X | Y ). These samples are then used to characterize the distribution of the return value r(X).
+Procedurally, MCMC algorithms begin by initializing latent variables to some value X(0), and repeatedly sampling from a Markov transition density to produce a dependent sequence of samples X(1), . . . , X(S). For purposes of this tutorial, we will not delve deeply into why MCMC produces posterior samples; rather, we will simply describe how these algorithms can be applied in the context of inference in graphs produced by FOPPL compilation in the previous sections. For a review of MCMC methods, see e.g. Neal (1993), Gelman et al. (2013), or Bishop (2006).
+
+3.3. Gibbs Sampling
+
+75
+
+The Metropolis-Hastings (MH) algorithm provides a general recipe for producing appropriate MCMC transition operators, by combining a proposal step with an accept / reject step. Given some appropriate proposal distribution q(X | V ), the MH algorithm simulates a candidate X from q(X | V ) conditioned on the value of the current sample X, and then evaluates the acceptance probability
+
+p(Y, X )q(X | V )
+
+α(X , X) = min 1,
+
+.
+
+p(Y, X)q(X | V )
+
+(3.19)
+
+With probability α(X , X), we “accept” the transition X → X and with probability 1 − α(X , X) we “reject” the transition and retain the current sample X → X. When we repeatedly apply this transition operator we obtain a Markov process
+
+X ∼ q(X | V (s−1)), u ∼ Uniform(0, 1)
+
+
+
+X(s) = X
+
+u ≤ α(X , X(s−1)),
+
+X(s−1) u > α(X , X(s−1)).
+
+Gibbs sampling algorithms (Geman and Geman, 1984) are an important special case of MH, which cycle through all the latent variables in the model and iteratively sample from the so-called full conditional distributions
+
+p(x | Y, X \ {x}) = p(x | V \ {x}).
+
+(3.20)
+
+In some (important) special cases of models, these conditional distributions can be derived analytically and sampled from exactly. However, this is not possible in general, and so as a general-purpose solution one turns to Metropolis-within-Gibbs algorithms, which instead apply a Metropolis-Hastings transition targeting p(x | V \ {x}).
+From an implementation point of view, given our compiled graph (V, A, P, Y) we can compute the acceptance probability in Equation (3.19) by evaluating the expressions P(v) for each v ∈ V , substituting the values for the current sample X and the proposal X . More precisely, if we use X to refer to the set of unobserved variables and X to refer to the map from variables to their values,
+
+X = (x1, . . . , xN ),
+
+X = [x1 → c1, . . . , xN → cN ],
+
+(3.21)
+
+3.3. Gibbs Sampling
+
+76
+
+then we can use V = X ⊕ Y to refer to the values of all variables and express the joint probability over the variables V as
+
+p(V = V) = eval(P(v)[V := V]).
+v∈V
+
+(3.22)
+
+When we update a single variable x using a kernel q(x | V ), we are proposing a new mapping V = V[x → c ], where c is the candidate value proposed for x. The acceptance probability for changing the value of x from c to c then takes the form
+
+p(V = V )q(x = c | V = V )
+
+α(V , V) = min 1,
+
+.
+
+p(V = V)q(x = c | V = V)
+
+(3.23)
+
+From a computational point of view, the important thing to note is that many terms in this ratio will actually cancel out. The joint probabilities p(V = V) are composed of a product of conditional density terms v∈V p(v | pa(v)); the individual expressions p(v | pa(v)) ≡ P(v) depend on the value c or its proposed alternative c of the node x only if v = x, or x ∈ pa(v), which equates to the condition
+
+x ∈ free-vars(P(v)).
+
+(3.24)
+
+If we deﬁne Vx to be the set of variables whose densities depend on x,
+
+Vx := {v : x ∈ free-vars(P(v))}, = {x} ∪ {v : x ∈ pa(v)},
+
+(3.25)
+
+then we can decompose the joint p(V ) into terms that depend on x and terms that do not
+
+
+
+
+
+
+
+p(V ) = 
+
+p(w | pa(w))  p(v | pa(v)) .
+
+w∈V \Vx
+
+v∈Vx
+
+We now note that all terms w ∈ V \ Vx in the acceptance ratio cancel, with the same value in both numerator and denominator. Denoting the
+values of a variable v as cv, cv for the maps V, V respectively, we can simplify the acceptance probability α to
+
+α(V , V) = min 1, v∈Vx p(v = cv|pa(v)) q(x = c | V = V ) . (3.26) v∈Vx p(v = cv|pa(v)) q(x = c | V = V)
+
+3.3. Gibbs Sampling
+
+77
+
+This restriction means that we can compute the acceptance ratio in O(|Vx|) time rather than O(|V |), which is advantageous when |V | grows with the size of the dataset, whereas |Vx| does not.
+In order to implement a Gibbs sampler, we additionally need to specify some form of proposal. We will here assume a map Q from unobserved variables to expressions in the target language
+
+Q := [x1 → E1, . . . , xN → EN ].
+
+(3.27)
+
+For each variable x, the expression E deﬁnes a distribution, which can in principle depend on other unobserved variables X. We can then use this distribution to both generate samples and evaluate the forward and reverse proposal densities q(x = c | V = V) and q(x = c | V = V ). To do so, we ﬁrst evaluate the expression to a distribution
+
+d = eval(Q(x)[V := V]).
+
+(3.28)
+
+We then assume that we have an implementation for functions sample and log-prob which allow us to generate samples and evaluate the density function for the distribution
+
+c = sample(d), q(x = c | V ) = log-prob(d, c ). (3.29)
+
+Algorithm 1 shows pseudo-code for a Gibbs sampler with this type of proposal. In this algorithm we have several choices for the type of proposals that we deﬁne in the map Q. A straightforward option is to use the prior as the proposal distribution. In other words, when compiling an expression (sample e) we ﬁrst compile e to a target language expression E, then pick a fresh variable v, deﬁne P(v) = score(E, v), and ﬁnally deﬁne Q(v) = E. In this type of proposal q(x = c | X) = p(x = c | pa(x)), which means that the acceptance ratio simpliﬁes further to
+
+α(V , V) = min 1, v∈Vx\{x} p(v = cv|pa(v)) . v∈Vx\{x} p(v = cv|pa(v))
+
+(3.30)
+
+Instead of proposing from the prior, we can also consider a broader class of proposal distributions. For example, a common choice for continuous random variables is to propose from a Gaussian distribution with small standard deviation, centered at the current value of x; there exist
+
+3.3. Gibbs Sampling
+
+78
+
+Algorithm 1 Gibbs Sampling with Metropolis-Hastings Updates
+
+1: global V, X, Y, A, P, Y
+
+A directed graphical model
+
+2: global Q
+
+A map of proposal expressions
+
+3: function accept(x, X , X )
+
+4: d ← eval(Q(x)[X := X ])
+
+5: d ← eval(Q(x)[X := X ])
+
+6: log α ← log-prob(d , X (x)) − log-prob(d, X (x))
+
+7: Vx ← {v : x ∈ free-vars(P(v))}
+
+8: for v in Vx do
+
+9:
+
+log α ← log α + eval(P(v)[Y := Y, X := X ])
+
+10:
+
+log α ← log α − eval(P(v)[Y := Y, X := X ])
+
+11: return α
+
+12: function gibbs-step(X ) 13: for x in X do
+
+14:
+
+d ← eval(Q(x)[X := X ])
+
+15:
+
+X ←X
+
+16:
+
+X (x) ← sample(d)
+
+17:
+
+α ← accept(x, X , X )
+
+18:
+
+u ∼ Uniform(0, 1)
+
+19:
+
+if u < α then
+
+20:
+
+X ←X
+
+21: return X
+
+22: function gibbs(X (0), S)
+
+23: for s in 1, . . . , S do
+
+24:
+
+X (s) ← gibbs-step(X (s−1))
+
+25: return X (1), . . . X (S)
+
+schemes to tune the standard deviation of this proposal online during sampling (Łatuszyński et al., 2013). In this case, the proposal is symmetric, which is to say that q(x | x) = q(x | x ), which means that the acceptance probability simpliﬁes to the same form as in Equation (3.30).
+A second extension involves “block sampling”, in which multiple random variables nodes are sampled jointly, rather than cycling through and updating only one at a time. This can be very advantageous in cases
+
+3.3. Gibbs Sampling
+
+79
+
+where two latent variables are highly correlated: when updating one conditioned on a ﬁxed value of the other, it is only possible to make very small changes at a time. wIn contrast, a block proposal which updates both these random variables at once can move them larger distances, in sync. As a pathological example, consider the FOPPL program
+( let [x0 ( sample ( normal 0 1)) x1 ( sample ( normal 0 1))]
+( observe ( normal ( + x0 x1 ) 0.01) 2.0))
+in which we observe the sum of two standard normal random variates is very close to 2.0. If initialized at any particular pair of values (x0, x1) for which x0 + x1 ≈ 2.0, a Gibbs sampler which updates one random choice at a time will quickly become “stuck”.
+Consider instead a proposal which updates a subset of latent variables S ⊆ X, according to a proposal q(S | V \S). The “trivial” choice of proposal distribution — proposing values of each random variable x in S by simulating from the prior p(x | pa(x)) — would, for S = {x0, x1} in this example, sample both values from their independent normal priors. While this is capable of making larger moves (unlike the previous one-choice-at-a-time proposal, it would be possible for this proposal to go in a single step from e.g. (2.0, 0.0) to (0.0, 2.0)), with this naïve choice of block proposal overall performance may actually be worse than that with independent proposals: now instead of sampling a single value which needs to be “near” the previous value to be accepted, we are sampling two values, where the second value x1 needs to be “near” the sampled x0 − 2.0, something quite unlikely for negative values of x0. Constructing block proposals which have high acceptance rates require taking account of the structure of the model itself. One way of doing this adaptively, analogous to estimating posterior standard deviations to be used as scale parameters in univariate proposals, is to estimate posterior covariance matrices and using these for jointly proposing multiple latent variables (Haario et al., 2001).
+As noted already, it is sometimes possible to analytically derive the complete conditional distribution of a single variable in a graphical model. Such cases include all random variables whose value is discrete from a ﬁnite set, many settings in which all the densities in Vx are in the
+
+3.4. Hamiltonian Monte Carlo
+
+80
+
+exponential family, and so forth. Programming languages techniques can be used to identify such opportunities by performing pattern matching analyses of the source code of the link functions in Vx. If, as is the case in the simplest example, x itself is determined to be governed by a discrete distribution then, instead of using Metropolis within Gibbs, one would merely enumerate all possible values of x under the support of its distribution, score each, normalize, then sample from this exact conditional.
+Inference algorithms vary in their performance, sometimes dramatically. Metropolis Hastings within Gibbs is sometimes eﬃcient but even more often is not, unless utilizing intelligent block proposals (often, ones customized to the particular model). This has led to a proliferation of inference algorithms and methods, some but not all of which are directly applicable to probabilistic programming. In the next section, we consider Hamiltonian Monte Carlo, which incorporates gradient information to provide eﬃcient high-dimensional block proposals.
+
+3.4 Hamiltonian Monte Carlo
+
+Hamiltonian Monte Carlo (HMC) is a MCMC algorithm that makes use of gradients to construct an eﬃcient MCMC kernel for high dimensional distributions. The HMC algorithm applies to a target density π(X) = γ(X)/Z of the general form deﬁned in Equation (3.14), in which each variable x ∈ X is continuous. This unnormalized density is traditionally re-expressed by deﬁning a potential energy function
+
+U (X) := − log γ(X).
+
+(3.31)
+
+With this deﬁnition we can write
+
+1 π(X) = exp {−U (X)} .
+Z
+
+(3.32)
+
+Next, we introduce a set of auxiliary “momentum” variables R, one for each variable in x ∈ X, together with a function K(R) representing the kinetic energy of the system. These variables are typically deﬁned as samples from a zero-mean Gaussian with covariance M . This choice of
+
+3.4. Hamiltonian Monte Carlo
+
+81
+
+K then yields a joint target distribution π (X, R) deﬁned as follows:
+
+1 π (X, R) = exp{−U (X) − K(R)}
+Z
+
+1 = exp
+
+1 −U (X) + R
+
+M −1R
+
+.
+
+Z
+
+2
+
+Since marginalizing over R in π recovers the original density π, we can
+
+jointly sample X and R from π to generate samples X from π. The
+
+central idea in HMC is to construct an MCMC kernel that changes
+
+(X, R) in a way that preserves the Hamiltonian H(X, R), which describes
+
+the total energy of the system
+
+H(X, R) = U (X) + K(R).
+
+(3.33)
+
+By way of physical analogy, an HMC sampler constructs samples by simulating the trajectory of a “marble” with position X and a momentum R as it rolls through an energy “landscape” deﬁned by U (X). When moving “uphill” in the direction of the gradient ∇U (X), the marble loses momentum. Conversely when moving “downhill” (i.e. away from ∇U (X)), the marble gains momentum. By requiring that the total energy H is constant, we can derive the equations of motion
+
+dX dt
+
+= ∇RH(X, R)
+
+=
+
+M −1R,
+
+dR dt = −∇X H(X, R) = −∇X U (X).
+
+(3.34)
+
+That is, paths of X and R that solve the above diﬀerential equations
+
+preserve the total energy H(X, R). The HMC sampler proceeds by
+
+alternately sampling the momentum variables R, and then simulating
+
+(X, R) forward according to a discretized version of the above diﬀerential
+
+equations. Since π (X, R) factorizes into a product of independent dis-
+
+tributions on X and R, the momentum variables R are simply sampled
+
+in a Gibbs step according to their full conditional distribution (i.e. the
+
+marginal distribution) of Normal(0, M ). The forward simulation (called
+
+Hamiltonian dynamics) generates a new proposal (X , R ), which then
+
+is accepted with probability
+
+π (X , R ) α = min 1,
+π (X, R)
+
+= min 1, exp −H(X , R ) + H(X, R) .
+
+3.4. Hamiltonian Monte Carlo
+
+82
+
+Note here that if when were able to perfectly integrate the equations of motion in (3.34), then the sample is accepted with probability 1. In other words, the acceptance ratio purely is purely due to numerical errors that arise from the discretization of the equations of motion.
+
+3.4.1 Automatic Diﬀerentiation
+
+The essential operation that we need to implement in order to perform HMC for either a suitably restricted block proposal in the Metropoliswithin-Gibbs FOPPL inference algorithm from Section 3.3 of this chapter or another suitably restricted FOPPL-like language (Gram-Hansen et al., 2018; Stan Development Team, 2014) is the computation of the gradient
+
+∇U (X) = −∇ log γ(X).
+
+(3.35)
+
+When γ(X) is the density associated with a probabilistic program, we must take steps to ensure that this density is diﬀerentiable at all points X = X in the support of the distribution, noting that the class of all FOPPL programs includes conditional branching statements which renders HMC incompatible with whole FOPPL program inference. We will further discuss what implications this has for the structure of a program in Section 3.4.2. For now we will assume that γ(X) is indeed diﬀerentiable everywhere, and either refers to a joint p(Y, X) over continuous variables, or that we are using HMC as a block Gibbs update to sample a subset of continuous variables Xb ⊂ X from the conditional p(Xb | Y, X \ Xb).
+Given that γ(X) is diﬀerentiable, how can we compute the gradient? For a program with graph (V, A, P, Y) and variables V = Y ∪ X, the component of the gradient for a variable x ∈ X is
+
+∂ log p(Y, X)
+
+∇xU (X) = −
+
+∂x
+
+=−
+
+∂ log p(x |pa(x )) − ∂ log p(y|pa(y)) .
+
+∂x
+
+∂x
+
+x ∈X
+
+y∈Y
+
+(3.36)
+
+In our graph compilation procedure, we have constructed expressions p(x|pa(x)) ≡ P(x) and p(y|pa(y)) ≡ P(y)[y := Y(y)] for each random
+
+3.4. Hamiltonian Monte Carlo
+
+83
+
+variable. In order to calculate ∇U (X) we will ﬁrst construct a single expression EU that represents the potential U (X) ≡ EU as an explicit sum over the variables X = {x1, . . . , xN } and Y = {y1, . . . , yM }
+EX :=(+ (log P(x1)) . . . (log P(xN ))) EY :=(+ (log P(y1)[y1 := Y(y1)]) . . . (log P(yM )[yM := Y(yM )])) EU :=(* -1.0 (+ EX EY ))
+We can then deﬁne point-wise evaluation of the potential function by means of the partial evaluation operation eval after substitution of a map X of values
+
+U (X = X ) := eval(EU [X := X ]).
+
+(3.37)
+
+In order to compute the gradients of the potential function, we will use reverse-mode automatic diﬀerentiation (AD) (Griewank and Walther, 2008; Baydin et al., 2015), which is the technique that forms the basis for modern deep learning systems such as TensorFlow (Abadi et al., 2015), PyTorch (Paszke et al., 2017), MxNET (Chen et al., 2016), and CNTK (Seide and Agarwal, 2016).
+To perform reverse-mode AD, we augment all real-valued primitive procedures in a program with primitives for computing the partial derivatives with respect to each of the inputs. We additionally construct a data structure that represents the computation as a graph. This graph contains a node for each primitive procedure application and edges for each of its inputs. There are a number of ways to construct such a computation graph. In Section 3.5 we will show how to compile a Bayesian network to a factor graph. This graph will also contain a node for each primitive procedure application, and edges for each of its inputs. In this section, we will compute this graph dynamically as a side-eﬀect of evaluation of an expression E in the target language.
+Suppose that E contains the free variables V = {v1, . . . , vD}. We can think of this expression as a function E ≡ F (v1, . . . , vD). Suppose that we wish to compute the gradient of F at values
+
+V = [v1 → c1, . . . , vD → cD],
+
+(3.38)
+
+Our goal is now to to deﬁne a gradient operator
+
+grad (eval (F [V := V])) ,
+
+(3.39)
+
+3.4. Hamiltonian Monte Carlo
+
+84
+
+which computes the map of partial derivatives
+
+∂F (V )
+
+∂F (V )
+
+G := v1 →
+
+∂v1
+
+, . . . , vD →
+V =V
+
+∂vD
+
+.
+V =V
+
+(3.40)
+
+Given that F is an expression in the target language, we can solve the problem of diﬀerentiating F by deﬁning the derivative of each expression type E recursively in terms of the derivatives of its sub-expressions. To do so, we only need to consider 4 cases:
+
+1. Constants E = c have zero derivatives ∂E = 0. ∂vi
+
+2. Variables E = v have derivatives
+
+∂E =
+
+1 v = vi,
+
+∂vi
+
+0 v = vi.
+
+(3.41) (3.42)
+
+3. For if expressions E = (if E1 E2 E3) we can deﬁne the derivative recursively in terms of the value c1 of E1,
+
+∂E =
+
+∂E2 / ∂vi c1 = true
+
+∂vi
+
+∂E3 / ∂vi c1 = false
+
+(3.43)
+
+4. For primitive procedure applications E =(f E1 . . . En) we apply the chain rule
+
+∂E =
+
+n
+
+∂f (v1, . . . , vn) ∂Ej .
+
+∂vi j=1
+
+vj
+
+∂vi
+
+(3.44)
+
+The ﬁrst 3 base cases are trivial. This means that we can compute the gradient of any target language expression E with respect to the values of its free variables as long as we are able calculate the partial derivatives of values returned by primitive procedure applications with respect to the values of the inputs.
+Let us discuss this last case in more detail. Suppose that f is a primitive that accepts n real-valued inputs, and returns a real-valued output c = f (c1, . . . , cn). In order to perform reverse-mode AD, we will
+
+3.4. Hamiltonian Monte Carlo
+
+85
+
+Algorithm 2 Primitive function lifting for reverse-mode AD.
+
+1: function unbox(c˜)
+
+2: if c˜ = (c, _) then
+
+3:
+
+return c
+
+Unpack value from c˜
+
+4: else
+
+5:
+
+return c˜
+
+Return value as is
+
+6: function lift-ad(f , ∇f , n) 7: function f˜(c˜1, . . . , c˜n)
+
+8:
+
+c1, . . . , cn ← unbox(c˜1), . . . , unbox(c˜n)
+
+9:
+
+c ← f (c1, . . . , cn)
+
+10:
+
+c˙1, . . . , c˙n ← ∇f (c1, . . . , cn)
+
+11:
+
+return (c, ((c˜1, . . . , c˜n), (c˙1, . . . , c˙n)))
+
+12: return f˜
+
+replace this primitive with a “lifted” variant f˜ such that c˜ = f˜(c˜1, . . . , c˜n) will return a boxed value
+
+c˜ = (c, ((c˜1, . . . , c˜n), (c˙1, . . . , c˙n))),
+
+(3.45)
+
+which contains the return value c of f , the input values c˜i, and the values of the partial derivatives c˙i = ∂f (v1, . . . , vn)/∂vi|vi=ci of the output with respect to the inputs. Algorithm 2 shows pseudo-code for an operation that constructs an AD-compatible primitive f˜ from a primitive f and a second primitive ∇f that computes the partial derivatives of f with respect to its inputs.
+The boxed value c˜ is a recursive data structure that we can use to walk the computation graph. Each of the input values c˜i corresponds the value of a sub-expression that is either a constant, a variable, or the return value of another primitive procedure application. The ﬁrst two cases correspond leaf nodes in the computation graph. In the case of a variable v (Equation 3.42), we are at an input where the gradient is 1 for the component associated with v, and 0 for all other components. We represent this sparse vector as a map G = [v → 1]. When we reach a constant value (Equation 3.41), we do don’t need to do anything, since the gradient of a constant is 0. We represent this zero gradient as an empty map G = [ ]. In the third case (Equation 3.44), we can recursively
+
+3.4. Hamiltonian Monte Carlo
+
+86
+
+Algorithm 3 Reverse-mode automatic diﬀerentiation.
+
+1: function grad(c˜)
+
+2: match c˜
+
+3:
+
+case (c, v)
+
+4:
+
+return [v → 1]
+
+Pattern match against value type Input value
+
+5:
+
+case (c, ((c˜1, . . . , c˜n), (c˙1, . . . , c˙n)))
+
+Intermediate value
+
+6:
+
+G ← []
+
+7:
+
+for i in 1, . . . , n do
+
+8:
+
+Gi ← grad(c˜i)
+
+9:
+
+for v in dom(Gi) do
+
+10:
+
+if v ∈ dom(G) then
+
+11:
+
+G(v) ← G(v) + c˙i · Gi(v)
+
+12:
+
+else
+
+13:
+
+G(v) ← c˙i · Gi(v)
+
+14:
+
+return G
+
+15: return [ ]
+
+Base case, return zero gradient
+
+unpack the boxed values c˜i to compute gradients with respect to input values, multiply the resulting gradient terms partial derivatives c˙i, and ﬁnally sum over i.
+Algorithm 3 shows pseudo-code for an algorithm that performs the reverse-mode gradient computation according to this recursive strategy. In this algorithm, we need to know the variable v that is associated with each of the inputs. In order to ensure that we can track these correspondences we will box an input value c associated with variable v into a pair c˜ = (c, v). The gradient computation in Algorithm 3 now pattern matches against values c˜ to determine whether the value is an input, and intermediate value that was returned from a primitive procedure call, or any other value (which has a 0 gradient).
+Given this implementation of reverse-mode AD, we can now compute the gradient of the potential function in two steps
+
+U˜ = eval(EU [V := V]), G = grad(U˜ ).
+
+(3.46) (3.47)
+
+3.4. Hamiltonian Monte Carlo
+
+87
+
+Algorithm 4 Hamiltonian Monte Carlo
+
+1: global X, EU 2: function gradient(c˜, c˙) 3: . . .
+
+As in Algorithm 3
+
+4: function ∇U (X )
+5: U˜ ← eval(EU [X := X ]) 6: return grad(U˜ )
+
+7: function leapfrog(X0, R0, T , )
+
+8:
+
+R1/2
+
+←
+
+R0
+
+−
+
+1 2
+
+∇U (X0)
+
+9: for t in 1, . . . , T − 1 do
+
+10:
+
+Xt ← Xt−1 + Rt−1/2
+
+11:
+
+Rt+1/2 ← Rt−1/2 − ∇U (Xt)
+
+12: XT ← XT −1 + RT −1/2
+
+13:
+
+RT
+
+←
+
+R0
+
+−
+
+1 2
+
+∇U (XT −1/2)
+
+14: return XT , RT
+
+15: function hmc(X (0), S, T , , M )
+
+16: for s in 1, . . . , S do
+
+17:
+
+R(s−1) ∼ Normal(0, M )
+
+18:
+
+X , R ← leapfrog(X (s−1), R(s−1), T, )
+
+19:
+
+u ∼ Uniform(0, 1)
+
+20:
+
+if u < exp − H(X , R ) + H(X (s−1), R(s−1) ) then
+
+21:
+
+X (s) ← X
+
+22:
+
+else
+
+23:
+
+X (s) ← X
+
+return X (1), . . . , X (S)
+
+3.4.2 Implementation Considerations
+Algorithm 4 shows pseudocode for an HMC algorithm that makes use of automatic diﬀerentiation to compute the gradient ∇U (X). There are a number of implementation considerations to this algorithm that we have thus far not discussed. Some of these considerations are common to all HMC implementations. Algorithm 4 performs numerical integration using a leapfrog scheme, which discretizes the trajectory for the position X to time points at an interval and computes a correponding trajectory
+
+3.4. Hamiltonian Monte Carlo
+
+88
+
+for the momentum R at time points that are shifted by /2 relative to those at which we compute the position. There is a trade-oﬀ between the choice of step size and the numerical stability of the integration scheme, which aﬀects the acceptance rate. Moreover, this step size should also appropriately account for the choice of mass matrix M , which is generally chosen to match the covariance in the posterior expectation Mi−j 1 Eπ(X)[xixj] − Eπ(X)[xi]Eπ(X)[xj]. Finally, modern implemenations of HMC typically employ a No-Uturn sampling (NUTS) scheme to ensure that the number of time steps T is chosen in a way that minimizes the degree of correlation between samples.
+An implementation consideration unique to probabilistic programming is that not all FOPPL programs deﬁne densities γ(X) = p(Y, X) that are diﬀerentiable at all points in the space. The same is true for systems like Stan (Stan Development Team, 2014) and PyMC3 (Salvatier et al., 2016), which opt to provide users with a relatively expressive modeling language that includes if expressions, loops, and even recursion. While these systems enforce the requirement that a program deﬁnes a density over set of continuous variables that is known at compile time, they do not enforce the requirement that the density is diﬀerentiable. For example, the following FOPPL program would be perfectly valid when expressed as a Stan or PyMC3 model
+(let [x (sample (normal 0.0 1.0)) y 0.5] (if (> x 0.0) (observe (normal 1.0 0.1) y) (observe (normal -1.0 0.1) y)))
+This program corresponds to an unnormalized density
+γ(x) = Norm(0.5; 1, 0)I[x>0]Norm(0.5; −1, 0)I[x≤0]Norm(x; 0, 1),
+for which the derivative is clearly undeﬁned at x = 0, since γ(x) is discontinuous contains at this point. This means that HMC will not sample from the correct distribution if we were to naively compute the derivatives at x = 0. Even in cases where the density is continuous, the derivative may not be deﬁned at every point.
+
+3.5. Compilation to a Factor Graph
+
+89
+
+In other words, it is easy to deﬁne a program that may not satisfy the requirements necessary for HMC. So what are these requirements? Precisely characterizing them is complex although early attempts are being made (Gram-Hansen et al., 2018). In practice, to be safe, a program should not contain if expressions that cannot be partially evaluated, all primitive functions must be diﬀerentiable everywhere, and cannot contain unobserved discrete random variables.
+
+3.5 Compilation to a Factor Graph
+
+In Section 3.2, we showed that a Bayesian network is a representation of a joint probability p(Y, X) of observed random variables Y , each of which corresponds to an observe expression, and unobserved random variables X, each of which corresponds to a sample expression. Given this representation, we can now reason about a posterior probability p(X | Y ) of the sampled values, conditioned on the observed values. In Section 3.2.1, we showed that we can generalize this representation to an unnormalized density γ(X) = ψ(X)p(X) consisting of a directed network that deﬁnes a prior probability p(X) and a potential term (or factor) ψ(X). In this section, we will represent a probabistic program in the FOPPL as a factor graph, which is a fully undirected network. We will use this representation in Section 3.6 to deﬁne an expectation propagation algorithm.
+A factor graph deﬁnes an unnormalized density on a set of variables X in terms of a product over an index set F
+
+γ(X) := ψf (Xf ),
+f ∈F
+
+(3.48)
+
+in which each function ψf , which we refer to as a factor, is itself an unnormalized density over some subset of variables Xf ⊆ X. We can think of this model as a bipartite graph with variable nodes X, factor nodes F and a set of undirected edges A ⊆ X × F that indicate which variables are associated with each factor
+
+Xf := {x : (x, f ) ∈ A}.
+
+(3.49)
+
+Any directed graphical model (V, A, P, Y) can be interpreted as a factor graph in which there is one factor f ∈ F for each variable v ∈ V . In
+
+3.5. Compilation to a Factor Graph
+
+90
+
+ρ, c ⇓f c
+
+ρ, v ⇓f v
+
+e1 ⇓f e1 e2 ⇓f e2 ρ, (let [v e1] e2) ⇓f (let [v e1] e2)
+
+e ⇓f e
+
+e1 ⇓f e1 e2 ⇓f e2
+
+ρ, (sample e) ⇓f (sample e ) ρ, (observe e1 e2) ⇓f (observe e1 e2)
+
+ρ, ei ⇓f ei for i = 0, . . . , n ρ(f ) = (defn [v1. . .vn] e0)
+
+ρ, e0 ⇓f e0
+
+ρ(f ) = (defn [v1. . .vn] e0)
+
+ρ, (f e1 . . . en) ⇓f (f e1 . . . en)
+
+ρ, ei ⇓f ei for i = 1, . . . , n op = if or op = c ρ, (op e1 . . . en) ⇓f (sample (dirac (op e1 . . . en)))
+
+Figure 3.2: Inference rules for the transformation ρ, e ⇓f e , which replaces if forms and primitive procedure calls with expressions of the form (sample (dirac e)).
+
+other words we could deﬁne
+
+γ(X) := ψv(Xv),
+v∈V
+
+(3.50)
+
+where the factors ψv(Xv) equivalent to the expressions P(v) that evaluate the probability density for each variable v, which can be either observed or unobserved,
+
+
+
+P(v)[v := Y(v)], v ∈ dom(Y),
+
+ψv(Xv) ≡ P (v),
+
+v ∈ dom(Y).
+
+(3.51)
+
+A factor graph representation of a density is not unique. For any factorization, we can merge two factors f and g into a new factor h
+
+ψh(Xh) := ψf (Xf )ψg(Xg),
+
+Xh := Xf ∪ Xg.
+
+(3.52)
+
+A graph in which we replace the factors f and g with the merged factor h is then an equivalent representation of the density. The implication of this is that there is a choice in the level of granularity at which we wish to represent a factor graph. The representation above has a comparatively low level of granularity. We will here consider a more
+
+3.5. Compilation to a Factor Graph
+
+91
+
+ﬁne-grained representation, analogous to the one used in Infer.NET (Minka et al., 2010b). In this representation, we will still have one factor for every variable, but we will augment the set of nodes X to contain an entry x for every deterministic expression in a FOPPL program. We will do this by deﬁning a source code transformation ρ, e ⇓f e that replaces each deterministic sub-expressions (i.e. if expressions and primitive procedure calls) with expressions of the form
+(sample (dirac e ))
+Where (dirac e ) refers to the Dirac delta distribution with density
+pdirac(x ; c) = I[x = c]
+After this source code transformation, we can use the rules from Section 3.1 to compile the transformed program into a directed graphical model (V, A, P, Y). This model will be equivalent to the directed graphical model of the untransformed program, but contains an additional node for each Dirac-distributed deterministic variable.
+The inference rules for the source code transformation ρ, e ⇓f e are much simpler than the rules that we wrote down in Section 3.1. We show these rules in Figure 3.2. The ﬁrst two rules state that constants c and variables v are unaﬀected. The next rules state that let, sample, and observe forms are transformed by transforming each of the subexpressions, inserting deterministic variables where needed. User-deﬁned procedure calls are similarly transformed by transforming each of the arguments e1, . . . , en, and transforming the procedure body e0. So far, none of these rules have done anything other than state that we transform an expression by transforming each of its sub-expressions. The two cases where we insert Dirac-distributed variables are if forms and primitive procedure applications. For these expression forms e, we transform the sub-expressions to obtain a transformed expression e and then return the wrapped expression (sample (dirac e )).
+As noted above, a directed graphical model can always be interpreted as a factor graph that contains single factor for each random variable. To aid discussion in the next section, we will explicitly deﬁne the mapping from the directed graph (V dg, Adg, Pdg, Ydg) of a transformed program
+
+3.5. Compilation to a Factor Graph
+
+92
+
+onto a factor graph (X, F, A, Ψ) that deﬁnes a density of the form in Equation 3.48.
+A factor graph (X, F, A, Ψ) is a bipartite graph in which X is the set of variable nodes, F is the set of factor nodes, A is a set of undirected edges between variables and factors, and Ψ is a map of factors that will be described shortly. The set of variables is identical to the set of unobserved variables (i.e. the set of sample forms) in the corresponding directed graph
+
+X := Xdg = V dg \ dom(Ydg).
+
+(3.53)
+
+We have one factor f ∈ F for every variable v ∈ V dg, which includes both unobserved variables x ∈ Xdg, corresponding to sample expressions, and observed variables y ∈ Y dg. We write F 1=−1 V dg to signify that
+there is a bijective relation between these two sets and use vf ∈ V to refer to the variable node that corresponds to the factor f . Conversely
+we use fv ∈ F to refer to the factor that corresponds to the variable node v. We can then deﬁne the set of edges A 1=−1 Adg as
+
+A := {(v, f ) : (v, vf ) ∈ Adg}.
+
+(3.54)
+
+The map Ψ contains an expression Ψ(f ) for each factor, which evaluates
+the potential function of the factor ψf (Xf ). We deﬁne Ψ(f ) in terms of the of the corresponding expression for the conditional density Pdg(vf ),
+
+
+
+Ψ(f ) := Pdg(vf )[vf := Ydg(vf )], vf ∈ dom(Ydg),
+
+Pdg(vf ),
+
+vf ∈ dom(Ydg).
+
+(3.55)
+
+This deﬁnes the usual correspondence between ψf (Xf ) and Ψ(f ), where we note that the set of variables Xf associated with each factor f is equal to the set of variables in Ψ(f ),
+
+ψf (Xf ) ≡ Ψ(f ),
+
+Xf = free-vars(Ψ(f )).
+
+(3.56)
+
+For purposes of readability, we have omitted one technical detail in this discussion. In Section 3.2.2, we spent considerable time on techniques for partial evaluation, which proved necessary to avoid graphs that contain spurious edges for between variable that are in fact conditionally independent. In the context of factor graphs, we can similarly eliminate
+
+3.5. Compilation to a Factor Graph
+
+93
+
+unnecessary factors and variables. Factors that can be eliminated are those in which the expression Ψ(f ) either takes the form (pdirac v c) or (pdirac c v). In such cases we remove the factor f , the node v, and substitute v := c in the expressions of all other potential functions. Similarly, we can eliminate all variables with factors of the form (pdirac v1 v2) by substituting v1 := v2 everywhere.
+To get a sense of how a factor graph diﬀers from a directed graph, let us look at a simple example, inspired by the TrueSkill model (Herbrich et al., 2007). Suppose we consider a match between two players who each have a skill variable s1 and s2. We will assume that the player 1 beats player 2 when (s1 − s2) > , which is to say that the skill of player 1 exceeds the skill of player 2 by some margin . Now suppose that we deﬁne a prior over the skill of each player and observe that player 1 beats player 2. Can we reason about the posterior on the skills s1 and s2? We can translate this problem to the following FOPPL program
+(let [s1 (normal 0 1.0) s2 (normal 0 1.0) delta (- s1 s2) epsilon 0.1 w (> delta epsilon) y true]
+(observe (dirac w) y) [s1 s2])
+
+This program diﬀers from the ones we have considered so far in that we are using a Dirac delta to enforce a hard constraint on observations, which means that this program deﬁnes an unnormalized density
+
+γ(s1, s2) = pnorm(s1; 0, 1) pnorm(s2; 0, 1) I[(s1−s2)> ].
+
+(3.57)
+
+This type of hard constraint poses problems for many inference algorithms for directed graphical models. For example, in HMC this introduces a discontinuity in the density function. However, as we will see in the next section, inference methods based on message passing are much better equipped to deal with this form of condition.
+When we compile the program above to a factor graph we obtain a
+
+3.6. Expectation Propagation
+
+94
+
+set of variables X = (s1, s2, δ, w) and the map of potentials
+
+ fs1 → (pnorm s1 0.0 1.0), 
+
+ 
+
+fs2
+
+→
+
+(pnorm
+
+s2
+
+0.0 1.0),
+
+ 
+
+
+
+
+
+Ψ= 
+
+fδ → (pdirac
+
+δ
+
+(-
+
+s1
+
+s2)),
+
+. 
+
+
+
+
+
+ 
+
+fw
+
+→ (pdirac
+
+w
+
+(>
+
+δ
+
+0.1)), 
+
+fy → (pdirac true w)
+
+(3.58)
+
+Note here that the variables s1 and s2 would also be present in the directed graph corresponding to the unstransformed program. The
+
+deterministic variables δ and w have been added as a result of the
+
+transformation in Figure 3.2. Since the factor fy restricts w to the value true, we can eliminate fy from the set of factors and w from the set of varables. This results in a simpliﬁed graph where X = (s1, s2, δ) and the potentials
+
+ fs1 → (pnorm 0.0 1.0),
+
+
+
+Ψ
+
+=
+
+  
+
+fs2
+
+→ (pnorm
+
+0.0
+
+1.0),
+
+
+
+ 
+
+.
+
+ 
+
+fδ → (pdirac
+
+δ
+
+(-
+
+s1
+
+s2)),
+
+ 
+
+fw → (pdirac true (> δ 0.1))
+
+(3.59)
+
+In summary, we have now created an undirected graphical model,
+
+in which there is deterministic variable node x ∈ X for all primitive
+
+operations such as (> v1 v2) or (- v1 v2). In the next section, we will see how this representation helps us when performing inference.
+
+3.6 Expectation Propagation
+
+One of the main advantages in representing a probabilistic program as
+
+a factor graph is that we can perform inference with message passing
+
+algorithms. As an example of this we will consider expectation propa-
+
+gation (EP), which forms the basis of the runtime of Infer.NET (Minka
+
+et al., 2010b), a popular probabilistic programming language.
+
+EP considers an unnormalized density γ(X) that is deﬁned in terms
+
+of a factor graph (X, F, A, Ψ). As noted in the preceding section, a
+
+factor graph deﬁnes a density as a product over an index set F
+
+π(X) := γ(X)/Zπ,
+
+γ(X) := ψf (Xf ).
+f ∈F
+
+(3.60)
+
+3.6. Expectation Propagation
+
+95
+
+We approximate π(X) with a distribution q(X) that is similarly deﬁned as a product over factors
+
+1 q(X) := Zq φf (Xf ).
+f ∈F
+
+(3.61)
+
+The objective in EP is to make q(X) as similar as possible to π(X) by minimizing the Kullback-Leibler divergence
+
+π(X )
+
+argmin DKL (π(X) || q(X)) = argmin
+
+q
+
+q
+
+π(X) log
+
+dX,
+
+q(X )
+
+(3.62)
+
+EP algorithms minimize the KL divergence iteratively by updating one factor φf at a time
+
+• Deﬁne a tilted distribution πf (X) := γf (X)/Zf ,
+
+γf (X)
+
+:=
+
+ψf (Xf ) q(X). φf (Xf )
+
+(3.63)
+
+• Update the factor by minimizing the KL divergence
+
+φf = argmin DKL (πf (X) || q(X)) .
+φf
+
+(3.64)
+
+In order to ensure that the KL minimization step is tractable, EP methods rely on the properties of exponential family distributions. We will here consider the variant of EP that is implemented in Infer.NET, which assumes a fully-factorized form for each of the factors in q(X)
+
+φf (Xf ) :=
+
+φf →x (x).
+
+x∈Xf
+
+(3.65)
+
+We refer to the potential φf→x(x) as the message from factor f to the variable x. We assume that messages have an exponential form
+
+φf→x(x) = exp[λf→xt(x)],
+
+(3.66)
+
+in which λf→x is the vector of natural parameters and t(x) is the vector of suﬃcient statistics of an exponential family distribution. We can then express the marginal q(x) as an exponential family distribution
+
+1 q(x) = Zxq f:x∈Vf φf→x(x),
+
+(3.67)
+
+= h(x) exp (λxt(x) − a(λx)) ,
+
+3.6. Expectation Propagation
+
+96
+
+where a(λx) is the log normalizer of the exponential family and λx is the sum over the parameters for individual messages
+
+λx =
+
+λf →x .
+
+(3.68)
+
+f :x∈Xf
+
+Note that we can express the normalizing constant Zq as a product
+
+over per-variable normalizing constants Zxq,
+
+Zq := Zxq,
+x∈X
+
+Zxq := dx
+
+φf →x (x),
+
+f :x∈Xf
+
+(3.69)
+
+where we can compute Zxq in terms of λx using
+
+Zxq = exp (a(λx)) = exp a f : x∈Xf λf→x .
+
+(3.70)
+
+Exponential family distributions have many useful properties. One such
+
+property is that expected values of the suﬃcient statistics t(x) can be
+
+computed from the gradient of the log normalizer
+
+∇λx a(λx) = Eq(x)[t(x)].
+
+(3.71)
+
+In the context of EP, this property allows us to express KL minimization as a so-called moment-matching condition. To explain what we mean by this, we will expand the KL divergence
+
+Zq DKL (πf (X) || q(X)) = log Zf + Eπf (X)
+
+log ψf (Xf ) φf (Xf )
+
+.
+
+(3.72)
+
+We now want to minimize this KL divergence with respect the parameters λf→v. When we ignore all terms that do not depend on these parameters, we obtain
+
+∇λf→x DKL (πf (X) || q(X)) = ∇λf→x log Zxq − Eπf (X)[log φf→x(x)] = 0.
+When we substitute the message φf→x(x) from Equation 3.66, the normalizing constant Zxq(λx) from Equation 3.70, and apply Equation 3.71, then we obtain the moment matching condition
+
+Eq(x)[t(x)] = ∇λf→x Eπf (X)[log φf→x(x)], = ∇λf→x Eπf (X)[λf→xt(x)], = Eπf (X)[t(x)].
+
+(3.73)
+
+3.6. Expectation Propagation
+
+97
+
+Algorithm 5 Fully-factorized Expectation Propagation
+
+1: function proj(G, λ, f )
+
+2: X, F, A, Ψ ← G
+
+3: γf (X) ← ψf (X)q(X)/φf (X)
+
+4: Zf ← dX γf (X)
+
+5: for x in Xf do
+
+6:
+
+t¯ ← 1/Zf dX γf (X)t(x)
+
+7:
+
+λx∗ ← moment-match(t¯)
+
+8:
+
+λf →x ← λ∗x − f =f : x∈Xf λf →x
+
+Equation (3.63) Equation (3.75)
+Equation (3.77) Equation (3.73) Equation (3.74)
+
+9: return λ, log Zf
+
+10: function ep(G)
+
+11: X, F, A, Ψ ← G
+
+12: λ ← initialize-parameters(G)
+
+13: for f in schedule(G) do
+
+14:
+
+λ, log Zf ← proj(G, λ, f )
+
+15: for x in X do
+
+16:
+
+log Zxq ← a(λx)
+
+17: log Zπ ← f log Zf + x log Zxq 18: return λ, log Zπ
+
+Equation (3.70) Equation (3.78)
+
+If we assume that the parameters λx∗ satisfy the condition above, then we can use Equation 3.68 to deﬁne the update for the message φf→x
+
+λf→x ← λx∗ −
+
+λf →x.
+
+f =f : x∈Xf
+
+(3.74)
+
+In order to implement the moment matching step, we have to solve two integrals. The ﬁrst computes the normalizing constant Zf . We can express this integral, which is nominally an integral over all variables X, as an integral over the variables Xf associated with the factor f ,
+
+Zf =
+
+dX ψf (Xf ) q(X) = φf (Xf ) =
+
+dXf
+
+ψf (Xf ) φf (Xf ) x∈Xf
+
+1 Zxq f
+
+: x∈Vf
+
+φf →x(x),
+
+1
+
+dXf
+
+ψf (Xf )
+x∈Xf
+
+Zxq φx→f (x).
+
+(3.75)
+

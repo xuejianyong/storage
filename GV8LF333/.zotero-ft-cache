@@ -1,0 +1,315 @@
+Learning latent state representation for speeding up exploration
+
+arXiv:1905.12621v1 [cs.LG] 27 May 2019
+
+Giulia Vezzani 1 Abhishek Gupta 2 Lorenzo Natale 1 Pieter Abbeel 2 3
+
+Abstract
+Exploration is an extremely challenging problem in reinforcement learning, especially in high dimensional state and action spaces and when only sparse rewards are available. Effective representations can indicate which components of the state are task relevant and thus reduce the dimensionality of the space to explore. In this work, we take a representation learning viewpoint on exploration, utilizing prior experience to learn effective latent representations, which can subsequently indicate which regions to explore. Prior experience on separate but related tasks help learn representations of the state which are effective at predicting instantaneous rewards. These learned representations can then be used with an entropy-based exploration method to effectively perform exploration in high dimensional spaces by effectively lowering the dimensionality of the search space. We show the beneﬁts of this representation for meta-exploration in a simulated object pushing environment.
+1. Introduction
+Efﬁciently exploring the state space to fast experience the reward is a crucial problem in Reinforcement Learning (RL) and assumes even more relevance when dealing with real world tasks, where usually the only obtainable reward functions are sparse. In recent years, several diverse strategies have been developed to address the exploration problem (Chentanez et al., 2005; Stadie et al., 2015; Bellemare et al., 2016; Plappert et al., 2017; Fortunato et al., 2017; Van Hoof et al., 2015; Sendonaris & Dulac-Arnold, 2017; Vecer´ık et al., 2017; Taylor et al., 2011; Nair et al., 2018; Rajeswaran et al., 2018). Most works assume that exploration is performed with no prior knowledge about the solution of
+1Istituto Italiano di Tecnologia, Genoa, Italy. 2University of California Berkely, California. 3Covariant.ai, Emeryville, California. Correspondence to: Giulia Vezzani <giulia.vezzani@iit.it>.
+Proceedings of the 2 nd Exploration in Reinforcement Learning Workshop at the 36 th International Conference on Machine Learning, Long Beach, California, PMLR 97, 2019. Copyright 2019 by the author(s).
+
+the task. This assumption is not necessarily realistic and surely does not hold for humans that constantly use their knowledge and past experience to solve new tasks. The idea of exploiting knowledge from prior tasks to fast adapt to the solution of a new task is a new promising approach already widely used in Deep RL (Finn et al., 2017; Clavera et al., 2018), and some works have speciﬁcally considered using this for addressing the exploration problem (Gupta et al., 2018).
+In this work, we leverage on prior experience to learn a latent representation encoding the components of the state that are task relevant and thus reduce the dimensionality of the space to explore. In particular, we use the solutions of separate but related tasks to learn a minimal shared representation effective at predicting the rewards. Such a representation is then used during the solution of new tasks to focus exploration only in a sub-region of the whole state space, which, in its entirety, might instead contain irrelevant factors that would make the search space especially large.
+The paper is organized as follows. Section 2 brieﬂy reviews some relevant work on the exploration problem in RL. After the deﬁnition of the mathematical notation used (Section 3), we describe the proposed algorithm in Section 4. Sections 5 and 6 ends the paper showing some relevant results and discussion about the approach. More information on the algorithm and further experiments are collected in the Appendix.
+2. Related work
+Several exploration strategies have been proposed in the last years comprising different criteria used for encouraging exploration. In (Chentanez et al., 2005; Stadie et al., 2015), the exploration is based on intrinsic motivation. During the training, the agent learns also a model of the system and an exploration bonus is assigned when novel states with respect to the trained model are encountered. Novel states are identiﬁed as those states that create a stronger disagreement with the model trained until that moment. Another group of exploration algorithms are count-based methods that directly count the number of times a certain state has been visited to guide the agent towards states less visited. Obviously, such an approach is infeasible in continuous state space. For this reason, some works such as (Bellemare et al., 2016) extend
+
+Learning latent state representation for speeding up exploration
+
+count-based exploration approaches to non-tabular (continous) RL using density models to derive a pseudo-count of the visited states. Another approach to encourage exploration consists of injecting noise to the agent’s parameters, leading to richer set of agent behaviors during training (Plappert et al., 2017; Fortunato et al., 2017). These exploration strategies are task agnostic in that they aim at providing good exploration without exploiting any speciﬁc information of the task itself. More recently instead, the exploration problem has been cast into meta-learning (or learning to learn), the ﬁeld of machine learning whose goal is to learn strategies for fast adaptation by using prior tasks (Finn et al., 2017). An example of application of meta-learning for the exploration problem is shown in (Gupta et al., 2018), where a novel algorithm is presented to learn exploration strategies from prior experience. Alternatively, it is possible to get around the exploration problem by providing task demonstrations for guiding and speeding up the training (Van Hoof et al., 2015; Sendonaris & Dulac-Arnold, 2017; Vecer´ık et al., 2017; Taylor et al., 2011; Nair et al., 2018). The work presented in (Rajeswaran et al., 2018) shows how the proper incorporation of human demonstrations into RL methods allows reducing the number of samples required for training an agent to solve complex dexterous manipulation tasks with a multi-ﬁngered hand.
+The algorithm we present in this work aims at combining the beneﬁts of some of the most popular exploration approaches. In particular, similarly to extended count-based methods, our method encourages exploration in portions of the states not visited yet but, instead of searching in the entire state space, exploration is focused on those regions learnt to be task relevant from prior experience, as suggested by metalearning.
+3. Preliminaries
+We model the control problem as a Markov decision process (MDP), which is deﬁned using the tuple: M = {S, A, Psa, R, γ, ρ0}. S ⊆ Rn and A ⊆ Rm represent the state and actions. R : S × A → R is the reward function which measures task progress and is considered to be sparse in this context. Psa : S × A → S is the transition dynamics, which can be stochastic. In model-free RL, we do not assume knowledge about this transition function, and require only sampling access to this function. ρ0 is the probability distribution over initial states and γ ∈ [0, 1) is a discount factor. We wish to solve for a stochastic policy of the form π : S → A, which optimizes the expected sum of rewards:
+
+∞
+
+η(π) = Eπ,M
+
+γtRt .
+
+(1)
+
+t=0
+
+4. Method
+
+We consider a family of tasks sampled from a distribution
+
+PT . We assume N tasks T1, . . . , TN ∼ PT to be already
+
+solved, and to have access to the states visited during each
+
+training {S(i)}Ni=1 together with the experienced rewards
+
+signals {R(i)}Ni=1. The set of states S(i) of the i-th task
+
+includes all the trajectories τt(i) experienced during each
+
+training
+
+step
+
+t:
+
+S (i)
+
+=
+
+{τt(i)
+
+}tmax
+t=1
+
+,
+
+with
+
+tmax
+
+the
+
+number
+
+of training steps, τ = {s0 ∈ Rn, . . . , sl ∈ Rn} and l
+
+the length of each trajectory. Analogously for the rewards:
+
+R(i)
+
+=
+
+{rt(i)
+
+}tmax
+t=1
+
+,
+
+with
+
+tmax
+
+the
+
+number
+
+of
+
+training
+
+steps,
+
+r = {R0 ∈ R, . . . , Rl ∈ R} and l the length of each
+
+trajectory. The goal is to efﬁciently use the information
+
+that can be extracted from the N tasks for fast exploration
+
+during the solution of a new task TN+1 ∼ PT .
+
+The key idea of this work consists of learning from the N prior tasks a latent representation z ∈ Rp (p < n) of that portion of the state mostly affecting the experience of rewards. During the solution of the new task TN+1, the latent representation z is then considered the subregion of
+the state on which to focus the exploration.
+
+At this aim, we design 1) a multi-headed framework for reward regression on the tasks T1, . . . , TN ∼ PT to encode in the shared layers of the network the latent representation z; 2) a novel exploration strategy consisting of the maximization of the entropy over the latent representation z rather than over the entire state space.
+
+4.1. Learning latent state representation from prior states using a multi-headed network
+We assume N tasks to be sampled from the same distribution PT . An example of task distribution is given by the object-pusher task (Fig. 6): a manipulator is required to push one speciﬁc object (among other objects) towards a target position. Each task differs in the initial objects and goal positions. Our intuition suggests that solving tasks sampled from the same distribution PT must provide some information useful for the solution of a new task TN+1 ∼ PT . In particular, we aim at using past experience to learn the portion of the state that is relevant to be explored for fast experiencing the rewards. Focusing exploration only on a subregion of the space is in fact essential when dealing with large state space or very sparse reward functions. In our example, we can easily notice that moving the object of interest is what really matters for the task solution, regardless of the other objects positions. Although it might be easy sometimes to derive similar arguments, inferring a proper latent representation is not straightforward in general, especially for harder tasks. A possible way to extract this information is to learn the state features that are most predictive of the reward signals collected during the solution of
+
+Learning latent state representation for speeding up exploration
+
+Figure 1. Multi-headed network for reward regression on N tasks.
+
+past tasks. A minimal state representation that is predictive of the reward represents in fact the region the agent needs to explore to faster experience the rewards and, consequently, solve a new task.
+At this aim, we design a multi-headed network (Fig. 1) where the states {S(i)}Ni=1 collected during the training of the N tasks are the network input and each head outputs Rˆ(i) = hαi (hαshared (S(i))) are the estimate of the reward signals R(i) of the i-th task. The network has some shared layers (with parameters αshared) followed by N separate heads (with parameters α1, . . . αN ). The output of the shared layers is the latent variable z = hαshared (s), with z ∈ Rp and s ∈ {S(i)}Ni=1 ⊆ Rn. The network is designed so as to bottleneck the output of the shared layers and obtain a shared minimal representation across tasks with lower dimension with respect to the entire state space (p < n). The shared layers and the heads of the network can be convolutional or shallow neural networks, according to whether the inputs {S(i)}Ni=1 are images or not.
+The idea underlying the structure of such a network is that the shared layers should be able to learn what is important for predicting the reward function, regardless of the speciﬁc task. The latent variable z = hαshared (s) should then represent that portion of the state responsible for experiencing the rewards. Moreover, the multi-headed structure prevents overﬁtting and allows better generalization (Cabi et al., 2017). The network training is formulated as a regression problem on each head.
+4.2. Exploration via maximum-entropy bonus over the state latent representation
+A family of strategies for speeding up state space exploration requires to add a bonus B(s)(Tang et al., 2017; Bellemare et al., 2016; Fu et al., 2017; Houthooft et al., 2016; Pathak et al., 2017) to the reward function Rnew(s) = R(s) + γB(s)1. The goal of the bonus is to drive the learning algorithm when no or poor rewards R(s) are provided. A possible choice for B(s) is the quantity −log(p(s)) (Fu
+1γ is a scaling factor for properly weighting the bonus with respect to the original reward.
+
+Figure 2. Maximum-entropy bonus exploration on a learned latent representation z. Note that hαshared (·) was trained ofﬂine, using the data collected during the solution of prior tasks. During the maximum-entropy bonus exploration algorithm its parameters are kept ﬁxed.
+
+et al., 2017), which, when using Policy Gradient for training the policy π parametrized in θ, makes the overall objective equal to:
+
+max
+θ
+
+Epθ
+
+(a,s)
+
+[R(s)]
+
++
+
+H
+
+(pθ
+
+(s)),
+
+(2)
+
+with H(pθ(s)) = Epθ(s)[−log(pθ(s))] the entropy over the state distribution p(s). The policy π resulting from solving Eq. 2 maximizes both the original reward and the entropy over the state space density distribution p(s). Maximizing the entropy of a distribution entails making the distribution as uniform as possible. The uniform distribution on a ﬁnite space is in fact the maximum entropy distribution among all continuous distributions that are supposed to be in the same space. This results in encouraging the policy to explore states not visited yet.
+
+Even if reasonable, the choice of visiting all the possible states is not efﬁcient when dealing with state space with high dimensionality or rewards that can be experienced only in a small subregion of the space. For this reason, the augmented reward function we use for exploration is given by:
+
+Rnew(s) = R(s) − γlog(p(z)),
+
+(3)
+
+where z = hαshared (s) ∈ Rp (p < n) is the latent representation learned from prior tasks (Paragraph 4.1). Maximizing the entropy only over z is much more efﬁcient because it represents the only portion of the state responsible for the rewards and has lower dimensionality with respect to the states s ∈ Rn (Hazan et al., 2018).
+In order to estimate the quantity −log(p(z)), we use a Variational AutoEncoder (VAE) (Kingma & Welling, 2013). As shown in Appendix A, the ﬁnal loss function after the training of the VAE can be expressed as:
+
+L(ψ, φ) = −ELBO −log(p(z)),
+
+(4)
+
+Learning latent state representation for speeding up exploration
+
+Algorithm 1 Maximum-entropy bonus exploration
+Initialize the policy πθ0 , the VAE encoder and decoder; Use one on policy PG algorithm (TRPO (Schulman et al., 2015) in our case); for t = 1, . . . , tmax do
+Collect data (τt, rt) running πθt ; Compute rt,new = rt − ELBO(zt−1); Update policy parameters according the algorithm in use: θt → θt+1 Compute the latent representation zt = hαshared (τt); Train VAE on zt. end for
+
+therefore providing a good approximation of −log(p(z)). We can therefore augment our reward function using the −ELBO:
+Rnew(s) = R(s) − γELBO = R(s) − γlog(p(z)). (5)
+
+Figure 3. Average returns η(θ) with different reward bonus when training 10 new tasks.
+
+The ﬁnal exploration algorithm is summarized in Algorithm 1 and graphically represented in Fig. 2.
+
+5. Results
+
+The proposed algorithm has been tested on the object-pusher environment (Fig. 6), fully described in Appendix B. The reward function is sparse in that it consists of the Euclidean distance between the green object and the target and is different from 0 only when the object is sufﬁciently close to the target, i.e. in the circle with center g and radius δ. The value δ regulates the sparsity of the rewards.
+We train three policies π1, π2, π3 in order to maximize the following rewards:
+
+Figure 4. Average return η(θ) of our approach and some basic baselines when training 10 new tasks. In particular, we compare 1) our approach (Average return 1, in magenta); 2) TRPO with maximum-entropy bonus over the entire state s (Average return 2, in blue); 3) TRPO with maximum-entropy bonus over the action state (Average return 3, in orange) and 4) TRPO with no exploration bonus in the reward function (Average return 4, in red).
+
+R1 = Rpusher(o0) − γlog(pθ(o0)),
+
+(6)
+
+R2 = Rpusher(o0) − γlog(pθ(z)),
+
+(7)
+
+R3 = Rpusher(o0) − γlog(pθ(s)).
+
+(8)
+
+Fig. 3 reports the average returns η(θ) (deﬁned in Eq. 1) obtained when training π1, π2 and π3 on 10 new tasks sampled from the distribution PT We consider the training curve obtained with reward R1 as an oracle, because in this case the task is solved by maximizing the entropy of the exact position of the object of interest o0, i.e. the portion of the state responsible for the rewards. The training curve obtained when training π3 is treated as a baseline, since the policy is required to maximize the entropy over the entire state s. The plot shows that maximizing R2 = Rpusher(o0) − γlog(pθ(z)) (i.e. our approach) leads to performance almost as good as using the oracle and considerably better than running the baseline. This is at the same time a proof of the effectiveness of our learned latent
+
+representation z and of our maximum-entropy bonus exploration strategy. We ﬁnally compare our approach with some basic baselines in Fig. 4. This experiment conﬁrms that the approach presented in this work outperform some baselines commonly used for addressing exploration. Further experiments are provided in Appendix C.
+6. Conclusions
+In this work, we proposed a novel exploration algorithm that leads effectively the training of the desired task by using information learned from the solution of similar prior tasks. In particular, we proposed a multi-headed network (Section 4.1) able to encode in its shared layers the portion of state space effective at predicting the reward in the task family of interest. This information was then encoded into an exploration algorithm based on entropy maximization (Section 4.2). The experiments we carried out (Section 5) showed that the proposed method leads to a faster solution of new
+
+Learning latent state representation for speeding up exploration
+
+tasks sampled from the same task distribution. The promising results encourage us to extend this work by including processing from raw pixels and tests on more complex tasks.
+References
+Bellemare, M., Srinivasan, S., Ostrovski, G., Schaul, T., Saxton, D., and Munos, R. Unifying count-based exploration and intrinsic motivation. In Advances in Neural Information Processing Systems, pp. 1471–1479, 2016.
+Cabi, S., Colmenarejo, S. G., Hoffman, M. W., Denil, M., Wang, Z., and De Freitas, N. The intentional unintentional agent: Learning to solve many continuous control tasks simultaneously. arXiv preprint arXiv:1707.03300, 2017.
+Chentanez, N., Barto, A. G., and Singh, S. P. Intrinsically motivated reinforcement learning. In Advances in neural information processing systems, pp. 1281–1288, 2005.
+Clavera, I., Rothfuss, J., Schulman, J., Fujita, Y., Asfour, T., and Abbeel, P. Model-based reinforcement learning via meta-policy optimization. arXiv preprint arXiv:1809.05214, 2018.
+Doersch, C. Tutorial on variational autoencoders. arXiv preprint arXiv:1606.05908, 2016.
+Finn, C., Abbeel, P., and Levine, S. Model-agnostic metalearning for fast adaptation of deep networks. arXiv preprint arXiv:1703.03400, 2017.
+Fortunato, M., Azar, M. G., Piot, B., Menick, J., Osband, I., Graves, A., Mnih, V., Munos, R., Hassabis, D., Pietquin, O., et al. Noisy networks for exploration. arXiv preprint arXiv:1706.10295, 2017.
+Fu, J., Co-Reyes, J., and Levine, S. Ex2: Exploration with exemplar models for deep reinforcement learning. In Advances in Neural Information Processing Systems, pp. 2577–2587, 2017.
+Gupta, A., Mendonca, R., Liu, Y., Abbeel, P., and Levine, S. Meta-reinforcement learning of structured exploration strategies. arXiv preprint arXiv:1802.07245, 2018.
+Hazan, E., Kakade, S. M., Singh, K., and Van Soest, A. Provably efﬁcient maximum entropy exploration. arXiv preprint arXiv:1812.02690, 2018.
+Houthooft, R., Chen, X., Duan, Y., Schulman, J., De Turck, F., and Abbeel, P. Vime: Variational information maximizing exploration. In Advances in Neural Information Processing Systems, pp. 1109–1117, 2016.
+Kingma, D. P. and Welling, M. Auto-encoding variational bayes. arXiv preprint arXiv:1312.6114, 2013.
+
+Nair, A., McGrew, B., Andrychowicz, M., Zaremba, W., and Abbeel, P. Overcoming exploration in reinforcement learning with demonstrations. In 2018 IEEE International Conference on Robotics and Automation (ICRA), pp. 6292–6299. IEEE, 2018.
+Pathak, D., Agrawal, P., Efros, A. A., and Darrell, T. Curiosity-driven exploration by self-supervised prediction. In International Conference on Machine Learning (ICML), volume 2017, 2017.
+Plappert, M., Houthooft, R., Dhariwal, P., Sidor, S., Chen, R. Y., Chen, X., Asfour, T., Abbeel, P., and Andrychowicz, M. Parameter space noise for exploration. arXiv preprint arXiv:1706.01905, 2017.
+Rajeswaran, A., Kumar, V., Gupta, A., Vezzani, G., Schulman, J., Todorov, E., and Levine, S. Learning complex dexterous manipulation with deep reinforcement learning and demonstrations. Robotics: Science and Systems (RSS), 2018.
+Schulman, J., Levine, S., Abbeel, P., Jordan, M., and Moritz, P. Trust region policy optimization. In International Conference on Machine Learning, pp. 1889–1897, 2015.
+Sendonaris, A. and Dulac-Arnold, C. G. Learning from demonstrations for real world reinforcement learning. arXiv preprint arXiv:1704.03732, 2017.
+Stadie, B. C., Levine, S., and Abbeel, P. Incentivizing exploration in reinforcement learning with deep predictive models. arXiv preprint arXiv:1507.00814, 2015.
+Tang, H., Houthooft, R., Foote, D., Stooke, A., Chen, O. X., Duan, Y., Schulman, J., DeTurck, F., and Abbeel, P. #Exploration: A study of count-based exploration for deep reinforcement learning. In Advances in Neural Information Processing Systems, pp. 2753–2762, 2017.
+Taylor, M. E., Suay, H. B., and Chernova, S. Integrating reinforcement learning with human demonstrations of varying ability. In The 10th International Conference on Autonomous Agents and Multiagent Systems-Volume 2, pp. 617–624. International Foundation for Autonomous Agents and Multiagent Systems, 2011.
+Van Hoof, H., Hermans, T., Neumann, G., and Peters, J. Learning robot in-hand manipulation with tactile features. In Humanoid Robots (Humanoids), 2015 IEEE-RAS 15th International Conference on, pp. 121–127. IEEE, 2015.
+Vecer´ık, M., Hester, T., Scholz, J., Wang, F., Pietquin, O., Piot, B., Heess, N., Rotho¨rl, T., Lampe, T., and Riedmiller, M. A. Leveraging demonstrations for deep reinforcement learning on robotics problems with sparse rewards. CoRR, abs/1707.08817, 2017.
+
+Learning latent state representation for speeding up exploration
+A. Entropy computation with VAE
+In this Section, we explain how the VAE is used in order to estimate −log(p(z)). The structure of the VAE is the following:
+
+Figure 5. Variational Autoencoder.
+
+Figure 6. 2D object-pusher environment. The task consists of moving the green object towards the target, represented with a red square.
+
+• The input of the encoder qψ(v|·) is the latent representation z = hαshared (s). The procedure to learn hαshared (·) has been presented in Paragraph 4.1.
+• v is the latent variable reconstructed by the VAE, i.e. the output of the encoder and input of the decoder . This quantity is not relevant for our formulation since we are not interested in dimensionality reduction. We just mention it for the sake of completeness.
+• The output zˆ of the decoder pφ(·|v) is the reconstruction of the input z.
+
+The loss minimized during VAE training (Doersch, 2016) is given by:
+
+L(ψ, φ) = −Eqψ(v|z)[log(pφ(zˆ|v)]+DKL(qφ(v|z)||p(v)), (9)
+where DKL is the Kullback-Leibler divergence between the encoder distribution qφ(v|z) and the distribution p(v). The ﬁrst term of Eq. 9 is the reconstruction loss, or expected negative log-likelihood. This term encourages the decoder to learn to reconstruct the data. The second term is a regularizer that measures the information lost when using qφ(v|z) to represent p(v). In variational autoencoders p(v) is chosen to be a standard Normal distribution p(v) = N (0, 1).
+
+The VAE loss function in Eq. 9 can be proved to be equal to the negative evidence lower bound (ELBO) (Kingma & Welling, 2013), that is deﬁned as:
+
+−ELBO = −log(p(z)) + DKL(qφ(v|z)||p(v|z)). (10)
+
+p(v|z) cannot be computed analytically, because it describes the values of v that are likely to provide a sample similar to z using the decoder. The KL divergence imposes the distribution qφ(v|z) to be close to p(v|z). If we use an arbitrarily high-capacity model for qφ(v|z), we can assume that - at the end of the training - qφ(v|z) actually match p(v|z) and the KL-divergence term is close to zero (Kingma & Welling, 2013). As a result, the ﬁnal loss function after the training of the VAE can be expressed as:
+
+L(ψ, φ) = −ELBO −log(p(z)),
+
+(11)
+
+therefore providing a good approximation of −log(p(z)).
+
+B. 2D pusher environment
+Here is the full description of the environment used during the tests (Fig. 6).
+
+• The goal is to push the green object (identiﬁed as object no. 0) towards the red target.
+
+• The environment state includes the objects (o0, . . . , o6), pusher (p) and target2 (g) 2D positions:
+
+s = [o0, o1, . . . , o6, p, g].
+
+(12)
+
+The 2D space of the environment is ﬁnite and continuous.
+
+• The action space is 2D and continuous, allowing the pusher to move forward - backward and laterally.
+
+• The reward function is given by:
+R = Rpusher(o0) = 1{d(o0, g) < δ}d(o0, g)2, (13)
+where d(o0, g) is the Euclidean distance between the green object and the target. The reward is then differnt from zero only when the object is sufﬁciently close to the target, i.e. in the circle with center g and radius δ. The value δ regulates the sparsity of the rewards. In our experiments with considered δ = 0.1 in a space of dimension 2 × 2.
+
+• Different tasks of this environment differ in the initial object positions and target position.
+
+C. Analysis on the exploration trajectories
+
+In order to better analyze the performance of the proposed exploration algorithm, we train three policies π1, π2, π3 in order to maximize the rewards:
+
+R1 = −log(pθ(o0)),
+
+(14)
+
+R2 = −log(pθ(z)),
+
+(15)
+
+2The target position is constant during time.
+
+Learning latent state representation for speeding up exploration
+
+R3 = −log(pθ(s)).
+
+(16)
+
+The three policies are therefore trained in order to make respectively the distribution of the trajectories of the 1) object of interest position o0, 2) the latent representation z and 3) the entire state s as uniform as possible. The policies are
+
+−log(pθ(s)). Figs. 7 and 8 report respectively the trajectories followed by the pusher and the object of interest o0 when running the three trained policies. When the policy is asked to maximize only the object of interest trajectories, the pusher (green trajectories in Fig. 7) focuses the efforts in moving towards the object of interest (whose initial position is represented with a red square). The consequent object trajectories are shown in green in Fig. 8. Analogous trajectories both for the pusher and the object are generated by π2, obtained by maximizing R2 = −log(pθ(z)) (in magenta in 7 and 8), meaning that our latent representation correctly encodes the position of the object of interest. Instead, in the third case the pusher explores the entire state and the object is rarely pushed (blue trajectorie in 7 and 8).
+
+Figure 7. 100 pusher trajectories obtained when running the trained policy π, π2, π3. The initial position object the object of interest o0 is represented with a red square.
+
+Figure 8. Object trajectories obtained when running 100 times each trained policy π, π2, π3. The number of trajectories shown is less than 100 for each policy because not all the policy executions lead to movements of the object of interest.
+trained by using Algorithm 1, with Rnew = R1, R2 and R3 and, when rewards R1 and R3 are used, without using the learned latent representation z but directly feeding the VAE with, respectively, o0 and s to estimate −log(pθ(o0)) and
+

@@ -1,0 +1,327 @@
+Successor representation (SR)
+cyril regan January 2021
+
+1 Introduction
+This objective of this report is to sum up the mathematical assumptions of the Successor Representation (Dayan, 1993; Gershman, 2018) with the formalism of Reinforcement Learning, as introduced in (Sutton-Barto, 1998).
+
+2 MDP
+
+A reinforcement learning task that satisﬁes the Markov property is called a Markov Decision Process, or MDP. A particular ﬁnite MDP is deﬁned by its state and action sets and by the one-step dynamics of the environment. Hence, the probability of transitioning to st+1 = s , given the previous ‘history’, is fully captured by conditioning only on the current state st = s and action at = a. In other words, the future is independent of the past, given the present. This is described by the transition function:
+
+T (s |s, a) = Psas = P[st+1 = s |st = s, at = a]
+
+(1)
+
+Similarly, given any current state and action, s and a, together with any
+
+next state s , the expected value of the next reward is :
+
+Rass = E[rt+1|st = s, at = a, st+1 = s ]
+
+(2)
+
+This characterization of the reward dynamics of an MDP in terms of Rass is slightly unusual. It is more common in the MDP literature to describe the
+
+reward dynamics in terms of the expected next reward given just the current
+
+state and action, i.e., by
+
+rt+1 = Ras = r(s, a) = E[rt+1|st = s, at = a] = Psas Rass
+
+(3)
+
+s
+
+1
+
+2.0.1 Policy
+At any given state, the agent undergoes a decision-making process in order to select an action. The policy is a function that maps the state of an agent to an action. This can either be deterministic :
+
+a = π(s)
+
+(4)
+
+or stochastic :
+
+π(a|s) = P[at = a|st = s]
+
+(5)
+
+2.0.2 Value functions
+Value functions on policy : Reinforcement learning is concerned with the estimation of the state-value function V (s) or action-value function Q(s, a), the total reward an agent expects to earn in the future, with short-term rewards weighed more highly than long-term rewards. Of course the rewards the agent can expect to receive in the future depends on what actions it will take. Accordingly, value functions are deﬁned with respect to particular policies. The state-value function is deﬁned as the expected discounted future return following the policy π (Sutton-Barto, 1998):
+
+V π(s) = Eπ[rt + γrt+1 + γ2rt+2 + ...|st = s]
+
++∞
+= Eπ[ γkrt+k|st = s]
+
+(6)
+
+k=0
+
+where γ is a discount factor that captures a preference for proximal rewards. Similarly the action-value function is deﬁned by :
+
++∞
+
+Qπ(s, a) = Eπ[ γkrt+k|st = s, at = a]
+
+(7)
+
+k=0
+
+2
+
+State-value function can be written recursively with Bellman equation :
+
++∞
+
+V π(s) = Eπ
+
+γkrt+k|st = s
+
+k=0
+
++∞
+= Eπ[rt+1 + γ γkrt+k+1|st = s]
+
+k=0
+
++∞
+
+= π(s, a) rt+1 + Psas γ Eπ
+
+γkrt+k+1|st+1 = s ]
+
+(8)
+
+a
+
+s
+
+k=0
+
+= π(s, a) rt+1 + γ Psas V π(s )
+
+a
+
+s
+
+= π(s, a) r(a, s) + γ Psas V π(s )
+
+a
+
+s
+
+Value functions on optimal policy : A policy π is deﬁned to be better
+than or equal to a policy π if its expected return is greater than or equal to that of π for all states. In other words, π ≥ π if and only if V π(s) ≥ V π (s)
+for all state s ∈ S All the optimal policies by denoted by π∗ share the same state-value
+function V ∗.
+
+V ∗(s) = max V π(s) ∀s ∈ S
+
+(9)
+
+π
+
+The optimal policies share also the same action-value function Q∗ :
+
+Q∗(s, a) = max Qπ(s) ∀s ∈ S and a ∈ A(s)
+
+(10)
+
+π
+
+Thus, we can write Q∗ in terms of V ∗ as follows:
+
+Q∗(s, a) = E[rt+1 + γV ∗(st+1)|st = s, at = a]
+
+(11)
+
+Intuitively, the Bellman optimality equation expresses the fact that the value
+
+of a state under an optimal policy must equal the expected return for the
+
+best action from that state:
+
+V ∗(s) = max Q∗(s, a) a
+
+(12)
+
+= max r(a, s) + γ a
+
+Psas V ∗(s )
+
+s
+
+3
+
+Q∗(a, s) = r(a, s) + γ
+
+Psas
+
+max Q∗(s , a ) a
+
+(13)
+
+s
+
+2.1 Model-based algorithms
+Model-based decision algorithms are explicitly based on the underlying “model” (i.e., the reward function r and the transition function Psas ), which is either given a priori or learned. As the model is known, an estimate of the value functions can be updated by :
+
+Vˆ ← r(s) + γ
+
+max a
+
+Psas
+
+Vˆ
+
+(s
+
+)
+
+(14)
+
+s
+
+Qˆ(s, a) ← r(s, a) + γ
+
+Psas
+
+max Qˆ(s , a ), a
+
+(15)
+
+s
+
+Where r(s) = max r(s, a). a Drawback : this architecture is computationally expensive, because value
+estimation must iterate over the entire state space each time the model is
+updated. Advantages : agent endowed with a model requires only a small
+amount of experience to adapt to such changes.
+
+2.2 Model-free algorithms
+Model-free algorithms directly estimate the value function V from experienced transitions and rewards, without explicitly using or learning a model. In a deterministic setting, the estimated value functions Vˆ or Qˆ can be represented by a lookup table storing the estimates for each state (resp stateaction) while physically interacting with the environment, through temporal diﬀerence (TD) learning.
+
+Vˆ (s) ← r(s) + γVˆ (s ),
+
+(16)
+
+Qˆ(s, a) ← r(s, a) + γ max Qˆ(s , a ),
+
+(17)
+
+a
+
+Where s corresponds to the successor state following the policy π of the Model-free algorithms.
+The TD error δ is :
+
+δ = r(s) + γVˆ (s ) − Vˆ (s)
+
+(18)
+
+4
+
+δ = r(s, a) + γ max Qˆ(s , a ) − Qˆ(s, a)
+
+(19)
+
+a
+
+And the update of the value function is done by :
+
+Vˆ new(s) = Vˆ old(s) + α.δ,
+
+(20)
+
+Qˆnew(s, a) = Qˆold(s, a) + α.δ,
+
+(21)
+
+where α is the learning rate. Drawback : inﬂexibility because a local change in the transition or reward
+functions will produce nonlocal changes in the value function. Advantages: computationally eﬃcient.
+
+2.3 The successor representation
+
+The successor representation M represent the ”state occupancy”. In fact, one can also see the successor representation as a ”timeless” state representation. Indeed, the M matrix is a kind of map representing the occupancy of the actual state s and the projection of all future state occupancy (discounting by the γ factor) which could depend also of the action a taken at the actual state s. The construction of the successor representation M with the transition state function Psas is meaningful :
+
+M (s , s, a) = 1s,s + γPsas + γ2(Psas )2 + γ3(Psas )3 + ...
+
+(22)
+
+Here, M (s , s, a) represents the occupancy of state s knowing the agent is presently in the state s and takes the action a. Let’s take a look of the ﬁrst term of the equation :
+
+1s,s = 1 if s = s
+
+(23)
+
+1s,s = 0 if s = s
+
+1s,s represents trivially the state occupancy of the ”present time” which is null for all the states diﬀerent from the actual.
+
+Then the state occupancy of the ﬁrst upcoming time is the probability
+
+to be in the state s knowing the agent is in the state s and takes the action
+
+a. It is by deﬁnition the probability expressed by the state transition matrix
+
+discounting by the γ factor :
+
+γPsas
+
+(24)
+
+5
+
+But we can go on and project the state occupancy of the next upcoming time
+
+:
+
+γ2(Psas )2
+
+(25)
+
+To sum up, the successor representation is a cumulative probability to be in a state from the actual and all future projected times. To say it diﬀerently, M is deﬁned as the discounted occupancy of state s, averaged over all possible trajectories initiated in state s. The SR can intuitively be thought of as a predictive map that encodes each state in terms of the other states that will be visited in the future.
+Of course, the future state occupancy is only a ”projection” of the present knowledge of the world expressed by the transition matrix Psas . As the manipulation of a sum is not easy in a computational exploitation, one can express the sum with a straightforward limited development :
+
+1
+
+M (s , s, a) = 1 − γPsas
+
+(26)
+
+or in a matrix way :
+
+M (a) = (1 − γPa)−1
+
+(27)
+
+The successor representation is also popular because of its nice property which represents any value function as :
+
+V (s) = M (s, s )r(s )
+
+(28)
+
+s
+
+Q(s, a) = M (s, s , a)r(s , a)
+
+(29)
+
+s
+Moreover, it is not necessarily to calculate directly the transition matrix Psas to get the successor representation M . An evaluation Mˆ can be learned via TD-learning for example with the δt error :
+
+δt(s ) = I[st = s ] + γMˆ (st+1, s ) − Mˆ (st, s )
+
+(30)
+
+Notice that unlike the temporal diﬀerence error for value learning, the temporal diﬀerence error for SR learning is vector-valued, with one error for each successor state.
+Advantage on ﬂexibility : changes in the reward function will immediately propagate to all the action-value function. Drawback : this is not true of changes in the transition function
+
+6
+
+References
+P. Dayan. Improving Generalization for Temporal Diﬀerence Learning: The Successor Representation. Computational Neurobiology Laboratory, The Salk Institute, P.0. Box 85800, Sun Diego, CA 92186-5800 USA, 1993.
+S. J. Gershman. The Successor Representation: Its Computational Logic and Neural Substrates. The Journal of Neuroscience, 2018. ISBN 9781417642595.
+Sutton-Barto. Reinforcement Learning: An Introduction. MIT Press, Cambridge, MA, 1998 A Bradford Book, 1998.
+7
+

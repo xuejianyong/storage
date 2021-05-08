@@ -1,0 +1,1515 @@
+Kumulative Habilitation eingereicht an der Technischen Fakulta¨t der
+Albert-Ludwigs-Universita¨t Freiburg im Breisgau
+Spatial Modeling and Robot Navigation
+Dr. Cyrill Stachniss
+August 1, 2009
+
+Abstract
+This habilitation thesis deals with the broad topic of robot navigation and with its foundations in spatial modeling, scene understanding, and action generation. Robot navigation is the process of autonomously making a sequence of decisions that allows a mobile robot to travel robustly to selected locations in the environment. This ability involves a large set of problems that need to be solved including sensor data interpretation, state estimation, environment modeling, scene understanding, learning, coordination, and motion planning. The ability to navigate autonomously has special practical relevance, since navigations tasks are embedded in most robotic applications.
+In this work, we present innovative solutions for acquiring models of the environment with mobile robots and for robustly navigating using these models. A representation of the environment is needed for a wide range of robotic applications. Here, a model of the environment representing its geometry is only a starting point. To allow for intelligent decision making or higher level functionalities, a robot needs information about the topology of the space as well as knowledge about objects in the scene in order to act robustly and interact in real world settings. These problems are addressed in this work. We furthermore present novel approaches for decision making, trajectory planning, localization, exploration, and related topics. We propose probabilistic solutions to a variety of these problems and consider different types of robots with different sensing modalities. This includes classical wheeled robots as well as computer-controlled cars, ﬂying vehicles, and humanoid robots. Our solutions are important building blocks that enable robots to operate autonomously and effectively in the real world.
+The contributions of this habilitation thesis are innovative solutions to a variety of open problems in the context of model learning and efﬁcient robot navigation which captured the attention of research community to-date. Most of the presented approaches are of probabilistic nature, they explicitly consider uncertainty, and include learning techniques. All developed approaches have been applied and evaluated on real mobile robots in realistic settings, have proven robustness, and have shown signiﬁcant improvements over state-of-the-art methods in robotics.
+
+Contents
+
+I Summary
+
+1
+
+1 Introduction
+
+3
+
+2 Mapping Environments with Mobile Robots
+
+9
+
+2.1 Map Learning by Means of Rao-Blackwellized Particle Filters . . . . . . . . . . . 9
+
+2.2 Bridging the Gap between Grid-based and Feature-based SLAM . . . . . . . . . . 10
+
+2.3 Active Feature Selection for Navigation Tasks under Limited Resources . . . . . . 11
+
+2.4 Maximum Likelihood Mapping by Pose Graph Optimization . . . . . . . . . . . . 11
+
+2.5 Towards Benchmarking of SLAM Approaches . . . . . . . . . . . . . . . . . . . . 13
+
+3 Localization
+
+15
+
+3.1 A Sensor Model for Localization with Low-Cost Laser Range Finders . . . . . . . 15
+
+3.2 A Sensor Model for Accurate Laser Range Finders . . . . . . . . . . . . . . . . . 16
+
+4 Special Sensing Modalities
+
+17
+
+4.1 Visual Localization . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+
+4.2 Range Sensing from Omnidirectional Vision . . . . . . . . . . . . . . . . . . . . . 18
+
+4.3 Vision-based Map Learning for Flying Vehicles . . . . . . . . . . . . . . . . . . . 20
+
+4.4 Estimating Landmark Locations from Geo-Referenced Photographs . . . . . . . . 21
+
+4.5 Gas Distribution Modeling . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24
+
+5 Towards Understanding Environments
+
+28
+
+5.1 Hybrid Maps . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 28
+
+5.2 Vegetation Estimation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 30
+
+5.3 Classifying Objects in Scenes . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 30
+
+5.4 Identifying Objects by Tactile Sensing . . . . . . . . . . . . . . . . . . . . . . . . 32
+
+5.5 Learning Kinematic Models of Objects . . . . . . . . . . . . . . . . . . . . . . . . 33
+
+6 Action Selection for Navigation
+
+35
+
+6.1 Exploration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 35
+
+6.2 Navigation amongst Deformable Objects . . . . . . . . . . . . . . . . . . . . . . . 39
+
+6.3 Computer-controlled Cars . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+
+i
+
+6.4 Learning by Demonstration for Acquiring Manipulative Skills . . . . . . . . . . . 47
+
+7 Conclusion
+
+49
+
+II Publications
+
+63
+
+Part I
+Summary
+
+2
+
+Chapter 1
+Introduction
+One of the main goals in service robotics is to develop truly autonomous robots that support us humans. Home environments are envisioned as one of the key application areas for service robots. Robots operating in such environments are typically faced with a variety of problems that result from the rather unstructured surroundings compared to industrial applications.
+The ability to model the surrounding space and at the same time to navigate autonomously and reliably has signiﬁcant practical relevance – not only in domestic service robotics. In most robotics applications, autonomous navigation is an integral part of the robot’s mission. Most tasks can only be carried out if enough information about the scene the robot operates in is available. Ideally, a robot is able to autonomously infer appropriate models of the environment by observation, without requiring manual teaching.
+The contribution of this habilitation thesis are solutions to various problems in the context of model learning and robot navigation. Here, the term navigation does not refer to path planning only. It includes state estimation, localization, i.e., estimating the position of the robot given a map of the environment, exploration, i.e., steering a robot so that it can efﬁciently construct accurate models of the space, as well as path planning and controlling the motion of robotic actuators such as manipulators.
+In this work, we present methods that enable robots to achieve such desired capabilities. All techniques developed in the context of this habilitation thesis have been evaluated on physical robots and the experiments, that are presented in the individual papers, illustrate the achievements over the state-of-the-art. The individual scientiﬁc contributions can furthermore be seen as building blocks for achieving integrated autonomous systems. Some of the presented techniques are available as open source implementations to the community and are frequently used by other research groups. Furthermore, the majority of recorded robotic datasets is provided to the public.
+In this cumulative habilitation thesis, the citations [J1]-[J9] refer to journal publications whereas [C1]-[C25] refer to conference papers and [W1]-[W5] to reviewed workshop papers respectively. All citations with numbers only refer to other publications. The summary of our publications is organized as follows.
+
+4
+
+CHAPTER 1: INTRODUCTION
+
+Chapter 2: Mapping Environments with Mobile Robots We summarize our novel solutions to the problem of acquiring the geometric representation of the environment in view of the uncertainty of sensor data and the robot’s position. This is often referred to as the simultaneous localization and mapping (SLAM) problem. SLAM is a “chicken-or-egg” problem since a map is needed for localization while a good pose estimate is required to build a map. We will present efﬁcient techniques for constructing maps from sensor data in two-dimensional as well as in three-dimensional scenes using different types of sensors and robotic platforms.
+Our key contributions in the context of SLAM are:
+1. An improved technique for computing 2D grid maps using a particle ﬁlter. The approach extends our previously presented method for particle ﬁlter-based SLAM and provides an analysis of the often made assumption of Gaussian proposal distributions in this context. Our approach overcomes limitations imposed by the Gaussians while being computationally as efﬁcient as an approach using a Gaussian proposal.
+2. A learning approach for bridging the gap between feature-based and grid-based SLAM. By means of reinforcement learning, we enable a robot to estimate which underlying representation of its surroundings is best suited to correct the pose of the robot. The resulting, adaptive approach is able to switch in each step of the algorithm between a feature and a grid map in order to use the best of both worlds.
+3. An innovative approach to actively deciding whether observed features should be considered during SLAM or neglected for reasons of efﬁciency. The approach, which based on reinforcement learning, allows robots with highly limited computational resources to solve navigation tasks in unknown environments.
+4. A highly efﬁcient method for computing maximum likelihood maps estimated by means of pose-graph optimization. Our technique, which is inspired by stochastic gradient descent, allows for correcting large errors in the trajectory estimate of the robot and can deal with bad initial guesses. This method is one of the most efﬁcient approaches in the SLAM community at the moment.
+5. A framework for objectively measuring the performance of different SLAM algorithms based on the notation of relative errors.
+Chapter 3: Localization This chapter covers the pose estimation problem given a model of the environment. Pose estimation refers to the problem of computing and updating the position and orientation of the robot relative to a given map of the environment. We present novel sensor models for probabilistic Monte-Carlo localization to exploit the properties of the sensors that are often used in robotics in order to improve the localization performance. In contrast to Chapter 4, we focus here on robots equipped with laser range ﬁnders.
+Our key contributions in the context of robot localization are novel methods for obtaining better sensor models which can be applied in the popular Monte-Carlo localization frame-
+
+5
+work. We show how the localization performance can be signiﬁcantly improved by 1. exploiting speciﬁc sensor properties as well as surface properties of scanned objects and 2. explictly considering dependencies of nearby laser range observations within one scan.
+Chapter 4: Special Sensing Modalities Laser range ﬁnders are probably the most frequently used sensors in the robotics community. In this chapter, we will present innovative solutions to problems that arise when other sensing modalities are used. First, we focus on cameras as alternative sensors to laser range ﬁnders, second, we consider gas concentration sensors for acquiring gas distribution maps.
+Vision sensors become more and more popular in robotics, as they are at the same time cheap, light-weight, and they constitute a rich source of information about the environment. Monocular cameras, however, do not directly provide proximity information, which is often required by traditional robotic state estimation approaches. We present solutions for coping with visual data in the context of robotics. This includes metric localization of a robot based on monocular image data and the estimation of proximity information from single images in indoor environments. The latter allows mobile robots to avoid using laser range ﬁnders while being able to estimate the extends of free space in the surroundings. We furthermore illustrate how to exploit image databases like Flickr.com as an additional source of information for a robot. Based on geo-referenced and labeled photographs, we show how to localize pictured objects such as buildings in the scene.
+Besides the use of cameras, we describe a novel approach to estimating gas distributions using a mobile robot equipped with gas sensors. This is an important task for robots deployed for pollution monitoring, surveillance of industrial facilities, or inspection of contaminated areas. The gas distribution modeling problem has a different nature than most other robotic perception problems due to the speciﬁc characteristics of gas distributions and their chaotic structure. By modeling gas distributions with a probabilistic regression technique, we are able to learn predictive models for gas distributions.
+Our key contributions presented in this chapter are: 1. A technique for metrically localizing a robot using only a monocular camera. The presented technique is based on the Monte-Carlo localization framework and proposes a sensor model that does not require a ﬁxed data association for the observed visual features. As a result, a robust, vision-only localization technique for a humanoid robot was successfully developed. 2. A new approach for estimating proximity information based on omnidirectional images similar to the results obtained by traditional range ﬁnders. The approach uses Gaussian process regression in combination with dimensionality reduction to establish a correspondence between the image data and proximity information obtained on a training set. We learn a regressor that can be used on robots not equipped with laser range ﬁnders for mapping, localization, or navigation. The maps obtained with our
+
+6
+
+CHAPTER 1: INTRODUCTION
+
+approach show a quality that is roughly comparable to maps build with robotic sonar sensors.
+3. An application of the optimization solution to the SLAM problem presented in Chapter 2 to ﬂying vehicles using a down-looking camera. We present a so-called SLAM front-end that estimates incremental motion constraints as well as loop-closing constraints from image data. The resulting system is easy to implement and has successfully been applied to different light-weight ﬂying platforms.
+4. An approach to estimating the location of visual landmarks in an environment based on geo-referenced photographs. This is a step towards using tagged, geo-referenced images, for example, obtained from Flickr.com or similar databases to estimate the location of the pictured objects. The approach applies RPROP-based optimization to ﬁnd the landmark locations that best explain the data. Examples are shown for buildings located in Freiburg downtown.
+5. A regression-based approach to gas distribution modeling via a Gaussian process mixture model and an efﬁcient way to learn gas distribution maps with this approach. The mixture components are used to explictly consider the effect of local patches within the in general chaotic structure of gas distributions. We show that the resulting predictive models perform signiﬁcantly better than existing gas distribution modeling approaches used in the robotics community.
+Chapter 5: Towards Understanding Environments To go beyond the aspects of pure geometry, we present our solution to the problem of learning a hybrid model of the space covering the topology and geometry of an environment as well as semantic information. Here, semantic information refers to things such as labels, vegetation, or speciﬁc objects. This hybrid representation can be used subsequently to instruct robots in a natural way by humans. We furthermore address aspects of the scene analysis problem focusing on objects in the surroundings of the robot. We will present solutions for classifying objects observed with a laser range ﬁnder in an unsupervised way and show how to learn actuation models for observed objects.
+Our key contributions towards understanding environments are innovative approaches for:
+1. Learning hybrid representations of environments modeling the topology of the scene, its geometry, as well as semantic information. The approach utilizes ﬁndings presented in Chapter 2 and estimates semantic labels for places in the scene by means of the AdaBoost algorithm in combination with simple features extracted from sensor data. By smoothing the obtained labels using probabilistic relaxation labeling and a region extraction method, the topology of the scene can be inferred.
+2. Estimating which parts of an outdoor environment contain vegetation. This is a valuable information for robots navigating outdoors. By utilizing the remission values of laser range data in combination with the proximity information, we learn classiﬁers using the support vector machine framework. By analyzing vibrations measured with an
+
+7
+inertial measurement unit, we furthermore found an efﬁcient way for easily generating a large amount of training data for the learning phase. 3. Classifying objects perceived with a 3D laser range scanner in an unsupervised fashion. By means of latent Dirichlet allocation, distributions over objects in a scene can be determined by a mobile robot without supervision. These distributions allow for grouping unknown objects and for assigning new objects to an existing categorization. We additionally show how tactile sensors can be used to classify and identify objects. 4. Modeling articulated objects that a robot observes in typical domestic environments such as doors, cabinets with drawers, or other collections of moving parts. Only based on observations, we are able to learn kinematic models by inferring the connectivity of rigid parts and the articulation models for the corresponding links. Our method uses a mixture of parameterized and parameter-free Gaussian process representations and ﬁnds low-dimensional manifolds that provide the best explanation of the given observations. The models in turn can be used predict the motion of object parts to facilitate actions such as grasping or planning manipulation trajectories. 5. Identifying objects based on tactile information. Our approach applies two arrays of pressure sensors in combination with the bag-of-features approach often used in computer vision to distinguish and identify objects grasped by a robot.
+Chapter 6: Action Selection for Navigation This chapter covers different robotic problems in which the central aspect is the action a single robot or a team of robots has to carry out to efﬁciently solve the given task. In detail, we focus on single and multi-robot exploration, navigation amongst deformable objects, autonomous computer-controlled cars, and the imitation of a human demonstrator for learning manipulative tasks by demonstration.
+First, we present our solutions to enable robots to autonomously explore an unknown environment in an effective way. Here, we address the single and the multi-robot exploration problem, presenting information-theoretic concepts for exploring the three-dimensional space and a solution for effectively coordinating a team of exploring robots.
+Second, we introduce a new method to deal with environments that contain non-rigid objects. Deformable objects that frequently occur in real world environments are, for example, curtains or plants. We present a technique that considers the deformability of objects during robot navigation.
+Third, we address autonomous cars. Computer-controlled cars represent an application area that is closely related to robotics since similar state estimation and planning problems need to be solved under tight time constraints. We present our autonomous Smart car that is able to drive autonomously on streets and in rough terrain.
+Finally, we address the problem of teaching a robot manipulation tasks. In our system, a robot is able to derive an abstract task description by observing a human demonstrator. A manipulation robot is then able to reproduce the observed task even in modiﬁed settings.
+
+8
+
+CHAPTER 1: INTRODUCTION
+
+Our key contributions in the context of decision making for autonomous navigation are techniques for
+1. Transferring our previously developed information-gain driven exploration technique for two-dimensional scenes into the three-dimensional world. Our approach allows an exploring robot to estimate the potential gain of future observation. It reasons about potential observations it may obtain when carrying out an action. This leads to strategies that effectively reduce the uncertainty in the robot’s belief.
+2. Efﬁciently coordinating a team of robots by an improved coordination mechanism. The approach exploits the structure of indoor environments and segments the space to generate areas which the individual robots have to explore separately. The segmentbased assignment is then solved by means of the Hungarian method. This approach reduces the amount of redundant work and the risk of interference between robots and thus yields a more efﬁcient exploration strategy.
+3. Path planning and collision avoidance for environments containing deformable objects. Our planning method operates in combination with an existing physical simulation engine to estimate the deformations caused by the interaction between robots and the objects in the scene. Besides efﬁciently answering path queries, the approach can avoid collisions with unknown dynamic and potentially rigid obstacles.
+4. Autonomously driving a computer-controlled car. We present our development of a real, autonomous car that is fully controlled by a set of computers, perceives the environment based on its sensors, builds three-dimensional models of the scene, accurately localizes itself, plans and executes trajectories in previously unknown or partially known environments.
+5. Instructing a robot by demonstration. Our contribution here is a probabilistic framework based on a dynamic Bayesian network for learning manipulative tasks. By repeatedly observing a demonstrator, a robot can infer which parts of a manipulative task are relevant for describing the abstract action. The approach is able to successfully reproduce tasks such as pick and place tasks or cleaning a whiteboard based on a few observation sequences only.
+Chapter 7: Conclusion Finally, we will conclude this habilitation thesis followed by the publications submitted for this cumulative habilitation.
+
+Chapter 2
+Mapping Environments with Mobile Robots
+Models of the environment are needed for a wide range of robotic applications, including transportation tasks, search and rescue, and efﬁcient vacuum cleaning. Learning maps has therefore been a major research focus in the robotics community over the last decades. The key problem when learning maps with mobile robot is the uncertainty in the pose of the robot during data acquisition as well as the noise in the sensor used to observe the environment. In the literature, the mobile robot mapping problem under pose uncertainty is often referred to as the simultaneous localization and mapping (SLAM) or concurrent mapping and localization (CML) problem [19; 20; 23; 35; 37; 55; 57; 58; 77; 49]. SLAM is considered to be a complex problem because to localize itself a robot needs a consistent map of the scene while at the same time for acquiring the map the robot requires a good estimate of its own pose. This mutual dependency among the pose and the map estimates makes the SLAM problem hard and requires searching for a solution in a high-dimensional space.
+2.1 Map Learning by Means of Rao-Blackwellized Particle Filters
+Efﬁcient mapping system that apply Rao-Blackwellized particle ﬁlters to maintain a joint posterior about the trajectory of the robot and the map of the environment typically assume a Gaussian proposal distribution [5; 33; 37; 55; 57; 56; 70]. A proposal distribution inside a particle ﬁlter is used to efﬁciently draw the next generation of samples. In general, the closer the proposal is to the target distribution, the more efﬁcient is the algorithm.
+Based on a previously developed SLAM system that uses such a Gaussian proposals and has been published in the PhD thesis [70], we investigate a way to determine how often the observation likelihood function from which the proposal is typically derived is actually Gaussian or not [C18]. We show that in most cases the Gaussian assumption is a valid approximation, however, in around 3% to 6% of all cases, the distribution is clearly multi-modal. We therefore present in [C18] an alternative sampling strategy based on a two-step sampling procedure that is able to accurately
+
+10
+
+CHAPTER 2: MAPPING ENVIRONMENTS WITH MOBILE ROBOTS
+
+cover the different modes of the observation likelihood function while being as effective as the Gaussian proposal.
+In addition to that, we propose an orthogonal optimization to the algorithm which allows particles with similar trajectory estimates to share a map of the environment [J9], [C24]. In the typical formulation of the Rao-Blackwellized particle ﬁlter for mapping, each sample has to maintain its own model of the world conditioned on the trajectory estimate. Depending on the number of samples needed to build accurate maps, this can introduce large memory requirements. Our method overcomes this serious shortcoming of Rao-Blackwellized particle ﬁlter-based approaches and allows practical implementations to maintain around one order of magnitude more samples while requiring approximatively the same run time.
+We furthermore illustrate how such kind of mapping techniques can be adapted in order to be applicable for legged robots. Especially humanoids have become a popular research platform in the robotics community. Compared to wheeled vehicles, they have several drawbacks such as stability problems, limited payload capabilities, violation of the ﬂat world assumption, and they typically provide only very rough odometry information, if at all. In our approach [C14], we investigate the problem of learning accurate grid maps with humanoid robots by adapting the previously described mapping approach to dealing with some of the above-mentioned difﬁculties. As a result, our approach is able to robustly learn accurate medium-sized maps with a humanoid equipped with a laser range ﬁnder. We present an experiment in which our mapping system builds highly accurate maps using data acquired with a humanoid in our ofﬁce environment containing two loops. The resulting maps have a similar accuracy as maps built with a wheeled robot.
+
+2.2 Bridging the Gap between Grid-based and Feature-based SLAM
+One important design decision for the development of autonomously navigating mobile robots is the choice of the representation of the environment. This includes the question which type of features should be used or whether a dense representation such as an occupancy grid map is more appropriate. We present an approach [J5], [C21] which performs SLAM using multiple representations of the environment simultaneously. It uses reinforcement learning to decide when to switch to an alternative representation method depending on the current observation. This allows the robot to update its pose and map estimate based on the representation that models the surrounding of the robot in the best way. The approach has been implemented on a real robot and evaluated in scenarios, in which a robot has to navigate in- and outdoors and therefore switches between a landmark-based representation and a dense grid map. In practical experiments, we demonstrate in [J5] that our approach allows a robot to robustly map environments which cannot be adequately modeled by either of the individual representations.
+
+2.3 ACTIVE FEATURE SELECTION FOR NAVIGATION TASKS UNDER LIMITED RESOURCES
+
+11
+
+2.3 Active Feature Selection for Navigation Tasks under Limited Resources
+The trend towards light-weight robots and other embedded systems introduces strong resource restrictions to applied algorithms. Such systems and especially small ﬂying vehicles have higher limitations with respect to the computational power and memory capacity than a wheeled robot. It is thus important to develop efﬁcient algorithms that scale with the computational constraints of the underlying hardware.
+Efﬁcient algorithms to address the SLAM problem in combination with data association techniques (such as nearest neighbor assignment [57], sampling-based [56], or via the Hungarian method [W2]) are often only one building block for carrying out mapping task on small scale robots. An orthogonal alternative is to actively select observations and/or a subset of features that should be incorporated into the mapping procedure since the memory and computational requirements increase with the number of landmarks that need to be maintained by the robot.
+In practice, there are many scenarios in which the number of visible landmarks during a navigation task is signiﬁcantly larger than the number of landmarks which can be processed efﬁciently using an embedded device. This leads to the question which landmark should be stored and maintained by the robot to optimally solve the navigation task. A landmark is only useful if it contributes to keep an accurate pose estimate of the robot at the right time and in this way is valuable for the navigation task. We therefore investigate in [C6] a technique for learning a landmark selection policy that optimizes the navigation task carried out by the robot given its computational or memory constraints. The approach combines Kalman ﬁlter-based SLAM with reinforcement learning to learn general policies to trigger the incorporation of new features.
+We show in [C6] that the policies learned with our approach are not limited to the environment they have been learned in. Rather, they can also be applied successfully in environments with different properties of the underlying landmark distribution.
+
+2.4 Maximum Likelihood Mapping by Pose Graph Optimization
+To address the map learning problem from a more general point of view that focusing on one speciﬁc type of robot or sensor setting, we developed an approach that separates the interpretation of the sensor data from the estimation problem itself. An elegant framework for separating these two problems is the use of a so-called SLAM front-end and back-end. As the front-end, one refers to as the interpretation of the sensor data and the back-end as the approach that performs the estimation or optimization. In theory, this separation can be found in most probabilistic estimation techniques for SLAM such as extended Kalman ﬁlter, unscented Kalman ﬁlter, particle ﬁlters, information ﬁlters, etc. In practice, however, assumptions about the sensor or the vehicle are often incorporated into the design of the SLAM algorithm in order to build a high performance realization.
+One attractive way that allows for realizing an efﬁcient SLAM system while having a strictly
+
+12
+
+CHAPTER 2: MAPPING ENVIRONMENTS WITH MOBILE ROBOTS
+
+separated front-end and back-end are the so-called pose graph-based or network-based approaches. In this formulation, one models the poses of the robot during mapping by nodes in a graph [21; 26; 29; 35; 38; 52; 59; 60; 83]. Spatial constraints between poses that result from observations and from odometry are encoded in the edges between the nodes. Approaches for solving this formulation of the SLAM problem seek to ﬁnd the conﬁguration of the nodes that maximizes the observation likelihood encoded in the constraints. A highly related view to this problem is given by the spring-mass model in physics. In this view, the nodes are regarded as masses and the constraints as springs connected to the masses. The minimal energy conﬁguration of the springs and masses describes a solution to the mapping problem.
+Popular solutions to compute a pose graph conﬁguration that minimizes the error introduced by the constraints are iterative approaches. They can be used to either correct all poses simultaneously [35; 42; 52; 83] or to locally update parts of the graph [21; 29; 38; 59; 60], [J6], [C22]. Depending on the used technique, different parts of the graph are updated in each iteration. The strategy for deﬁning and performing these local updates has a signiﬁcant impact on the convergence speed.
+We developed a novel approach [J6], [C22; C19; C17], that is inspired by a variant of stochastic gradient descent in the spirit of Olson’s algorithm [60] but parameterizes the nodes in the graph according to a tree structure. This structure allows a robot to efﬁciently update local regions in each iteration of the algorithm. This methods converges signiﬁcantly faster to accurate pose graph conﬁgurations than existing methods and compared to other approaches to 3D mapping, our technique utilizes a more accurate way to distribute the rotational error over a sequence of poses [J6]. Furthermore, the complexity of our approach scales with the size of the environment and not with the length of the trajectory as it is the case for most alternative methods. In addition to that, we developed an incremental solution [C17] designed for online problems by reusing previously computed solutions and by optimizing only updating parts of the map.
+We demonstrated that this approach is well suited to deal with different robotic platforms and different sensor modalities. We used the approach using laser range data obtained with traditional SICK scanners [C22] on mobile robots, using SICK scanners on a rotating platform to obtain 3D data mounted on a car [C23] [J6], using a Velodyne 3D laser range scanners on a car [J6], based on vision data with a helicopter and by manually carrying a camera [J7] as well as on a blimp. This illustrates that our method is well suited to be applied to a wide range of mapping problems. We show in [J6] that our approach is highly robust to the initial conﬁguration of the graph and outperforms related state-of-the-art methods such as Olson’s algorithm [60] or Multilevel relaxation proposed by Frese et al. [29]. An example for an uncorrected and corresponding corrected trajectory of an autonomous car obtained with our approach is shown in Figure 2.1.
+All such methods operating on pose graphs have a drawback that they have to store the whole trajectory of the robot. The is not critical for standard mapping scenarios but in case of life-long map learning, the increasing memory and computational resources can become problematic. We therefore developed a technique [J2] to efﬁciently prune the pose graph. Our technique considers the information gain of observation and is able to discard poses that do not provide new information. As a result, the computational complexity does not increase when the robot moves in known
+
+2.5 TOWARDS BENCHMARKING OF SLAM APPROACHES
+
+13
+
+instrumented car
+
+before optimization
+
+after optimization
+
+Figure 2.1: The left image shows the instrumented car used to record the data around the EPFL campus in Lausanne. The middle and right image depict the constraint network before and after optimization. The corrected network is overlayed with an aerial image.
+
+areas. Thus, a robot operating in a bounded environment can apply our technique for life long map learning.
+2.5 Towards Benchmarking of SLAM Approaches
+Whereas dozens of different techniques to tackle the SLAM problem have been proposed, there is no gold standard for comparing the results of different SLAM algorithms. In the community of feature-based estimation techniques, researchers often measure the Euclidian or Mahalanobis distance between the estimated landmark location and the true location (if this information is available). As we illustrate in [J3] and [C4], comparing results based on an absolute reference frame can have serious shortcomings. In the area of grid-based estimation techniques, people often use visual inspection to compare maps or overlays with blueprints of buildings.
+We address the problem of creating an objective benchmark for comparing SLAM approaches. We propose a framework [J3], [C4] for analyzing the results of SLAM approaches based on a metric for measuring the error of the corrected trajectory. The metric uses only relative relations between poses and does not rely on a global reference frame. Such relative constraints result from externally provided, that means known or accurately measured, distances between locations in the space. This idea is related to graph-based SLAM approaches discussed above, namely to consider the energy that is needed to deform the trajectory estimated by a SLAM approach into to ground truth trajectory. Our method enables us to compare SLAM approaches that use different estimation techniques or different sensor modalities since all computations are made based on the corrected trajectory of the robot.
+A certain disadvantage of our method is that it requires manual work that has to be carried out by a human that knows the topology of the environment. The manual work, however, has to be done only once for creating a benchmark dataset and than allows other researchers to evaluate their methods with rather low efforts. To simplify comparisons for future researchers, we provide sets
+
+14
+
+CHAPTER 2: MAPPING ENVIRONMENTS WITH MOBILE ROBOTS
+
+of relative relations needed to compute our metric for an extensive set of datasets frequently used in the SLAM community. The relations have been obtained by manually matching laser-range observations to avoid potential errors caused by matching algorithms. Our benchmark framework allows the user an easy analysis and objective comparisons between different SLAM approaches.
+
+Chapter 3
+Localization
+Estimating the pose of a robot relative to a given map is a well studied problem in robotics. Most of the effective solutions today rely on probabilistic estimation techniques such as Kalman or information ﬁlters in case of roughly Gaussian estimates (e.g., for GPS-based localization) or particle ﬁlters to model arbitrary densities.
+The approaches presented in this chapter extend the particle ﬁlter-based Monte-Carlo localization [17] in the sense that we provide better sensor models for sensor often used in robotics to improve the performance of the pose estimation system. In this chapter, we focus on laser-based localization only. Localization based on cameras will be addressed in Section 4.1.
+3.1 A Sensor Model for Localization with Low-Cost Laser Range Finders
+One of the key challenges in context of probabilistic localization, however, lies in the design of the so-called observation model p(z | x, m) which is a likelihood function that speciﬁes how to compute the likelihood of an observation z given the robot is at pose x in a given map m. For probabilistic approaches the proper design of the likelihood function is essential.
+Many successful approaches to localization rely on data provided by range sensors [2; 34; 28; 43; 78]. Laser range sensors provide distance and bearing information to objects in the environment. In practice, one has to deal with erroneous readings (sometimes called “maximum-range” readings) that result from poor-reﬂecting surfaces or readings obtained in situations in which no obstacle is within the measurement range of the sensor. Especially, low-cost laser range sensors such as the popular Hokuyo URG-04LX suffer from erroneous readings caused by objects with low reﬂecting surface properties. One popular approach that explicitly models failures corresponding to low or non reﬂectance is the ray-cast model proposed by Fox et al. [28]. This model, however, as well as most others do not take into account that the likelihood of erroneous readings depends on the reﬂection properties of the corresponding surfaces.
+We present in [C8] a novel approach that explicitly considers the reﬂection properties of surfaces and thus the expectation of valid range measurements. In addition to the expected range
+
+16
+
+CHAPTER 3: LOCALIZATION
+
+measurement, we compute the probability of reﬂectance for a beam given the relative pose of the robot to the obstacle taking into account the angle of incidence of the beam. We estimate the reﬂection properties of surfaces using data collected with a mobile robot equipped with a laser range scanner. As we demonstrate in experiments carried out with a real robot, our technique leads to signiﬁcantly improved localization results compared to a state-of-the-art observation model. With our models, a robot can faster reduce its pose uncertainty and focus the belief during global localization.
+3.2 A Sensor Model for Accurate Laser Range Finders
+In our method [C11], we propose a novel probabilistic observation model for accurate proximity sensors such as SICK laser range ﬁnders. Our method has two advantages over most previous approaches. First, it explicitly considers the dependencies between the individual beams of a range scan, and second, is accounts for the multi-modal nature of the observation function. It does so while still considering that the observation is obtained from a time-of-ﬂight proximity sensor such as a laser range ﬁnder. This is achieved by considering place-dependent measurement models and utilizing a Gaussian mixture model together with a dimensionality reduction technique.
+Given the high resolution of typical laser range ﬁnders (.25 to 1 degree), the assumption that all beam are independence leads to highly peaked likelihood function. In practice, this problem is dealt with by sub-sampling the measurements [80], by introducing minimal likelihoods for beams, or by other means of regularization of the resulting likelihoods (see Arulampalam et al. [3]). In contrast to this, we propose to overcome the peakedness is to consider that the likelihood models are location-dependent and that the location of the robot is modeled by set ﬁnite set of pose hypotheses (particles).
+The key idea is to determine for each location in the space a set of potential observations, here considering the whole scan not individual beams. This done not only for one pose but also for a local neighborhood. Our approach then learns a high-dimensional Gaussian mixture observation model for each pose in the space. This model is computed in a preprocessing step and can then be used online to compute the likelihood of an observation.
+In practical experiments carried out with data obtained with a real robot, we demonstrate that our new model substantially outperforms existing sensor models and allows for highly accurate and peaked pose estimate, being highly robust to perturbations, and allowing for fast global localization.
+
+Chapter 4
+Special Sensing Modalities
+Cameras have become popular sensors in the robotics community. Compared to proximity sensors such as laser range ﬁnders, they have the advantage of being cheap, lightweight, and energy efﬁcient. The drawback of cameras, however, is the fact that due to the projective nature of the image formation process, it is not possible to sense depth information directly. In this chapter, we address robotic vision problems, namely localization based on camera images, range sensing based on single images, a front-end for vision-based SLAM, and landmark location estimation based on geo-referenced images.
+4.1 Visual Localization
+The ability of a robot to localize itself is required for most robotic applications and this topic was studied intensively in the past. Many approaches exist that use distance information provided by a proximity sensor for localizing a robot in the environment. However, for some types of robots, proximity sensors are not the appropriate choice because they do not agree with their design principle. Humanoid robots, for example, which are constructed to resemble a human, are typically equipped with vision sensors and lack proximity sensors like laser scanners. Therefore, it is natural to equip these robots with the ability of vision-based localization.
+In our work [C25], we present an approach to vision-based mobile robot localization that uses a single perspective camera. We apply the well-known Monte-Carlo localization (MCL) technique [17] to estimate the robot’s position. MCL uses a set of random samples, also called particles, to represent the belief of the robot about its pose. To locate features in the camera images, we use the Scale Invariant Feature Transform (SIFT) developed by Lowe [51].
+Whereas existing systems, that perform metric localization and mapping using SIFT features, apply stereo vision in order to compute the 3D position of the features [5; 24; 65; 66], we rely on a single camera only during localization. Since we want to concentrate on the localization aspect, we facilitate the map acquisition process by using a robot equipped with a camera and a proximity sensor. During mapping, we create a 2D grid model of the environment. In each cell of the grid, we store those features that are supposed to be at that 2D grid position. Since the number of observed
+
+18
+
+CHAPTER 4: SPECIAL SENSING MODALITIES
+
+position error [m]
+
+5 odometry
+
+4
+
+weighted mean
+
+3
+
+2
+
+1
+
+0 0 10 20 30 40 50 60 70 80
+time
+
+Figure 4.1: Evolution of the error during a typical localization experiment (left), typical observation obtained by the robot (second left) and two pictures of the humanoid robot Max during our experiments.
+
+SIFT features is typically high, we appropriately down-sample the number of features in the ﬁnal map. During MCL, we then rely on a single perspective camera and do not use any proximity information. Our approach estimates for clusters of particles the set of potentially visible features using ray-casting on the 2D grid. We then compare those features to the features extracted from the current image. In the observation model of the particle ﬁlter, we consider the difference between the measured and the expected angle of similar features. By applying the ray-casting technique, we avoid comparing the features extracted out of the current image to the whole database of features (as the above mentioned approaches do), which can lead to serious errors in the data association. As we demonstrate in practical experiments with a mobile robot in an ofﬁce environment [C25], our technique is able to reliably track the position of the robot. We also present experiments illustrating that the same map of SIFT features can be used for self-localization by different types of robots equipped with a single camera only and without proximity sensors.
+4.2 Range Sensing from Omnidirectional Vision
+The major role of perception, in humans as well as in robotic systems, is to discover geometric properties of the current scene in order to act in it reasonably and safely. For artiﬁcial systems, vision sensors provides a rich source of information about the local environment, since it captures the entire scene – or at least the most relevant part of it – in a single image. Much research has thus concentrated on the question of how to extract geometric scene properties, such as distances to nearby objects, from such images.
+This task is complicated by the fact that only a projection of the scene is recorded and, thus, it is not possible to sense depth information directly. From a geometric point of view, one needs at least two images taken from different locations to recover the depth information analytically. An alternative approach that requires just one monocular camera image and that we follow in [J1] and [C16], is to learn from previous experience how visual appearance is related to depth. Such an ability is also highly developed in humans, who are able to utilize monocular cues for depth perception [74].
+As a motivating example, consider the left image of Figure 4.2, which shows the image of an
+
+4.2 RANGE SENSING FROM OMNIDIRECTIONAL VISION
+
+19
+
+Figure 4.2: Left: Our approach estimates proximity information from a single image after having learned how visual appearance is related to depth. Right: Robot setup for the easy acquisition of training data using a mobile robot equipped with an omnidirectional camera (monocular camera with a parabolic mirror) as well as a laser range ﬁnder.
+ofﬁce environment (180◦ of an omnidirectional image warped to a panoramic view). Overlayed in white, we visualize the most likely area of free space that is predicted by our approach. We aim at learning the function that, given an image, maps measurement directions to their corresponding distances to the closest obstacles. Such a function can be utilized to solve various tasks of mobile robots including local obstacle avoidance, localization, mapping, exploration, or place classiﬁcation.
+The contribution of our work [J1], [C16] is a new approach to range estimation based on omnidirectional images. The task is formulated as a supervised regression problem in which the training set is acquired by combining image date with proximity information provided by a laser range ﬁnder. In a ﬁrst step, we extract visual features from the image data. We extract for every viewing direction α a vector of visual features v from a single image. Features are obtained by supervised and unsupervised dimensionality reduction techniques as well as manually designed features based on algorithms for edge detection. We consider principal component analysis, linear discriminant analysis, as well as local linear embedding for dimensionality reduction.
+In the second step, these low-dimensional features serve as the input to a learning engine that seeks to infer range information. The learning approach aims to ﬁnd the relationship between visual input and the free space around the robot. We phrase the problem as learning the range function f (v) = y that maps the visual input v to distances y. We learn this function in a supervised manner using a training set of observed features and corresponding laser range measurements.
+As a learning framework in our proposed system, we apply Gaussian processes [63] since this technique is able to model non-linear functions and offers a direct way of estimating uncertainties for its predictions. The GP framework allows us to compute a Gaussian estimate for any new query input that is not included in the training set. It provides a range prediction y together with a predictive uncertainty of each feature input v.
+To additionally consider the angular dependencies, we apply as a third step the Gaussian beam
+
+20
+
+CHAPTER 4: SPECIAL SENSING MODALITIES
+
+processes (GBP) model [62] to learn a heteroscedastic GBP for the set of predicted indexed by their bearing angles and make the ﬁnal range predictions.
+In sum, to obtain the prediction of a full range scan given one omnidirectional image, our approach proceeds as follows:
+1. Warp the omnidirectional image into a panoramic view.
+2. Extract for every pixel column i a vector of visual features vi.
+3. Use a GP to make independent range predictions about yi.
+4. Learn a heteroscedastic GBP for the set of predicted ranges {yi}ni=1 indexed by their bearing angles αi and make the ﬁnal range predictions for the same bearing angles.
+We evaluated our visual range prediction approach a different dataset recorded at the University of Freiburg and the DFKI in Saarbruecken. Besides measuring the prediction accuracy, we applied a probability mapping approach to the sensor data. Figure 4.3 presents the laser-based maps (left column) and maps using the predicted ranges from the vision data (right column) for the two environments (Freiburg on top and Saarbruecken below). In both cases, it is possible to build a map, which is comparable to maps obtained with infrared proximity sensors [36] or sonars [79].
+
+4.3 Vision-based Map Learning for Flying Vehicles
+In Section 2.4, we described our SLAM back-end, that allows to compute pose graphs with low error conﬁgurations. Our approach described here, is the corresponding SLAM front-end that can be applied to extract constraints from camera images. We developed a novel approach presented in [J7] and [C20] that allows aerial vehicles to acquire visual maps of large environments using an attitude sensor and low quality cameras pointing downwards. Such a setup can be found on different air vehicles such as blimps or helicopters. Our system deals with cameras that provide comparably low quality images which are also affected by signiﬁcant motion blur. Our technique uses visual features and estimates the correspondences between features using a variant of the PROSAC algorithm. This allows our approach to extracting spatial constraints between camera poses which can then be used to address the SLAM problem by applying graph methods. We additionally address the problem of efﬁciently identifying loop closures which is essential for SLAM. Furthermore, our approach can operate in two different conﬁgurations: with a stereo as well as with a monocular camera. If a stereo setup is available, our approach is able to learn visual elevation maps of the ground. If, however, only one camera is carried by the vehicle, our system can be applied by making a ﬂat ground assumption providing a visual map without elevation information. The advantages of our approach is that it is easy to implement, provides robust pose and map estimates, and that is suitable for small ﬂying vehicles. Figure 4.4 depicts our blimp and helicopter used to evaluate this work as well as an example camera image obtained with our light-weight camera. In [J7], [C20], we present several experiments with ﬂying vehicles which demonstrate that our method is able to construct maps of large outdoor and indoor environments.
+
+4.4 ESTIMATING LANDMARK LOCATIONS FROM GEO-REFERENCED PHOTOGRAPHS
+
+21
+
+Figure 4.3: Example maps of the Freiburg AIS lab (top row) and DFKI Saarbruecken (bottom row) using real laser data (left) and the range predictions of our approach extracted from omnidirectional camera images (right).
+4.4 Estimating Landmark Locations from Geo-Referenced Photographs
+In addition to the classical map learning approach in robotics where the robot carries its sensors, we furthermore explore the possibility to use other resources for estimating the location of landmarks. Popular Internet resources such as Flickr or Google Image Search offer a large amount of real world imagery. Many of these images contain geo-references, i.e., the locations where the photographs have been taken in longitude and latitude coordinates as well as manual annotations such as marked image regions and a tag word like “cathedral”. We are interested in how this large amount of freely available data can be used to infer quantitative knowledge about the world. We focus on the problem of localizing a discrete set of distinct landmarks on a larger spatial scale, like a town or city center based on a set of geo-referenced photographs of an environment annotated with labels for distinct landmarks.
+A robot that is able to utilize a so far unused source of information offers new ways for building models of places it has not observed directly. It furthermore allows a robot to also reﬁne or annotate
+
+22
+
+CHAPTER 4: SPECIAL SENSING MODALITIES
+
+Figure 4.4: Two aerial vehicles used to evaluate our mapping approach as well as an example image recorded from an on-board camera.
+exiting models. Consider, for example, a mobile tour guide robot deployed to a city center or to an archaeological site. Given the localized landmarks and the corresponding imagery, the system could offer a large range of location-dependent information without requiring a human expert to collect and formalize this knowledge.
+In our work [C10], we consider the problem of estimating the positions of landmarks given a set of geo-referenced photographs. The longitude and latitude information of the locations from which the photos have been taken are assumed to be known approximatively by means of a standard consumer GPS device. By combining this data with labeled regions in the photos referring to objects, such as buildings, our approach is able to localize these buildings and to determine the direction from which the photo has been taken. In contrast to bearing-only SLAM, our approach does not require a continuous image stream from a camera. We furthermore assume to have no knowledge about the orientation of the camera at any point in time. We address this problem by formulating it as an optimization problem. As we showed in [C10], we are able to accurately localize the labeled buildings based on photos taken in an urban environment.
+Figure 4.5 depicts the downtown area of Freiburg, where the location of six distinct buildings are marked by circles. Our approach is able to estimate the positions of such landmarks based on a set of photos taken while walking through the city center (estimated locations marked by crosses).
+
+4.4 ESTIMATING LANDMARK LOCATIONS FROM GEO-REFERENCED PHOTOGRAPHS
+
+23
+
+real landmark location estimated landmark location
+
+Figure 4.5: The downtown area of Freiburg and the location of six distinct buildings (Herz-Jesu Kirche, train station, Chemie Hochhaus, Muenster, Martinstor, Schwabentor). The circles show the true locations, the circles the one estimated by our approach.
+
+24
+
+CHAPTER 4: SPECIAL SENSING MODALITIES
+
+4.5 Gas Distribution Modeling
+
+The problem of modeling gas distributions has important applications in industry, science, and every-day life. Mobile robots equipped with gas sensors are deployed, for example, for pollution monitoring in public areas [22], surveillance of industrial facilities producing harmful gases, or inspection of contaminated areas within rescue missions.
+Building gas distribution maps is a challenging task in principle due to the chaotic nature of gas dispersal and because only point measurements of gas concentration are available. The complex interaction of gas with its surroundings is dominated by two physical effects. First, on a comparably large timescale, diffusion mixes the gas with the surrounding atmosphere achieving a homogeneous mixture of both in the long run. Second, turbulent air ﬂow fragments the gas emanating from a source into intermittent patches of high concentration with steep gradients at their edges [64]. This chaotic system of localized patches of gas makes the modeling problem a hard one. Precise physical simulation of the gas dynamics in the environment requires immense computational resources as well as precise knowledge about the physical conditions, which is not known in most practical scenarios.
+When considering gas concentration measurements obtained with a mobile robot, we observed that distributions often consists of a rather smooth “background” signal and several peaks, which indicate high gas concentrations. So, the challenge in gas distribution mapping is to model this background signal while being able to cover also the areas of high concentration and their sharp boundaries. Since it is comparably costly to acquire measurements, one is also interested in reducing the number of samples needed to build a representation. It is important to note that the noise is dominated by the large ﬂuctuations of the instantaneous gas distribution and not by the electronic noise of the gas sensors.
+In our approach [J4], [C13], we address the task of modeling a gas distribution by ﬁnding a probabilistic model that best explains the observations and that is able to accurately predict new ones. To achieve this, we treat gas distribution mapping as a supervised regression problem. We derive a solution by means of a sparse mixture model of Gaussian processes [82] that is able to handle both physical phenomena highlighted above.
+Gaussian processes (GPs) [63] are a non-linear, non-parametric regression technique. It provides a prediction and in addition to that a predictive uncertainty of the estimate. In GPs, one places a prior on the space of functions p( f ) using the following deﬁnition. A Gaussian process is a collection of random variables, any of which have a joint Gaussian distribution.
+More formally, if we assume that {(xi, fi)}ni=1 with fi = f (xi) are samples from a Gaussian process and deﬁne f = ( f1, . . . , fn)⊤, we have
+
+Ê Ê f ∼ N (µ,K) ,
+
+µ∈
+
+n
+,
+
+K
+
+∈
+
+n×n
+.
+
+(4.1)
+
+The interesting part of the model is the covariance matrix K which is speciﬁed by [K]i j := cov( fi, f j) = k(xi, x j) using a covariance function k. It deﬁnes the covariance of any two function values { fi, f j} sampled from the process given their input vectors {xi, x j} as parameters.
+
+4.5 GAS DISTRIBUTION MODELING
+
+25
+
+Intuitively, the covariance function speciﬁes how similar two function values f (xi) and f (x j) are depending only on the corresponding inputs. A standard choice for k is a squared exponential function but also other functions are frequently used such as the Matern kernel.
+Let X = [x1; . . . ; xn]⊤ be the n × d matrix of the inputs and X∗ be deﬁned analogously for multiple test data points. In the GP model, any ﬁnite set of samples is jointly Gaussian distributed. A prediction of f (X∗) yields a Gaussian with predictive mean f¯(X∗) and variance V[ f (X∗)].
+In a GP mixture model, one uses a set of GPs which are the individual components. One uses a so-called gating function to deﬁne the inﬂuence of the individual components over the input space. The hyperparameters of the components as well as the gating function is learned using the Expectation Maximization algorithm [18]. In the EM algorithm, it is required to compute an correspondance probability for each training input of belonging to one component. Since standard GPs require a crisp assinment of the inputs, modiﬁcations to the GP appraoch are required. A soft assignment can be achived by introducing individual observation noise terms for the training data which incorporate the assignement probabilities. As a result, one obtains a model that is well suited to capture the properties of gas distributions by allowing a rather smooth “background” process in combination with a process for modeling localized gas pachtes and therehot-spot like characters.
+The three main steps of the GP mixture model approach are:
+
+1. Initializing the Mixture Components: In a ﬁrst step, the initial component is computed based in samples data points. To improve the estimate of gas concentration in areas that are poorly modeled by this initial model, we learn an “error GP model” that captures the absolute differences between a set of target values and the predictions so far. By initializing future mixture components based on input data for locations sampled from the error GP, the new componets will improve the estimate in so far badly approximated areas.
+
+2. Iterative Learning via Expectation-Maximization: The Expectation Maximization (EM) algorithm is used to learn the mixture correspondance variables for the inputs and to optimize the hyperparameters of the covariance function of the GPs.
+
+In the E-step, we estimate the probability P(z(x j) = i) that data point j corresponds to model i. This is done by computing the marginal likelihood of each data point for all models individually. Thus, the new P(z(x j) = i) is computed given the previous estimate as
+
+P(z(x j) = i)
+
+←
+
+P(z(x j) = i) · Ni(y j; x j) ∑km=1 P(z(x j) = k) · Nk(y j; x j) .
+
+(4.2)
+
+In the M-step, we update the components of our mixture model. This is achieved by integrating the probability that a data point belongs to a model component into the individual GP learning steps. This is achieved by modifying the prediction mean estimate to
+
+f¯i(X∗) = k(X∗, X) k(X, X) + Ψi −1 y ,
+
+(4.3)
+
+26
+
+CHAPTER 4: SPECIAL SENSING MODALITIES
+
+where Ψi is a matrix with
+
+[Ψi] j j
+
+=
+
+σn2 P(z(x j) = i)
+
+(4.4)
+
+and zeros in the off-diagonal elements (instead of σn2I as in the standard GP gas, with obervation noise σN). The matrix Ψi allows us to consider the probabilities that the individual
+inputs belong to the corresponding components.
+
+3. Learning the Gating Function: The gating function deﬁnes for an arbitrary data point the likelihood of being assigned to the individual mixture components. The EM algorithm learns the assignment probabilities for all training inputs x j, maximizing the overall data likelihood. To generalize these assignments to the whole input space, we place another GP prior on the gating variables. Concretely, we learn a gating GP for each component i that uses the x j as inputs and the z(x j) obtained from the EM algorithm as targets. Let f¯iz(x) be the prediction of z for the i-th GP. Given this set of m GPs, we can compute the correspondence probability for a new test point x∗ as
+
+P(z(x∗) = i)
+
+=
+
+exp( f¯iz(x∗)) ∑mj=1 exp( f¯jz(x∗)) .
+
+(4.5)
+
+Carrying out these three steps sequentially, allows us to efﬁciently learn a GP mixture model that turns out to be well suited to model distributions of gas concentrations. In experiments with real robots equipped with an ethanol sensor and cups of ethanol distributed in different environments, we were able to show that our approach is well-suited to model gas distributions. An example distribution is depicted in Figure 4.6.
+We compared our method with three different approaches: grid-based averaging with linear interpolation for areas where no observations have been obtained. Second, the kernel extrapolation technique of Lilienthal and Duckett [50] and ﬁnally to a standard GP approach. For comparisons, we used the MSE (see Figure 4.7) and the average negative log likelihood using a a test set of gas concentration measurements in a cross-validation fashion. We can show that our approach clearly outperforms the spatial averaging using the grid and standard GPs. Futhermore, our approach also outperformed the kernel extrapolation technique of Lilienthal and Duckett signiﬁcantly. In constrast to kernel extrapolation and spatial averaging, our approach is also able to provide a predictive uncertainty of the estimate and in this way provides an uncertainty of the prediction.
+
+4.5 GAS DISTRIBUTION MODELING
+
+27
+
+Figure 4.6: Example illustration of a gas distribution learned from concentration data recorded in a corridor environment using our GP mixture model. Left: predictive mean, right: predictive uncertainty. The gas source was placed at the location (10, 3).
+
+0.025 0.02
+0.015
+
+GP mixture (Matern3 cov) GP mixture (Matern5 cov)
+GP mixture (SE cov) kernel extrapolation grid w. interpolation
+
+Average MSE
+
+0.01
+
+0.005
+
+0
+
+3-rooms
+
+corridor
+
+outdoor
+
+Figure 4.7: Experimental comparison of our GP mixture model with different covariance functions to other state-of-the art alternatives in three real-world setting. The bars show the mean squared error of predicted gas concentration w.r.t. the measured one on a test set, averaged over 10 runs.
+
+Chapter 5
+Towards Understanding Environments
+In real world settings, robots need more information about their surroundings than a metric description of the obstacles in the world. In this chapter, we introduce our achievements that allow robots to get a better understanding of the scene. First, we show how to learn hybrid models of the environment combining metric, topological as well as semantic information. Second, we present an approach that allows a robot to group similar objects observed in a scene and compute an assignment of objects to classes. Finally, we present an approach to learning kinematic models of everyday objects such as door or drawers based on observation obtained with a mobile robot.
+5.1 Hybrid Maps
+In the mobile robot map learning community, one typically distinguishes between the type of model the mapping approach learns: metric or topological maps. Metric maps like such as occupancy, feature, or geometric maps model the objects observed by the sensor. These maps are often used to explicitly represent obstacles and driveable areas. Typically, the resulting model strongly depends on the sensors used by the robot to perceive its environment. Metric maps often bear resemblance to ﬂoor plans used in architecture.
+For different robotic tasks, however, the robot can improve its capabilities or performance if sematic or topological information is available. In contrast to metric maps, topological maps model the structure of the environment using a graph. The different places in the environment are represented by nodes in that graph. Topological maps became also popular in the robotics community because they are believed to be cognitively more adequate. Compared to metric maps, they can be stored in a compact manner and can facilitate the communication with the users.
+While most other mapping approaches address either metric or topological map learning, we focus on constructing a hybrid map that covers metric aspects as well as the topology of the environment [J8]. This enables a mobile robot to use the best suited model for the task it performs. Our approach consists of two steps. In the ﬁrst one, we apply a highly efﬁcient particle ﬁlter to solve the simultaneous localization and mapping problem, see previous chapter and [C18], [J9]. This step is based on grid maps and eliminates the pose uncertainty of the robot by selecting the
+
+5.1 HYBRID MAPS
+
+29
+
+Room 1 Door 1
+Door 4 Room 3
+
+Door 2 Door 5 Room 4
+
+Room 2
+Door 3 Corridor Door 6
+Room 5
+
+(a) Adaboost classiﬁcation
+
+(b) After smoothing
+
+(c) Resulting hybrid map
+
+corridor
+
+room
+
+doorway
+
+Figure 5.1: This ﬁgure shows a map of the building 79 at the University of Freiburg. Image (a) depicts the result of applying the sequential AdaBoost with a classiﬁcation rate of 97.3%, and (b) depicts the result of applying relaxation and the detection of incorrect labeled regions (marked with circles), and (c) the ﬁnal hybrid map showing the topology and the corresponding regions as metric models with semantic labels.
+
+most likely conﬁguration based on a joint posterior about the trajectory of the robot and the map of the environment.
+In the second step, we use the grid map resulting from the ﬁrst step in order to infer the topology. The key ideas is to estimate semantic information about local areas as proposed in a previous work and during the PhD thesis [70; 53]. The approach computes rather simple geometric features from laser range scans and estimates a semantic label such as corridor, room, or doorway for each location in the space using the AdaBoost algorithm. This approach, however, treats every location in the space individually. Due to the structure of environments made by humans, the semantic class does not change randomly between nearby poses. Therefore, it makes sense to consider a smoothing approach between places located close together. Therefore, we apply probabilistic relaxation labeling to smooth the semantic labels. This reduces the risk of false classiﬁcations and improves the estimate of the semantic class of poses. Based on the smoothed class labels and the grid map, one can extract distinct places in the environment that refer, for example, to individual rooms. Building a graph structure that connects the individual places based on the connectivity, that can easily be extracted from the grid map, allows a mobile robot to learn a consistent topological representation of the space and at the same time an accurate metric model. One advantage of this approach is that the nodes of the resulting graph correspond to the individual semantic regions. This links the metric and the topological representations. As a result, a robot is ﬁnally able to maintain a hybrid representation of the space allowing it to select the model that is best suited to solve a given task.
+Figure 5.1 illustrates the extraction of semantic information and the resulting hybrid model for an ofﬁce space at building 79 at the University of Freiburg.
+
+30
+
+CHAPTER 5: TOWARDS UNDERSTANDING ENVIRONMENTS
+
+Figure 5.2: Left: Aerial image of the computer science campus in Freiburg, courtesy of Google Maps, Copyright 2008, DigitalGlobe. Right: Corresponding mapping result obtained with a mobile robot driving on the paved road around the building. The image shows a 2D projection of the 3D map including labeled areas.
+5.2 Vegetation Estimation
+The techniques described above is designed for indoor environments. In most outdoor navigation scenarios including autonomous cars, autonomous wheelchairs, surveillance robots, or transportation vehicles, also the classiﬁcation of the terrain plays an important role as most of the robots have been designed for navigation on streets or paved paths rather than on natural surfaces covered by grass or vegetation. The navigation outside of paved paths might be uncomfortable for passengers or even might introduce the risk for the robot of getting stuck. Furthermore, driving on grass will in general increase wheel slippage and in this way lead to potential errors in the odometry. In addition to that, a technique for terrain classiﬁcation can directly combined with the above described approach to learn hybrid maps for outdoor scenes. Accordingly, the robust detection of vegetated areas is an important requirement for robots in any of the above-mentioned situations.
+We therefore developed a novel approach [C3] for vegetation detection from laser measurements by exploiting the laser remission values. In our algorithm, the laser remission is modeled as a function of distance, incidence angle, and material. We classify surface terrain based on 3D scans of the surrounding of the robot based on support vector machines. The model is learned in a self-supervised way using vibration-based terrain classiﬁcation. Practical experiments demonstrate that our approach yields a classiﬁcation accuracy of over 99% in all tested settings. This evaluation was carried out based on a series of real-world experiments at the campus of the University of Freiburg. An example map obtained with a mobile robot is shown in Figure 5.2. We also demonstrate in [C3] how the learned classiﬁer can be used to improve autonomous navigation.
+5.3 Classifying Objects in Scenes
+In home environments, which are envisioned as one of the key application areas for service robots, a robot does not only need a model of the space but also has to deal with a variety of different objects. The ability to distinguish objects based on observations and to relate them to known
+
+5.3 CLASSIFYING OBJECTS IN SCENES
+
+31
+
+class 1 (human)
+
+class 2 (balloon)
+
+class 3 (box)
+
+Figure 5.3: Example of a scene observed with a laser range scanner mounted on a pan-tilt unit. Points with the same color resemble objects belonging to the same class.
+
+classes of objects is important for autonomous service robots. Analyzing a scene and identifying objects and their classes based on sensor data is a hard problem due to the varying appearances of the objects belonging to speciﬁc classes. In our work [C2], we consider a robot that can observe a scene with a 3D laser range scanner. The goal is to learn a model for object classes unsupervised, to perform a consistent classiﬁcation of the observed objects, and to obtain a correct classiﬁcation of unseen objects belonging to one of the known object classes. As an illustrating example, consider Figure 5.3 which depicts a typical point cloud of a scene considered. It contains four people, a box, and a balloon-like object. The individual colors of the 3D data points illustrate the corresponding object classes that we want our algorithm to infer.
+An important distinction between different approaches to object detection and recognition is the way the objects or classes are modeled. Models can be engineered manually, learned from a set of labeled training data (supervised learning) or learned from unlabeled data (unsupervised learning). While the former two categories have the advantage that detailed prior knowledge about the objects can be included easily, the effort for manually building the model or labeling a signiﬁcant amount of training data becomes infeasible with increasing model complexity and larger sets of objects to identify. Furthermore, in applications where the objects to distinguish are not known beforehand, a robot needs to build its own model, which can then be used to classify the data.
+The contribution of our work is a novel approach for discovering object classes from range data in an unsupervised fashion and for classifying observed objects in new scans according to these classes. Thereby, the robot has no a-priori knowledge about the objects it observes. Our approach operates on a 3D point cloud recorded with a laser range scanner. We apply latent Dirichlet allocation (LDA) [7], a method that has recently been introduced to seek for topics in text documents [32]. The approach models a distribution over feature distributions that characterize the classes of objects. Compared to most popular unsupervised clustering methods such as k-means or hierarchical clustering, no explicit distance metric is required. To describe the characteristics of surfaces belonging to objects, we utilize a variant of spin-images as local features that serve as input to the LDA. The learned feature distributions can subsequently be used as models for the classiﬁcation of unseen data. An important property of our approach is that it is unsupervised and
+
+32
+
+CHAPTER 5: TOWARDS UNDERSTANDING ENVIRONMENTS
+
+Figure 5.4: Example point cloud segments of a box, balloon, human, swivel chair, and regular chair.
+Figure 5.5: Resulting topic mixtures for 82 segments containing scanned objects computed via LDA (the labels were not provided to the system).
+does not need labeled training data to learn the partitioning. We show in practical experiments on real 3D data that a mobile robot following our approach is
+able to identify similar objects in different scenes while at the same time labeling dissimilar objects differently. Examples for 3D range scans of objects under consideration are depicted in Figure 5.4, consisting of boxes, balloons, humans, and different types of chairs. Even for datasets containing complex objects with varying appearance such as humans, we achieve a robust performance with over 90% correctly grouped objects. An example visually illustrating the performance of our approach is depicted in Figure 5.5. It shows the topics assigned by our approach to a set of 82 scan segments. The labels in this diagram show the true object class. Each color in the diagram denotes one topic and the ratios of colors denote for each object segment the class assignment weight. As the diagram shows, except of one chair, all objects are grouped correctly when using the maximum likelihood assignment.
+We furthermore demonstrate that our approach clearly outperforms unsupervised clustering approaches such as hierarchical clustering. LDA does not only achieve higher classiﬁcation accuracy throughout the entire parameter range, it is also less sensitive to the choice of parameters.
+5.4 Identifying Objects by Tactile Sensing
+We also considered tactile sensing as a potential source of information in order to detect objects in the scene. In [C5], we present a novel approach for identifying objects using touch sensors installed in the ﬁnger tips of a robot manipulator. Our approach operates on low-resolution intensity images that are obtained when the robot grasps an object. We apply a bag-of-words approach
+
+5.5 LEARNING KINEMATIC MODELS OF OBJECTS
+
+33
+
+Figure 5.6: Left and middle: examples for observations of a moving door of a microwave oven. Right: visualization of the 1-dimensional kinematic model of the door learned by our approach.
+that is frequently used in the vision community [1; 14; 15; 86] for object or scene identiﬁcation. By means of unsupervised clustering on training data, our approach learns a vocabulary which is used to generate a histogram codebook. The histogram codebook models distributions over the vocabulary and is the core identiﬁcation mechanism. As the objects are larger than the sensor, the robot typically needs multiple grasp actions at different positions to uniquely identify an object. To reduce the number of required grasp actions, we apply a decision-theoretic framework that minimizes the entropy of the probabilistic belief about the type of the object. To efﬁciently calculate the expected information gain of the next grasp action, we approximate it based on the distribution of potential observations extracted from the training data. In our experiments carried out with various industrial and household objects, we demonstrate that our approach is able to discriminate between a large set of objects. We furthermore show that using our approach a robot is able to distinguish visually similar objects that have with different elasticity properties by using only the information from the touch sensor.
+5.5 Learning Kinematic Models of Objects
+Robots operating in home environments must be able to also interact with articulated objects such as doors or drawers. Ideally, robots are able to autonomously infer articulation models by observation. This means that a robot is able to infer and model potential movements of objects which is a prerequisite for actions such an autonomously opening doors. We therefore developed an approach [C1] to learn kinematic models of such object.
+The considered problem can be formulated as follows: Given a sequence of locations from observed objects parts, learn a compact kinematic model describing the whole articulated object. This kinematic model has to deﬁne (i) which parts are connected, (ii) the dimensionality of the latent (not observed) actuation space of the object, and (iii) a kinematic function between different body parts in a generative way allowing a robot to reason also about unseen conﬁgurations.
+We assume that objects consist of different rigid parts and our approach has to infer the connectivity of that rigid parts. Additionally, we learn articulation models for the corresponding links. Our approach uses a mixture of parameterized models, for example, to describe typical joints
+
+34
+
+CHAPTER 5: TOWARDS UNDERSTANDING ENVIRONMENTS
+
+such as a rotational joint or a prismatic joint, as well as parameter-free kinematic models. The parameter-free models apply a mixture of non-linear dimensionality reductions to ﬁnd the manifold that encodes the hidden action variable and Gaussian process regression. Our approach then selects models of the individual links that provide the best explanation of the given observations. Our approach has been implemented and thoroughly evaluated. We demonstrate in the experimental section that our technique allows for learning accurate models of different articulated objects from real data. An example of the door of a microwave oven as well as the infered model of the door is depicted in Figure 5.6. This is an important step towards autonomous robots understanding and actively handling objects in their environment.
+
+Chapter 6
+Action Selection for Navigation
+This chapter presents solutions to different robotic problems in which the central aspect is action selection for a single robot or a team of robots. In detail, we focus on single and multi-robot exploration, navigation amongst deformable objects, computer-controlled cars, and the imitation of a human demonstrator to learn manipulative tasks by demonstration.
+6.1 Exploration
+There are several applications like planetary exploration, reconnaissance, rescue, mowing, or cleaning in which the complete coverage of a terrain belongs to the integral parts of a robotic mission. To allow a mobile robot to explore an unknown environment on its own, the robot has to generate exploration trajectories that allow for perceiving the environment with its sensors. In the past, different variants of the robot exploration problem have been studied. One typically distinguishes between single-robot and multi-robot exploration problems. In the context of the single-robot exploration problem, key questions are the generation of trajectories so that the robot can efﬁciently cover the space with its sensors and the ability to deal with the uncertainty in the sensor data and the pose information. In case multiple robots are deployed, the focus often lies on the coordination of the robots’ actions to avoid redundant work and physical interference between robots.
+Both problems received considerable attention in the past in the robotics community. Most exploration approaches, however, assume that the robot lives in a plane and do not consider the full 3D space. To overcome this limitation, we developed a novel exploration system [W3] that allows a robot to explore the 3D space learning 3D multi-level surface maps from laser range data. The approach can be seen as an extension of our previous work [70; 71] in the sense that it estimates the expected information gain of future observations.
+In case multiple robots are used to explore an environment, the coordination of the individual agents is crucial for high performance. Based on our previous work [10], we presented a framework [C12] that utilized typical structures in indoor environments. By extracting regions which typically correspond to rooms and assigning robots to explore such sub-regions separately, the
+
+36
+
+CHAPTER 6: ACTION SELECTION FOR NAVIGATION
+
+coordination of the agents can be signiﬁcantly improved.
+6.1.1 Information Gain-based Exploration in 3D
+Our 3D information gain-based exploration approach [W3] is an exploration technique that extents known techniques from 2D [70; 71] into the three-dimensional space. It allows us to address problems which are not encountered in traditional 2D representations such as negative obstacles, roughness, and slopes of non-ﬂat environments. Our approach constructs a full three-dimensional model using so-called multi-level surface (MLS) maps. MLS maps [83], [61], [C23], [W4], use a two-dimensional grid structure that stores multiple elevation values. In particular, they store in each cell of a discrete grid the height of the surface in the corresponding area. In contrast to elevation maps, MLS maps allow us to store multiple surfaces in each cell. Each surface is represented by a Gaussian with the mean elevation and its uncertainty. This representation enables a mobile robot to model environments with structures like bridges, underpasses, buildings, or mines.
+Our approach is formulated in a probabilistic way and the robot selects actions that reduce its uncertainty in the world model when selecting new target locations for sweeping the environment with its sensor. In order to evaluate the information gain of a candidate viewpoint, we perform a ray-cast operation on the map to determine the 3D patches in the map that are likely to be hit by a laser measurement. This allows us to efﬁciently reason about the potential measurements. The approach then estimates the expected information gain which is the reduction of uncertainty in its model. It ﬁnally selects the candidate viewpoint that minimizes the model uncertainty as well as the travel cost to reach the corresponding view point. Figure 6.1 illustrates parts of the decision process and the trajectories resulting from two real world experiments with a mobile robot. It should be noted that our approach is also able to deal with negative obstacles like, for example, abysms, which is a problem of robots exploring a three-dimensional world.
+6.1.2 Coordinated Multi-Robot Exploration by Space Segmentation
+In our work [C12], we consider the problem of efﬁcient exploration with teams of mobile robots that seek to minimize the overall time required to complete the mission. To achieve this, the robots have to select appropriate target locations, to minimizing the traveled distance, to avoid interference between agents, and to avoid redundant work. The coordination task can roughly be separated into two subsequent tasks. First, the identiﬁcation of potential exploration targets and second, the assignment of the individual robots to the target locations.
+A popular method for generating potential exploration targets has been proposed by Yamauchi et al. [85]. In this approach, robots are sent to the borders between the explored and the unexplored space called frontiers. A large set of approaches operate based on frontiers or very similar concepts exists [10; 31; 67; 72; 73; 88]. Such coordination strategies consider individual locations rather than segments of the environment. Segmentation approaches which have recently received an increased amount of attention [9; 30; 87], [J8]. In our work, we introduce a new online coordination strategy for multi-robot exploration. It uses a segmentation of the already explored area to assign robots to segments instead of directly assigning them to
+
+6.1 EXPLORATION
+
+37
+
+next viewpoint
+
+robot
+
+start
+(a) Robot reached the ﬁrst viewpoint.
+
+(b) Robot reached the fourth viewpoint.
+
+(c) Robot reached the ﬁnal viewpoint.
+
+(d) Perspective view of the ﬁnal map.
+
+Figure 6.1: Exploration in a simulated indoor environment. One can see four rooms, a corridor, and the foyer where the robot started the exploration.
+
+Figure 6.2: Illustration of coordination by space segmentation: Target assignments for the robots are obtained by exploiting different segments extracted from the partial map.
+
+38
+
+CHAPTER 6: ACTION SELECTION FOR NAVIGATION
+
+frontier targets. In our current implementation, the segmentation consists of typically indoor structures such as individual rooms, corridors, or similar. A small illustration of a segmentation into three regions during exploration is given in Figure 6.2. Based on this segmentation, the robots are distributed over the environment. To achieve this, the Hungarian method [44; 45] is applied to ﬁnd the optimal pairing of robots and targets given a cost function which encodes the reachability of segments. This approach distributes a team of robots more effectively than existing methods. This leads to a reduction of redundant work as well as the avoidance of interference between robots and as a result, the exploration time is signiﬁcantly reduced.
+
+6.2 NAVIGATION AMONGST DEFORMABLE OBJECTS
+
+39
+
+6.2 Navigation amongst Deformable Objects
+Path planning is an elementary problem in robotics and the ability to plan collision-free paths is a precondition for numerous applications of autonomous robots. The path planning problem has traditionally received considerable attention in the past and has been well-studied. The majority of approaches, however, has focused on the problem of planning paths in static environments and with rigid obstacles [47; 12; 48]. In the real world, not all obstacles are rigid and considering this knowledge can enable a robot to accomplish navigation tasks that otherwise cannot be carried out. For example, in our everyday life we deal with many deformable objects such as plants, curtains, or cloth and we typically utilize the information about the deformability of objects when carrying out a movement.
+As a motivating example, consider a robot that needs to pass through a curtain to move from its current position to the goal location since no other path exists in the environment. In this particular situation, traditional approaches that do not take the deformability of objects into account, will fail since no collision-free path exists. In contrast to this, approaches that know about deformability of objects are able to determine the deformation cost introduced by passing the curtain and to utilize this information during path planning.
+One potential method of taking deformations of objects into account is by generating trajectories using a method such as probabilistic roadmaps [39] and considering deformable objects as free space. When answering path queries, the planner has to simulate the deformation of the non-rigid objects resulting from the interaction with the robot. However, performing an appropriate physical simulation typically requires signiﬁcant computational efforts which makes such an approach unsuitable for online trajectory planning. Therefore, we propose an approach [C15; C7] to learn an approximative deformation cost function in a preprocessing step. The advantage of our method is that this function can be evaluated efﬁciently during planning. In this way, our approach reduces the time to solve a path query from several minutes to a few hundred milliseconds.
+The contribution of our work is an approach [C15] to mobile robot path planning that explicitly considers deformable objects in the environment. It employs the probabilistic roadmap method and learns a deformation cost function using an appropriate physical simulation engine [68; 75; 76; 69] that is based on Finite Element theory. Our approach trades off the travel cost with the deformation cost when answering path queries and can be executed online. Two snapshots of an experiment are depicted in Figure 6.3. For each situation, the simulated deformation and the real ones are shown.
+In order to apply such an approach in the real world, the robot furthermore needs to be able to appropriately interpret its sensory input during the interaction with the deformable objects. For example, during the interaction, the robot necessarily gets close to the deformable object so that its ﬁeld of view might get obstructed. For safe navigation, however, the robot still needs to be able to identify the measurements that do not correspond to the deformable object and come from other, unexpected, and possibly rigid objects.
+We therefore developed a probabilistic approach [C7] that allows a mobile robot to distinguish measurements caused by deformable objects it is interacting with from ordinary measurements.
+
+40
+
+CHAPTER 6: ACTION SELECTION FOR NAVIGATION
+
+Figure 6.3: Real and simulated deformations for two situations.
+This allows the robot to utilize standard reactive collision avoidance techniques like potential ﬁelds [41] or dynamic window techniques [8; 27; 54] by ﬁltering out measurements that are caused by the deformable objects the robot is interacting with. Additionally, the ability to reliably identify measurements not perceiving parts of the deformable object enables the robot to correctly interpret them also for the sake of collision avoidance. Our approach has been implemented on a real robot and evaluated in a collision avoidance task carried out while the robot interacts with a curtain. The results demonstrate that our approach allows the robot to safely avoid obstacles while it is interacting with a deformable object.
+
+6.3 COMPUTER-CONTROLLED CARS
+
+41
+
+Figure 6.4: Our computer-controlled Smart car and the sensor setup mounted on the roof of the car. The right image shows our car during the ﬁrst European Landrover Trials (ELROB).
+6.3 Computer-controlled Cars
+One interesting application area for techniques developed in the robotics community are computercontrolled cars that can perceive the environment and drive autonomously. Especially, since the DARPA Gran Challenge [16], the usage of cars instead of classical mobile robots became popular [13; 81; 84].
+In a joint effort of the EPFL in Lausanne, the ETH Zurich, and the University of Freiburg, we developed a computer-controlled car based on a Smart car. The Smart car has been modiﬁed and equipped with ﬁve laser range ﬁnders, an inertial measurement unit, differential GPS, cameras, and four computers. To goal of this project was to build an autonomous platform that is able to build three-dimensional models of the environment, localize within these models, and can to plan and execute collision free trajectories to a given target location. Photos of the car and its sensors are shown in Figure 6.4.
+6.3.1 Car Modiﬁcations
+In order to turn the Smart car (Smart fortwo coupe´ passion 2005) into a robotic car, a series of modiﬁcations have been carried out (more details can be found [W4]): • An automotive engine control unit (ECU) has been installed between the computers and the
+vehicles own CAN bus to allow for a clear interfacing. • Customized access to the power steering system of the car. • A separated emergency break system that mechanically activates the break pedal. • An own electronic board to set gas commands. • A 24V power generator has been installed to the engine output axis in order to power all the
+electronic devices.
+To perceive the environment, a set of sensors has been installed in the car, namely: • Three laser scanner sensors for obstacle avoidance and navigation (SICK LMS291-S05). • Two rotating laser range scanners to obtain a 3D scanning device. • Perspective and omnidirectional cameras.
+
+42
+
+CHAPTER 6: ACTION SELECTION FOR NAVIGATION
+
+a GPS loss c
+b
+GPS loss
+
+Figure 6.5: Overlay of the estimated trajectory and the ortho-photo of the EPFL campus. The zones where the GPS was not available are highlighted. The total traveled distance is around 2300 m. The labels (a), (b), and (c) identify areas where GPS errors occurred but which did not cause pose estimation failures due to the multi-sensor data fusion.
+• A differential GPS system (Omnistar Furgo 8300HP). • an optical gyroscope (KVH DSP3000). • An inertial measurement unit (Crossbow NAV420).
+In addition to that, four industrial PCs were installed in the car to carry out the necessary computations. The key functionality the car provided are • Localization • Mapping • Path planning
+6.3.2 GPS-based Localization
+The localization system of the car mainly relies on GPS information. GPS alone, however, is not sufﬁcient to provide smooth pose estimates and furthermore cannot deal with GPS loss. We therefore fused the data obtained by the inertial measurement unit, the differential GPS, the optical gyro, and the wheel encoders.
+Our localization system applies the inverse form of the Kalman ﬁlter, i.e., the information ﬁlter. This ﬁlter has the property of summing information contributions from different sources in the update stage. This characteristic is advantageous when many sensors are involved which is the case in our application. As shown in [C23], the system allows for accurate pose estimation even in case of temporary GPS loss. Figure 6.5 depicts a trajectory estimate of the vehicle during an experiment over an ortho-photo of the EPFL campus.
+
+6.3 COMPUTER-CONTROLLED CARS
+
+43
+
+6.3.3 Mapping
+To achieve 3D mapping capabilities of the car, we developed a system that computes local threedimensional models of the surroundings of the vehicle. This is done by building a local multi-level surface map [83],[C23],[W4] based on the laser range data. To apply the graph-based SLAM approach presented in Chapter 2, a pose graph is created in which each node is linked to a local multi-level surface map. To obtain constraints between nodes, we use a registration techniques based on the iterative closest point algorithm. Instead of registering single points, we developed a matching approach based on MLS maps [83], [61], [C23], [W4]. To efﬁciently register whole maps, we incorporate a local traversability measure into the registration procedure which speeds up the matching signiﬁcantly.
+An example for a map learned from the dataset used above to brieﬂy illustrate the localization capabilities of our system is shown in Figure 6.6. In this image, the yellow cells indicate traversable area for the car, red to non-traversable ones and blue to vertical (also non-traversable) objects. A second example for a 3D map learned at a military test side is depicted in Figure 6.7.
+Such maps can then be used to plan trajectories and specify a goal location for the robot. Often, local maps modeling the obstacles in the surroundings of the vehicle are sufﬁcient for navigation and global maps are not needed in most cases. There are, however, situations in which a map is inherently needed to successfully perform the navigations task. This is, for example, the case for autonomous parking in a large garage as shown by Ku¨mmerle et al. [46].
+6.3.4 Motion Planning
+To actually plan a trajectory, the model of the environment can be used for global planning applying, for example, the popular A* algorithm or efﬁcient variants. In our work [W5], we used Field D* [25] since it allows for efﬁcient replanning. This algorithm provides low-cost 2D paths through grid-based representations of an environment and is able to repair these paths when accounting for new information as the vehicle observes obstacles during its traverse. These 2D paths, however, do not take into account the heading constraints of the vehicle. Instead, the approach approximates the least-cost path to the goal for a vehicle that can turn in place. Since Field D* does not encode the mobility constraints of the vehicle, it cannot be used alone for trajectory planning for the vehicle. Consequently, we combine it with a local planner to provide feasible paths. One way to do this is to use the Field D* path as the input to the local planner, which will then track this path to the goal. As the vehicle navigates through the environment, the global Field D* path is updated based on new information received through the onboard sensors, and the trajectories generated by the local planner are subsequently updated to reﬂect the new global path. This approach works well in static and structured environments, where the Field D* path can be quite accurately tracked using the local planner.
+For an unstructured driving scenario, the situation is more complicated because tracked dynamic obstacles may interfere entirely with the global path. Thus, it may not be possible to track a planned path using a local planner. Instead, we need to evaluate a more general set of possible local trajectories for the vehicle to execute, including some that do not follow the path reported by
+
+44
+
+CHAPTER 6: ACTION SELECTION FOR NAVIGATION
+
+Figure 6.6: Top view of a MLS map with a cell size of 50cm x 50cm showing the EPFL campus (compare to the ortho-photo in Figure 6.5). The yellow surface patches are classiﬁed as traversable. The area scanned by the robot spans approximately 300 by 250 meters. During the data acquisition, the robot traversed ﬁve nested loops with a length of approximately 2,300m.
+
+6.3 COMPUTER-CONTROLLED CARS
+
+45
+
+Figure 6.7: The left-hand image shows a top view of a MLS map of a military test site with a cell size of 50cm x 50cm. During the data acquisition, the robot traversed three nested loops with a length of approximately 1,200m. On the right-hand side three cutouts with the visualized Smart car are depicted. The yellow surface patches are classiﬁed as traversable.
+
+46
+
+CHAPTER 6: ACTION SELECTION FOR NAVIGATION
+
+Figure 6.8: Motion planning illustration: A set of feasible local trajectories is generated (shown in red). The cost of each of these trajectories is computed based on the cost of the cells the trajectory travels and curvature information. A global path is planned from the end of each local trajectory to the goal and the cost of this path is added to the cost of the trajectory. The best trajectory is shown in blue, along with the global path from the end of this trajectory to the goal.
+the planning algorithm. To achieve this, we use an approach that follows a large body of work on outdoor mobile robot navigation (see [40]). We use a local planner to generate a set of possible local trajectories and then evaluate each trajectory based on both, the cost of the trajectory itself (in terms of curvature, terrain, distance, etc), as well as the cost of a global path from the endpoint of the local trajectory to the goal. Rather than planning a single global path from the current vehicle position to the goal, global paths are planned from each local trajectory endpoint. Figure 6.8 shows an illustrative example of such a combined approach. Here, a set of local arc-based trajectories are shown in red, with the best trajectory shown in blue. The best trajectory was selected based on a combination of the cost of the trajectory itself and the cost of a global path from the end of the trajectory to the goal (the goal is shown as a ﬁlled circle at the right of the ﬁgure). The global path from the end of the best trajectory to the goal is also shown in blue.
+In sum, the combination of techniques presented here [C23], [W4], [W5] are well-suited to set up an autonomous, computer-controlled car that can perform basic driving. The developed system is a step towards intelligent cars. There is, however, a large gap between current systems and human-like driving capabilities.
+
+6.4 LEARNING BY DEMONSTRATION FOR ACQUIRING MANIPULATIVE SKILLS
+
+47
+
+6.4 Learning by Demonstration for Acquiring Manipulative Skills
+Several techniques exist for transferring new skills to robots. A promising technique is called “imitation learning” or “learning by demonstration”: Here, a robotic system observes an instructor that is performing a task [4; 6]. From multiple demonstrations, the robot has to infer a generalized task description and to reproduce it accordingly even under modiﬁed conditions.
+Teaching skills by direct demonstration is a very natural way of skill transfer in humans and animals. In the aim to create versatile, adaptable, and sociable robotic platforms, research on the mechanisms of learning new behaviors by observation has a very high potential. Furthermore, learning from demonstrations can speed up the learning of complex behaviors enormously as it provides strong prior information for the learning process. This can reduce the search space for traditional learning algorithms signiﬁcantly such that previously intractable tasks can be learned. In addition to that, teaching a robot by means of demonstrations can be carried out by non-experts.
+In our work [C9], we show that imitation learning is well suited as a user-friendly instruction method for manipulation tasks. Our approach uses motion capture data generated by a vision system to track body parts of a human instructor and the 3D positions of relevant objects in the scene. The body conﬁguration as well as the relations between objects and body parts of the demonstrator are in turn modeled as normally distributed observation nodes of a dynamic Bayesian network (DBN). For reproducing an observed skill, the network is evaluated at each time step in order to infer the most-likely action. Within our framework, new constraints can be dynamically added to the network, e.g., to incorporate collision avoidance during reproduction in order to deal with unforeseen obstacles.
+Our relation-based approach extends the recent work of Calinon and Billard [11] and formalize the problem by means of a DBN. We furthermore allow for incorporating additional constraints for modeling unexpected obstacles that should be considered during imitation.
+To illustrate the capabilities of our method [C9], Fig. 6.9 illustrates a reproduction of a whiteboard cleaning task by the robot that has been demonstrated by a human. First, a human repeatedly cleaned a whiteboard in an area bounded by 4 markers. Then, we attached a sponge to the robot and let it perform the demonstrated task. The corresponding photos are depicted in Fig. 6.9. A second example illustrates the capabilities of the robot to reproduce tasks in the presence of unknown obstacles. We showed the robot during reproduction phase an obstacle marker that was not there during the learning phase, see ﬁrst image of Fig. 6.10. Then, the robot had to clean the whiteboard while avoiding obstacles (and thus not cleaning the area of the marker). For reasons of illustration, we removed the marker during the experiment but kept it in the internal memory of the robot. In this way, the reader can see that the robot did not clean the corresponding area. Eight photos were taken during the reproduction and are depicted in Fig. 6.10. To avoid the area marked as an obstacle area, the robot lifts the sponge away from the whiteboard (in the direction of the observing camera).
+In sum, the presented an approach to imitation learning enables a robot to observe, generalize, and reproduce tasks from observing a human demonstrator. We formalized the problem using a dynamic Bayesian network that is used for learning relations between the observed positions of the
+
+48
+
+CHAPTER 6: ACTION SELECTION FOR NAVIGATION
+
+Figure 6.9: The reproduction of the board cleaning task by our robot. It imitates the zig-zag movement for cleaning the board with the sponge. Note that the learned task representation allows for cleaning differently sized surfaces based on the markers.
+obstacle
+not cleaned
+Figure 6.10: A cleaning task in the presence of an obstacle. Initially, the position of the obstacle is shown to the system. Then, the robot cleans the board avoiding the obstacle. As can be seen in the last frame, parts of the text in the area of the obstacle marker was not wiped out.
+objects and body parts of the instructor. Additional constraints, for example, to avoid unforeseen obstacles can be added online. To imitate the action of a human, we estimate the actions that maximize the joint probability distribution represented by the DBN. We evaluated the approach and showed that a real robot equipped with a manipulator can learn and reproduce demonstrated actions. Based on a pick-and-place and a whiteboard cleaning task, we illustrated the ﬂexibility of the method to generalize over different spatial setups.
+
+Chapter 7
+Conclusion
+In this cumulative habilitation thesis, we summarized the developments and achievements made in the context of learning models for mobile robots and autonomous robot navigation. A key concept found in most of the presented approaches are probabilistic techniques explicitely considering the uncertainty in the data. We developed innovative solutions to several important problems in robotics, including: • Various innovative techniques for efﬁcient large scale robot map learning under signiﬁcant
+uncertainty as well as an appropriate benchmark solution for SLAM systems. • Effective sensor models for Monte-Carlo localization techniques that better exploit the infor-
+mation contained in the sensor data. • Efﬁcient probabilistic solutions to typical state estimation problems in robotics using different
+sensor modalities, including proximity data and visual data, gas sensors, and tactile sensing. • A novel technique for learning hybrid maps modeling metric, semantic, and topological infor-
+mation. • Supervised and unsupervised approaches for scene analysis and object modeling that allow the
+robot to better understand its surroundings. • Efﬁcient strategies for single- and multi robot exploration. • A novel solution for robot navigation in environments containing deformable objects. • A computer-controlled car that is able to autonomously navigate, localize, and map its envi-
+ronment. • A learning by demonstration framework for teaching manipulation tasks.
+Most of the developed techniques provide fundamental solutions to the addressed problems and are based on probabilistic techniques. They offer robust solutions that can be applied under signiﬁcantly changed settings. This is illustrated by the fact that a series of techniques have been applied to different robotic platforms, ranging from computer-controlled cars, over wheeled indoor robots to humanoids and light-weight ﬂying vehicles. In addition to that, we presented a variety of solutions for different sensor modalities including laser range information, camera data, inertial, tactile as well as gas sensors. All approaches have been evaluated on real robotic platforms, in
+
+50
+
+CHAPTER 7: CONCLUSION
+
+realistic settings, often using publicly available datasets to allow for benchmarking. Whenever possible, the techniques developed have been statistically evaluated. As presented in the individual papers, all techniques show a signiﬁcant improvement over the state-of-the-art in robotics.
+We see the approaches presented here as building blocks for achieving integrated autonomous systems that will support us in our everyday life. Despite the encouraging results reported in this habilitation thesis, there is, of course, space for further improvements. Robots still act based on what humans program. Furthermore, a large amount of background knowledge that we as humans have learned during our whole life is not easily accessible for robots. There is large list of capabilities robots need acquire until we can call them truly autonomous agents. Nevertheless, we are approaching this goal and a series of tasks that have been considered as difﬁcult ten years ago can be solved rather effectively today, also using techniques presented here.
+
+Journal Articles
+[J1] C. Plagemann, C. Stachniss, J. Hess, F. Endres, and N. Franklin. A nonparametric learning approach to range sensing from omnidirectional vision. Robots and Autonomous Systems. Conditionally accepted.
+[J2] H. Kretzschmar, G. Grisetti, and C. Stachniss. Life-long map learning for graph-based simultaneous localization and mapping. KI – Kuenstliche Intelligenz. Accepted for publication.
+[J3] R. Kuemmerle, B. Steder, M. Ruhnke, G. Grisetti, C. Stachniss, C. Dornhege, and A. Kleiner. On measuring the accuracy of slam algorithms. Autonomous Robots. In press.
+[J4] C. Stachniss, C. Plagemann, and A.J. Lilienthal. Gas distribution modeling using sparse gaussian process mixtures. Autonomous Robots, 26:187ff, 2009.
+[J5] K.M. Wurm, C. Stachniss, and G. Grisetti. Bridging the gap between feature- and grid-based slam. Robots and Autonomous Systems, 2009. In press.
+[J6] G. Grisetti, C. Stachniss, and W. Burgard. Non-linear constraint network optimization for efﬁcient map learning. IEEE Transactions on Intelligent Transportation Systems, 2009. In press.
+[J7] B. Steder, G. Grisetti, C. Stachniss, and W. Burgard. Visual slam for ﬂying vehicles. IEEE Transactions on Robotics, 24(8):1088–1093, 2008.
+[J8] C. Stachniss, G. Grisetti, O. Mart´ınez-Mozos, and W. Burgard. Efﬁciently learning metric and topological maps with autonomous service robots. it – Information Technology, 49(4):232– 238, 2007.
+[J9] G. Grisetti, G.D. Tipaldi, C. Stachniss, W. Burgard, and D. Nardi. Fast and accurate slam with rao-blackwellized particle ﬁlters. Robots and Autonomous Systems, 55(1):30–38, 2007.
+
+Conference Papers
+[C1] J. Sturm, V. Predeap, C. Stachniss, C. Plagemann, K. Konolige, and W. Burgard. Learning kinematic models for articulated objects. In Proc. of the Int. Conf. on Artiﬁcial Intelligence (IJCAI), Pasadena, CA, USA, 2009. To appear.
+[C2] F. Enders, C. Plagemann, C. Stachniss, and W. Burgard. Scene analysis using latent dirichlet allocation. In Proc. of Robotics: Science and Systems (RSS), Seattle, WA, USA, 2009.
+[C3] K.M. Wurm, R. Kuemmerle, C. Stachniss, and W. Burgard. Improving robot navigation in structured outdoor environments by identifying vegetation from laser data. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), St. Louis, MO, USA, 2009. To appear.
+[C4] W. Burgard, B. Steder, R. Kuemmerle, M. Ruhnke, G. Grisetti, C. Stachniss, C. Dornhege, A. Kleiner, and Juan D. Tardos. How to compare the results of slam algorithms. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), St. Louis, MO, USA, 2009. To appear.
+[C5] A. Schneider, J. Sturm C. Stachniss, M. Reisert, H. Burkhardt, and W. Burgard. Object identiﬁcation with tactile sensors using bag-of-features. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), St. Louis, MO, USA, 2009. To appear.
+[C6] H. Strasdat, C. Stachniss, and W. Burgard. Which landmark is useful? learning selection policies for navigation in unknown environments. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Kobe, Japan, 2009.
+[C7] B. Frank, C. Stachniss, R. Schmedding, W. Burgard, and M. Teschner. Real-world robot navigation amongst deformable obstacles. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Kobe, Japan, 2009.
+[C8] M. Bennewitz, C. Stachniss, S. Behnke, and W. Burgard. Utilizing reﬂection properties of surfaces to improve mobile robot localization. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Kobe, Japan, 2009.
+[C9] C. Eppner, J. Sturm, M. Bennewitz, C. Stachniss, and W. Burgard. Imitation learning with generalized task descriptions. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Kobe, Japan, 2009.
+
+CONFERENCE PAPERS
+
+53
+
+[C10] H. Kretzschmar, C. Stachniss, C. Plagemann, and W. Burgard. Estimating landmark locations from geo-referenced photographs. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), Nice, France, 2008.
+[C11] P. Pfaff, C. Stachniss, C. Plagemann, and W. Burgard. Efﬁciently learning high-dimensional observation models for monte-carlo localization using gaussian mixtures. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), Nice, France, 2008.
+[C12] K.M. Wurm, C. Stachniss, and W. Burgard. Coordinated multi-robot exploration using a segmentation of the environment. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), Nice, France, 2008.
+[C13] C. Stachniss, C. Plagemann, A.J. Lilienthal, and W. Burgard. Gas distribution modeling using sparse gaussian process mixture models. In Proc. of Robotics: Science and Systems (RSS), Zurich, Switzerland, 2008.
+[C14] C. Stachniss, M. Bennewitz, G. Grisetti, S. Behnke, and W. Burgard. How to learn accurate grid maps with a humanoid. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Pasadena, CA, USA, 2008.
+[C15] B. Frank, M. Becker, C. Stachniss, M. Teschner, and W. Burgard. Efﬁcient path planning for mobile robots in environments with deformable objects. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Pasadena, CA, USA, 2008.
+[C16] C. Plagemann, F. Endres, J. Hess, C. Stachniss, and W. Burgard. Monocular range sensing: A non-parametric learning approach. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Pasadena, CA, USA, 2008.
+[C17] G. Grisetti, D. Lordi Rizzini, C. Stachniss, E. Olson, and W. Burgard. Online constraint network optimization for efﬁcient maximum likelihood map learning. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Pasadena, CA, USA, 2008.
+[C18] C. Stachniss, G. Grisetti, N. Roy, and W. Burgard. Evaluation of gaussian proposal distributions for mapping with rao-blackwellized particle ﬁlters. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), San Diego, CA, USA, 2007.
+[C19] G. Grisetti, S. Grzonka, C. Stachniss, P. Pfaff, and W. Burgard. Efﬁcient estimation of accurate maximum likelihood maps in 3d. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), San Diego, CA, USA, 2007.
+[C20] B. Steder, G. Grisetti, S. Grzonka, C. Stachniss, A. Rottmann, and W. Burgard. Learning maps in 3d using attitude and noisy vision sensors. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), San Diego, CA, USA, 2007.
+
+54
+
+CONFERENCE PAPERS
+
+[C21] K.M. Wurm, C. Stachniss, G. Grisetti, and W. Burgard. Improved simultaneous localization and mapping using a dual representation of the environment. In Proc. of the European Conference on Mobile Robots (ECMR), Freiburg, Germany, 2007.
+[C22] G. Grisetti, C. Stachniss, S. Grzonka, and W. Burgard. A tree parameterization for efﬁciently computing maximum likelihood maps using gradient descent. In Proc. of Robotics: Science and Systems (RSS), Atlanta, GA, USA, 2007.
+[C23] P. Pfaff, R. Triebel, C. Stachniss, P. Lamon, W. Burgard, and R. Siegwart. Towards mapping of cities. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Rome, Italy, 2007.
+[C24] G. Grisetti, G.D. Tipaldi, C. Stachniss, W. Burgard, and D. Nardi. Speeding-up raoblackwellized slam. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), pages 442–447, Orlando, FL, USA, 2006.
+[C25] M. Bennewitz, C. Stachniss, W. Burgard, and S. Behnke. Metric localization with scaleinvariant visual features using a single perspective camera. In H.I. Christiensen, editor, European Robotics Symposium 2006, volume 22 of STAR Springer tracts in advanced robotics, pages 143–157. Springer-Verlag Berlin Heidelberg, Germany, 2006.
+
+Workshop Papers
+[W1] P. Pfaff, R. Kuemmerle, D. Joho, C. Stachniss, R. Triebel, and W. Burgard. Navigation in combined outdoor and indoor environments using m ulti-level surface maps. In Workshop on Safe Navigation in Open and Dynamic Environments a t the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), San Diego, CA, USA, 2007.
+[W2] H. Strasdat, C. Stachniss, M. Bennewitz, and W. Burgard. Visual bearing-only simultaneous localization and mapping with improved feature matching. In Fachgespra¨che Autonome Mobile Systeme (AMS), Kaiserslautern, Germany, 2007.
+[W3] D. Joho, C. Stachniss, P. Pfaff, and W. Burgard. Autonomous exploration for 3d map learning. In Fachgespra¨che Autonome Mobile Systeme (AMS), Kaiserslautern, Germany, 2007.
+[W4] P. Lamon, C. Stachniss, R. Triebel, P. Pfaff, C. Plagemann, G. Grisetti, S. Kolski, W. Burgard, and R. Siegwart. Mapping with an autonomous car. In Workshop on Safe Navigation in Open and Dynamic Environments at the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), Beijing, China, 2006.
+[W5] S. Kolski, D. Furgeson, C. Stachniss, and R. Siegwart. Autonomous driving in dynamic environments. In Workshop on Safe Navigation in Open and Dynamic Environments at the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), Beijing, China, 2006.
+
+Bibliography
+[1] S. Agarwal, A. Awan, and D. Roth. Learning to detect objects in images via a sparse, part-based representation. IEEE Transactions on Pattern Analysis and Machine Intelligence, 26(11):1475–1490, 2004.
+[2] K.O. Arras, R. Philippsen, N. Tomatis, M. de Battista, M. Schilt, and R. Siegwart. A navigation framework for multiple mobile robots and its application at the Expo.02 exhibition. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), 2003.
+[3] S. Arulampalam, S. Maskell, N. Gordon, and T. Clapp. A tutorial on particle ﬁlters for online non-linear/non-gaussian bayesian tracking. In IEEE Transactions on Signal Processing, volume 50, pages 174–188, 2002.
+[4] P. Bakker and Y. Kuniyoshi. Robot see, robot do: An overview of robot imitation. In In AISB96 Workshop on Learning in Robots and Animals, pages 3–11, 1996.
+[5] T.D. Barfoot. Online visual motion estimation using FastSLAM with SIFT features. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), 2005.
+[6] A. Billard, S. Calinon, R. Dillmann, and S. Schaal. Robot programming by demonstration. In B. Siciliano and O. Khatib, editors, Handbook of Robotics. Springer, 2008.
+[7] D.M. Blei, A.Y. Ng, M.I. Jordan, and J. Lafferty. Latent dirichlet allocation. Journal of Machine Learning Research, 3, 2003.
+[8] O. Brock and O. Khatib. High-speed naviagation using the global dynamic window approach. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), 1999.
+[9] E. Brunskill, T. Kollar, and N. Roy. Topological mapping using spectral clustering and classiﬁcation. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), San Diego, October 2007.
+[10] W. Burgard, M. Moors, C. Stachniss, and F. Schneider. Coordinated multi-robot exploration. IEEE Transactions on Robotics, 21(3):376–378, 2005.
+[11] S. Calinon and A. Billard. A probabilistic programming by demonstration framework handling skill constraints in joint space and task space. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), 2008.
+
+BIBLIOGRAPHY
+
+57
+
+[12] H. Choset, K.M. Lynch, S. Hutchinson, G. Kantor, W. Burgard, L.E. Kavraki, and S. Thrun. Principles of Robot Motion. MIT Press, 2005.
+
+[13] L.B. Cremean, T.B. Foote, J.H. Gillula, G.H. Hines, D. Kogan, K.L. Kriechbaum, J.C. Lamb, J. Leibs, L. Lindzey, C.E. Rasmussen, A.D. Stewart, J.W. Burdick, and R.M. Murray. Alice: An information-rich autonomous vehicle for high-speed desert navigation. Journal on Field Robotics, 2006.
+
+[14] G. Csurka, L. Dance, J. Willamowski, and C. Bray. Visual categorization with bags of keypoints. In Proc. of the European Conf. on Computer Vision (ECCV), Wokshop on Statistical Learning in Computer Vision, pages 59–74, 2004.
+
+[15] M. Cummins and P. Newman. FAB-MAP: Probabilistic Localization and Mapping in the Space of Appearance. Int. Journal of Robotics Research, 27(6):647–665, 2008.
+
+[16] DARPA.
+
+Darpa grand challenge rulebook.
+
+http://www.darpa.mil/grandchallenge05/Rules 8oct04.pdf.
+
+Website, 2004.
+
+[17] F. Dellaert, D. Fox, W. Burgard, and S. Thrun. Monte carlo localization for mobile robots. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Leuven, Belgium, 1998.
+
+[18] A.P. Dempster, N.M. Laird, and D.B. Rubin. Maximum likelihood from incomplete data via the em algorithm. Journal of the Royal Statistical Society, 39(1):1–38, 1977.
+
+[19] G. Dissanayake, H. Durrant-Whyte, and T. Bailey. A computationally efﬁcient solution to the simultaneous localisation and map building (SLAM) problem. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), pages 1009–1014, San Francisco, CA, USA, 2000.
+
+[20] A. Doucet, J.F.G. de Freitas, K. Murphy, and S. Russel. Rao-Blackwellized partcile ﬁltering for dynamic bayesian networks. In Proc. of the Conf. on Uncertainty in Artiﬁcial Intelligence (UAI), pages 176–183, Stanford, CA, USA, 2000.
+
+[21] T. Duckett, S. Marsland, and J. Shapiro. Fast, on-line learning of globally consistent maps. Journal of Autonomous Robots, 12(3):287 – 300, 2002.
+
+[22] DustBot. DustBot - Networked and Cooperating Robots for Urban Hygiene. http://www.dustbot.org, 2008.
+
+[23] A. Eliazar and R. Parr. DP-SLAM: Fast, robust simultainous localization and mapping without predetermined landmarks. In Proc. of the Int. Conf. on Artiﬁcial Intelligence (IJCAI), pages 1135–1142, Acapulco, Mexico, 2003.
+
+[24] P. Elinas and J.J. Little. σ MCL: Monte-Carlo localization for mobile robots with stereo vision. In Proc. of Robotics: Science and Systems (RSS), 2005.
+
+58
+
+BIBLIOGRAPHY
+
+[25] D. Ferguson and A. Stentz. Field d*: An interpolation-based path planner and replanner. In Proc. of the Int. Symposium of Robotics Research (ISRR), 2005.
+[26] J. Folkesson and H. Christensen. Graphical slam - a self-correcting map. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Orlando, FL, USA, 2004.
+[27] D. Fox, W. Burgard, and S. Thrun. The dynamic window approach to collision avoidance. IEEE Robotics & Automation Magazine, 4(1), 1997.
+[28] D. Fox, W. Burgard, and S. Thrun. Markov localization for mobile robots in dynamic environments. Journal of Artiﬁcial Intelligence Research, 11, 1999.
+[29] U. Frese, P. Larsson, and T. Duckett. A multilevel relaxation algorithm for simultaneous localisation and mapping. IEEE Transactions on Robotics, 21(2):1–12, 2005.
+[30] S. Friedman, H. Pasula, and D. Fox. Voronoi random ﬁelds: Extracting topological structure of indoor environments via place labeling. In Manuela M. Veloso, editor, Proc. of the Int. Conf. on Artiﬁcial Intelligence (IJCAI), pages 2109–2114, 2007.
+[31] B.P. Gerkey and M.J. Mataric´. Sold!: Auction methods for multirobot coordination. IEEE Transactions on Robotics and Automation, 18(5):758– 768, 2002.
+[32] T.L. Grifﬁths and M. Steyvers. Finding scientiﬁc topics. Proc Natl Acad Sci U S A, 101 Suppl 1:5228–5235, 2004.
+[33] G. Grisetti, C. Stachniss, and W. Burgard. Improved techniques for grid mapping with raoblackwellized particle ﬁlters. IEEE Transactions on Robotics, 23(1):34–46, 2007.
+[34] J.-S. Gutmann, W. Burgard, D. Fox, and K. Konolige. An experimental comparison of localization methods. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), 1998.
+[35] J.-S. Gutmann and K. Konolige. Incremental mapping of large cyclic environments. In Proc. of the IEEE Int. Symposium on Computational Intelligence in Robotics and Automation (CIRA), pages 318–325, Monterey, CA, USA, 1999.
+[36] Y.S. Ha and H.H. Kim. Environmental map building for a mobile robot using infrared rangeﬁnder sensors. Advanced Robotics, 18(4):437–450, 2004.
+[37] D. Ha¨hnel, W. Burgard, D. Fox, and S. Thrun. An efﬁcient FastSLAM algorithm for generating maps of large-scale cyclic environments from raw laser range measurements. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), pages 206–211, Las Vegas, NV, USA, 2003.
+[38] A. Howard, M.J. Mataric´, and G. Sukhatme. Relaxation on a mesh: a formalism for generalized localization. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), pages 1055–1060, 2001.
+
+BIBLIOGRAPHY
+
+59
+
+[39] L.E. Kavraki, P. Svestka, J.-C. Latombe, and M.H. Overmars. Probabilistic roadmaps for path planning in high-dimensional conﬁguration spaces. IEEE Transactions on Robotics and Automation, 12(4):566–580, 1996.
+[40] A. Kelly. An intelligent predictive control approach to the high speed cross country autonomous navigation problem. PhD thesis, Carnegie Mellon University, Pittsburgh, PA, 1995.
+[41] M. Khatib and R. Chatila. An extended potential ﬁeld approach for mobile robot sensor-based motions. In Proc. Int. Conf. on Intelligent Autonomous Systems (IAS’4), 1995.
+[42] J. Ko, B. Stewart, D. Fox, K. Konolige, and B. Limketkai. A practical, decision-theoretic approach to multi-robot mapping and exploration. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), pages 3232–3238, Las Vegas, NV, USA, 2003.
+[43] K. Konolige and K. Chou. Markov localization using correlation. In Proc. of the Int. Conf. on Artiﬁcial Intelligence (IJCAI), 1999.
+[44] H.W. Kuhn. The hungarian method for the assignment problem. Naval Research Logistics Quarterly, 2(1):83–97, 1955.
+[45] H.W. Kuhn. Variants of the hungarian method for assignment problems. Naval Research Logistics, 3:253–258, 1956.
+[46] R. Ku¨mmerle, D. Ha¨hnel, D. Dolgov, S. Thrun, and W. Burgard. Autonomous driving in a multi-level parking structure. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), pages 3395–3400, Kobe, Japan, 2009.
+[47] J.-C. Latombe. Robot Motion Planning. Kluwer Academic Publishers, 1991.
+[48] S.M. LaValle. Planning Algorithms. Cambridge Univ. Press, 2006.
+[49] J.J. Leonard and H.J.S. Feder. A computationally efﬁcient method for large-scale concurrent mapping and localization. In Proc. of the Conf. on Neural Information Processing Systems (NIPS), pages 169–179, Breckenridge, CO, USA, 2000.
+[50] A. Lilienthal and T. Duckett. Building Gas Concentration Gridmaps with a Mobile Robot. Robotics and Autonomous Systems, 48(1):3–16, 2004.
+[51] D.G. Lowe. Object recognition from local scale-invariant features. In Proc. of the Int. Conf. on Computer Vision (ICCV), Kerkyra, Greece, 1999.
+[52] F. Lu and E. Milios. Globally consistent range scan alignment for environment mapping. Journal of Autonomous Robots, 4:333–349, 1997.
+[53] O. Mart´ınez-Mozos, C. Stachniss, and W. Burgard. Supervised learning of places from range data using adaboost. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), pages 1742–1747, Barcelona, Spain, 2005.
+
+60
+
+BIBLIOGRAPHY
+
+[54] J. Minguez and L. Montano. Nearness diagram navigation (nd): A new real time collision avoidance approach. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), pages 2094–2100, 2000.
+[55] M. Montemerlo, S. Thrun D. Koller, and B. Wegbreit. FastSLAM 2.0: An improved particle ﬁltering algorithm for simultaneous localization and mapping that provably converges. In Proc. of the Int. Conf. on Artiﬁcial Intelligence (IJCAI), pages 1151–1156, Acapulco, Mexico, 2003.
+[56] M. Montemerlo and S. Thrun. Simultaneous localization and mapping with unknown data association using FastSLAM. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), pages 1985–1991, Taipei, Taiwan, 2003.
+[57] M. Montemerlo, S. Thrun, D. Koller, and B. Wegbreit. FastSLAM: A factored solution to simultaneous localization and mapping. In Proc. of the National Conference on Artiﬁcial Intelligence (AAAI), pages 593–598, Edmonton, Canada, 2002.
+[58] K. Murphy. Bayesian map learning in dynamic environments. In Proc. of the Conf. on Neural Information Processing Systems (NIPS), pages 1015–1021, Denver, CO, USA, 1999.
+[59] A. Nu¨chter, K. Lingemann, J. Hertzberg, and H. Surmann. 6d SLAM with approximate data association. In Proc. of the 12th Int. Conference on Advanced Robotics (ICAR), pages 242–249, 2005.
+[60] E. Olson, J. Leonard, and S. Teller. Fast iterative optimization of pose graphs with poor initial estimates. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), pages 2262–2269, 2006.
+[61] P. Pfaff, R. Triebel, and W. Burgard. An efﬁcient extension of elevation maps for outdoor terrain mapping and loop closing. Int. Journal of Robotics Research, 2007.
+[62] C. Plagemann, K. Kersting, P. Pfaff, and W. Burgard. Gaussian beam processes: A nonparametric bayesian measurement model for range ﬁnders. In Robotics: Science and Systems (RSS), Atlanta, Georgia, USA, June 2007.
+[63] C. E. Rasmussen and C. K.I. Williams. Gaussian Processes for Machine Learning. The MIT Press, Cambridge, Massachusetts, 2006.
+[64] P.J.W. Roberts and D.R. Webster. Turbulent Diffusion. In H. Shen, A. Cheng, K.-H. Wang, M.H. Teng, and C. Liu, editors, Environmental Fluid Mechanics - Theories and Application. ASCE Press, Reston, Virginia, 2002.
+[65] S. Se, D.G. Lowe, and J.J. Little. Global localization using distinctive visual features. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), 2002.
+
+BIBLIOGRAPHY
+
+61
+
+[66] R. Sim, P. Elinas, M. Grifﬁn, and J.J. Little. Vision-based SLAM using the RaoBlackwellised particle ﬁlter. In IJCAI Workshop on Reasoning with Uncertainty in Robotics (RUR), 2005.
+[67] K. Singh and K. Fujimura. Map making by cooperating mobile robots. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), pages 254–259, Atlanta, GA, USA, 1993.
+[68] J. Spillmann. Defcol studio. http://www.beosil.com/download/DefColStudio readme.txt, 2005. Last visited: 2009/06/10.
+[69] J. Spillmann, M. Becker, and M. Teschner. Non-iterative computation of contact forces for deformable objects. Journal of WSCG, 15(1–3):33–40, 2007.
+[70] C. Stachniss. Exploration and Mapping with Mobile Robots. PhD thesis, University of Freiburg, Department of Computer Science, April 2006.
+[71] C. Stachniss, G. Grisetti, and W. Burgard. Information gain-based exploration using raoblackwellized particle ﬁlters. In Proc. of Robotics: Science and Systems (RSS), pages 65–72, Cambridge, MA, USA, 2005.
+[72] C. Stachniss, O. Mart´ınez-Mozos, and W. Burgard. Speeding-up multi-robot exploration by considering semantic place information. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), pages 1692–1697, Orlando, FL, USA, 2006.
+[73] C. Stachniss, O. Martinez Mozos, and W. Burgard. Efﬁcient exploration of unknown indoor environments using a team of mobile robots. Annals of Mathematics and Artiﬁcial Intelligence, 52:205ff, 2009.
+[74] G. Swaminathan and S. Grossberg. Laminar cortical mechanisms for the perception of slanted and curved 3-D surfaces and their 2-D pictorical projections. Journal of Vision, 2(7):79–79, 11 2002.
+[75] M. Teschner, B. Heidelberger, M. Mueller, and M. Gross. A versatile and robust model for geometrically complex deformable solids. In Proc. of Computer Graphics International, pages 312–319, 2004.
+[76] M. Teschner, B. Heidelberger, M. Mueller, D. Pomeranets, and M. Gross. Optimized spatial hashing for collision detection of deformable objects. In Proc. Vision, Modeling, Visualization (VMV), pages 47–54, 2003.
+[77] S. Thrun. An online mapping algorithm for teams of mobile robots. Int. Journal of Robotics Research, 20(5):335–363, 2001.
+[78] S. Thrun. A probabilistic online mapping algorithm for teams of mobile robots. Int. Journal of Robotics Research, 20(5):335–363, 2001.
+
+62
+
+BIBLIOGRAPHY
+
+[79] S. Thrun, A. Bu¨cken, W. Burgard, D. Fox, T. Fro¨hlinghaus, D. Hennig, T. Hofmann, M. Krell, and T. Schimdt. Map learning and high-speed navigation in RHINO. In D. Kortenkamp, R.P. Bonasso, and R. Murphy, editors, AI-based Mobile Robots: Case studies of successful robot systems. MIT Press, Cambridge, MA, 1998.
+[80] S. Thrun, W. Burgard, and D. Fox. Probabilistic Robotics. MIT Press, 2005.
+[81] S. Thrun, M. Montemerlo, H. Dahlkamp, D. Stavens, A. Aron, J. Diebel, P. Fong, J. Gale, M. Halpenny, G. Hoffmann, K. Lau, C. Oakley, M. Palatucci, V. Pratt, P. Stang, S. Strohband, C. Dupont, L.-E. Jendrossek, C. Koelen, C. Markey, C. Rummel, J. van Niekerk, E. Jensen, P. Alessandrini, G. Bradski, B. Davies, S. Ettinger, A. Kaehler, A. Neﬁan, and P. Mahoney. Winning the darpa grand challenge. Journal on Field Robotics, 2006.
+[82] V. Tresp. Mixtures of gaussian processes. In Proc. of the Conf. on Neural Information Processing Systems (NIPS), 2000.
+[83] R. Triebel, P. Pfaff, and W. Burgard. Multi-level surface maps for outdoor terrain mapping and loop closing. In Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), 2006.
+[84] C. Urmson. Navigation Regimes for Off-Road Autonomy. PhD thesis, Robotics Institute, Carnegie Mellon University, 2005.
+[85] B. Yamauchi. Frontier-based exploration using multiple robots. In Proc. of the Second International Conference on Autonomous Agents, pages 47–53, Minneapolis, MN, USA, 1998.
+[86] J. Zhang, M. Marszalek, S. Lazebnik, and C. Schmid. Local features and kernels for classiﬁcation of texture and object categories: A comprehensive study. International Journal of Computer Vision, 73(2):213–238, 2007.
+[87] Z. Zivkovic, B. Bakker, and B. Kro¨se. Hierarchical map building and planning based on graph partitioning. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), pages 803–809, 2006.
+[88] R. Zlot, A.T. Stenz, M.B. Dias, and S. Thayer. Multi-robot exploration controlled by a market economy. In Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Washington, DC, USA, 2002.
+
+Part II
+Publications
+
+[J1] C. Plagemann, C. Stachniss, J. Hess, F. Endres, and N. Franklin. A nonparametric learning approach to range sensing from omnidirectional vision. Robots and Autonomous Systems. Accepted for publication.
+
+A Nonparametric Learning Approach to Range Sensing from Omnidirectional Vision
+Christian Plagemanna, Cyrill Stachnissb, Ju¨rgen Hessb, Felix Endresb, Nathan Franklinb
+aStanford University, Computer Science Dept., 353 Serra Mall, Stanford, CA 94305-9010 bUniversity of Freiburg, Dept. of CS, Georges-Koehler-Allee 79, 79110 Freiburg, Germany
+Abstract We present a novel approach to estimating depth from single omnidirectional camera images by learning the relationship between visual features and range measurements available during a training phase. Our model not only yields the most likely distance to obstacles in all directions, but also the predictive uncertainties of these estimates. This information can be utilized by a mobile robot to build an occupancy grid map of the environment or to avoid obstacles during exploration— tasks that typically require dedicated proximity sensors such as laser range ﬁnders or sonars. We show in this paper how an omnidirectional camera can be used as an alternative to such range sensors. As the learning engine, we apply Gaussian processes, a nonparametric approach to function regression, as well as a recently developed extension for dealing with input-dependent noise. In practical experiments carried out in different indoor environments with a mobile robot equipped with an omnidirectional camera system, we demonstrate that our system is able to estimate range with an accuracy comparable to that of dedicated sensors based on sonar or infrared light. Key words: omnidirectional vision, learning, range sensing, Gaussian processes
+Preprint submitted to RAS - Special Issue on Omnidirectional Robot Vision November 20, 2009
+
+Figure 1: Our system records intensity images (left) and estimates the distances to nearby obstacles (right) after having learned how visual appearance is related to depth.
+1. Introduction
+The major role of perception, in humans as well as in robotic systems, is to discover geometric properties of the current scene in order to act in it reasonably and safely. For artiﬁcial systems, omnidirectional vision provides a rich source of information about the local environment, since it captures the entire scene—or at least the most relevant part of it—in a single image. Much research has thus concentrated on the question of how to extract geometric scene properties, such as distances to nearby objects, from such images.
+This task is complicated by the fact that only a projection of the scene is recorded and, thus, it is not possible to sense depth information directly. From a geometric point of view, one needs at least two images taken from different locations to recover the depth information analytically. An alternative approach that requires just one monocular camera image and that we follow here, is to learn from previous experience how visual appearance is related to depth. Such an ability is also highly developed in humans, who are able to utilize monocular cues for depth perception [1]. As a motivating example, consider the right image in Figure 1, which shows the image of an ofﬁce environment (180◦ of the omnidirectional image on the left warped to a panoramic view). Overlayed in white, we visualize the most likely area of free space that is predicted by our approach. We explicitly do not try to estimate a depth map for the whole image, as for example done by Saxena et al. [2]. Rather, we aim at learning the function that, given an image, maps measurement directions to their corresponding distances to the
+2
+
+Figure 2: Reﬂections, glass walls and inhomogeneous surfaces make the relationship between visual appearance and depth hard to model. One of the test environments at the University of Freiburg (left) exhibits many of these factors. Our approach was also tested using a standard perspective camera in this challenging environment (right).
+closest obstacles. Such a function can be utilized to solve various tasks of mobile robots including local obstacle avoidance, localization, mapping, exploration, or place classiﬁcation.
+The contribution of this paper is a new approach to range estimation based on omnidirectional images. The task is formulated as a supervised regression problem in which the training set is acquired by combining image date with proximity information provided by a laser range ﬁnder. We explain how to extract appropriate visual features from the images using algorithms for edge detection as well as for supervised and unsupervised dimensionality reduction. As a learning framework in our proposed system, we apply Gaussian processes since this technique is able to model non-linear functions, offers a direct way of estimating uncertainties for its predictions, and it has proven successful in previous work involving range functions [3].
+The paper is organized as follows. First, we discuss related work in Section 2. Section 3 introduces the used visual features and how they can be extracted from images. We then formalize the problem of predicting range from these features and introduce the proposed learning framework in Section 4. In Section 5, we present the experimental evaluation of our algorithm as well as an application to the mapping problem.
+3
+
+2. Related Work
+Estimating the geometry of a scene based on visual input is one of the fundamental problems in computer vision and is also frequently addressed in the robotics literature. Monocular cameras do not directly provide 3D information and therefore stereo systems are widely used to estimate the missing depth information. Stereo systems either require a careful calibration to analytically calculate depth using geometric constraints or, as Sinz et al. [4] demonstrated, can be used in combination with non-linear, supervised learning approaches to recover depth information. Often, sets of features such as SIFT [5] or SURF [6] are extracted from two images and matched against each other. Then, the feature pairs are used to constrain the poses of the two camera locations and/or the point in the scene that corresponds to the image feature. In this spirit, the motion of a single camera has been used by Davidson et al. [7] and Strasdat et al. [8] to estimate the location of landmarks in the environment. In their work, Mikusic and Padjla [9] have proposed a similar approach for recovering 3D structure from sequences of omnidirectional images.
+Sim and Little [10] present a stereo-vision based approach to the SLAM problem, which includes the recovery of depth information. Their approach contains both the matching of discrete landmarks and dense grid mapping using vision.
+An active way of sensing depth using a single monocular camera is known as depth from defocus [11] or depth from blur. Such approaches typically adjust the focal length of the camera and analyze the resulting local changes in image sharpness. Torralba and Oliva [12] present an approach for estimating the mean depth of full scenes from single images using spectral signatures. While their approach is likely to improve a large number of recognition algorithms by providing a rough scale estimate, the spatial resolution of their depth estimates does not appear to be sufﬁcient for the problem studied in this paper. Dahlkamp et al. [13] learn a mapping from visual input to road traversability in a self-supervised manner. They use the information from laser range ﬁnders to estimate the terrain traversability locally and then use visual data to extend the prediction to areas outside the ﬁeld of view of the laser range scanners. In contrast to our method, the laser range data is used at all times since learning is not a separated process as in this paper. Furthermore, different learning techniques and different features have been applied.
+The problem addressed by Saxena et al. [2] is closely related to our paper. They utilize Markov random ﬁelds (MRFs) for reconstructing dense depth maps from single monocular images. Compared to these methods, our Gaussian process
+4
+
+formulation provides the predictive uncertainties for the depth estimates directly, which is not straightforward to achieve in an MRF model. An alternative approach that predicts 2D range scans using reinforcement learning techniques has been presented by Michels et al. [14]. Menegatti et al. [15] proposed to simulate range scans from detected color transitions in omnidirectional images and to apply scan-matching and Monte-Carlo methods for localizing a mobile robot. Such color transitions are comparable to our set of edge-based features described in Section 3.3, which form the low-level input to the learning approach described in this paper.
+Hoiem et al. [16] developed an approach to monocular scene reconstruction based on local features combined with global reasoning. Whereas Han and Zhu [17] presented a Bayesian method for reconstructing the 3D geometry of wire-like objects in simple scenes, Delage et al. [18] introduced an MRF model on orthogonal plane segments to recover the 3D structure of indoor scenes. Ewert et al. [19] extract depth cues from monocular image sequences in order to facilitate image retrieval from video sequences. Their major cue for feature extraction is the motion parallax. Thus, their approach assumes translational camera motion and a rigid scene.
+In own previous work [3], we applied Gaussian processes to improve sensor models for laser range ﬁnders. In contrast to that, the goal here is to exchange the highly accurate and reliable laser measurements by noisy and ambiguous vision features.
+As mentioned above, one potential application of the approach described in this paper is to learn occupancy grid maps. This type of maps and an algorithm to update such maps based on ultrasound data has been introduced by Moravec and Elfes [20]. In the past, different approaches to learn occupancy grid maps from stereo vision have been proposed [21, 22]. If the positions of the robot are unknown during the mapping process, the entire task turns into the so-called simultaneous localization and mapping (SLAM) problem. Vision-based techniques have been proposed by Elinas et al. [23] and Davison et al. [7] to solve this problem. In contrast to the mapping approach presented in this paper, these techniques mostly focus on landmark-based representations.
+The contribution of this paper is a novel approach to estimating the proximity to nearby obstacles in indoor environments from a single camera image. It is an extension of our recent conference paper [24] that ﬁrst presented the idea of estimating depth from camera images using GP regression. The work presented here additionally considers supervised dimensionality reduction, namely LDA, which allows us to ﬁnd a low dimensional space in which feature vectors corresponding
+5
+
+Figure 3: Our experimental setup. The training set was recorded using a mobile robot equipped with an omnidirectional camera (monocular camera with a parabolic mirror) as well as a laser range ﬁnder.
+to different range measurements are better separated. In this way, the Gaussian process is able to provide better estimates about predicted ranges.
+3. Omnidirectional Vision and Feature Extraction
+The task of estimating range information from images requires us to learn the relationship between visual input and the extent of free space around the robot. Figure 3 depicts the conﬁguration of our robot used for data acquisition. An omnidirectional camera system (catadioptric with a parabolic mirror) is mounted on top of a SICK laser range ﬁnder. This setup allows the robot to perceive the whole surrounding area at every time step as the two example images in Figure 2 illustrate. It furthermore enables the robot to collect proximity data from the laser range ﬁnders and relate them to the image data. As a result, our robot can easily acquire training data used in the regression task. The left images in Figure 1 and Figure 2 show typical situations from the two benchmark data sets used in this paper. They have been recorded at the University of Freiburg (Figure 1) and at the German Research Center for Artiﬁcial Intelligence (DFKI) in Saarbru¨cken (Figure 2). By considering these example images, it is clear that the part of an omnidirectional image which is most strongly correlated with the distance to the nearest obstacle in a certain direction α is the strip of pixels oriented in the same direction covering the area from the center of the image to its margins. With the type of camera used in our experiments, such strips have a dimensionality of 420 (140 pixels, each having a hue, saturation, and a value component). To make
+6
+
+these strips easily accessible to ﬁlter operators, we warp the omnidirectional images into panoramic views (e.g., the right image in Figure 2) so that angles in the polar representation now correspond to column indices in the panoramic one. This transformation allows us to replace complicated image operations in the polar domain by easier and more robust ones in a Cartesian coordinate system.
+In the following, we denote with xi ∈ R420 the individual pixel columns of an image and with yi ∈ R the range values in the corresponding direction, that is, the distances to the closest obstacles, respectively. Before describing how to learn the relationship between the variables x and y, we discuss three alternative ways of extracting meaningful low-dimensional features v from x which can be utilized by the learning algorithm. The ﬁrst approach applies unsupervised dimensionality reduction (PCA) to compute low-dimensional features. As an alternative, we also consider the linear discriminant analysis (LDA) as an supervised alternative to obtain low-dimensional features. Finally, we discuss the use of manually designed features extracted from the images that can be used for range prediction.
+3.1. Unsupervised Dimensionality Reduction
+Principal component analysis (PCA) is arguably the most common approach to dimensionality reduction. We apply PCA for reducing the complexity of the data to the raw 420-dimensional pixel vectors that are contained in the columns of the panoramic images. In our approach, the PCA is implemented using eigenvalue decomposition of the covariance matrix of the 420-dimensional training vectors. PCA computes a linear transformation that maps the input vectors onto a new basis so that their dimensions are ordered by the amount of variance of the data set they carry. By selecting only the ﬁrst k vectors of this basis representing the dimensions with the highest variance in the data, one obtains a low-dimensional representation without losing a large amount of information. The left diagram in Figure 4 shows the remaining fraction of variance after truncating the transformed data vectors after a certain number of components. The right diagram in the same ﬁgure shows the 420 components of the ﬁrst eigenvector for the Freiburg data set grouped by hue, saturation, and value. Our experiments revealed that the value channel of the visual input is more important than hue and saturation for our task.
+For the experiments reported on in Section 5, we trained the PCA on 600 input images and retained the ﬁrst six principal components. This results in a reduction from 420-dimensional input vectors to 6-dimensional ones. The GP model, described in the Section 4, is then learned with these 6D features and is named PCA-GP in the experimental section.
+7
+
+Relative energy content Eigenvector Value
+
+1
+
+0.8
+
+0.6
+
+0.4
+
+0.2
+0 1
+
+Saarbruecken Freiburg
+2 3 4 5 6 7 8 9 10 Number of eigenvectors
+
+0.08
+
+0.04
+
+0
+
+-0.04
+
+-0.08
+-0.12
+-0.16 0
+
+Hue Saturation
+Value
+20 40 60 80 100 120 140 Pixel
+
+Figure 4: Left: The amount of variance explained by the ﬁrst principal components (eigenvectors) of the pixel columns in the two data sets. Right: The 420 components of the ﬁrst eigenvector of the Freiburg data set.
+
+3.2. Supervised Dimensionality Reduction
+A drawback of PCA in our regression task is the fact that it does not consider the range values yi when reducing the dimensionality of the input vectors xi. In this way, it treats all components of the input vectors equally—no matter how much information they actually carry about the range to be predicted. It can thus be expected that supervised dimensionality reduction, where external, dependent variables are considered explicitly, can lead to more accurate predictions. See Alpaydin [25] for an overview of approaches and comparisons. One such technique is the linear discriminant analysis (LDA). LDA is related to PCA in that it also assumes a linear transformation between the original space and the reduced one. But in contrast to PCA, it allows each data point to be given a class label. LDA seeks a low-dimensional space in which the classes of the dataset are separated best as illustrated in Figure 5 for a reduction from R2 to R.
+Let K be the number of classes Ci and xi the d-dimensional inputs. The objective is to ﬁnd a d × k matrix W so that vi = W T xi with vi ∈ Rk and so that the classes Ci are separated best in terms of distances between the vi. Let ri,t be an indicator variable with ri,t = 1 if xt ∈ Ci and 0 otherwise. Let mi be the mean of d-dimensional vectors xi. Then, the so-called scatter matrix of Ci is
+
+Si =
+
+ri,t(xt − mi)(xt − mi)T ,
+
+t
+
+8
+
+axis selected by PCA
+
+data points of class 2
+
+axis selected by LDA
+data points of class 1
+
+Figure 5: Reduction from R2 to R for PCA and LDA: PCA aims to keep the variance in the data while LDA seeks to separate the two classes (illustrated by black and blue) as well as possible.
+
+the total within-scatter matrix becomes
+
+K
+
+K
+
+SW =
+
+Si =
+
+ri,t(xt − mi)(xt − mi)T ,
+
+i=1
+
+i=1 t
+
+and the between-class scatter matrix is
+
+K
+SB =
+i=1
+
+ri,t (mi − m)(mi − m)T ,
+t
+
+with
+
+m
+
+=
+
+1 K
+
+K i=1
+
+mi.
+
+Now
+
+let
+
+us
+
+consider
+
+the
+
+scatter
+
+matrices
+
+after
+
+projecting
+
+using W . The between-class scatter matrix after projection is W T SBW , and the
+
+within-scatter matrix accordingly, both are k × k dimensional. To goal is to de-
+
+termine W in a way that the means of the classes W T mi are as far apart from
+
+each other as possible while the spread of their individual projected class sam-
+
+ples is small. Similarly to covariance matrices, the determinant of a scatter matrix
+
+characterizes the spread and it is computed as the product of the eigenvalues spec-
+
+ifying the variance along the eigenvectors. Thus, we aim at ﬁnding the matrix W
+
+that maximizes
+
+J(W )
+
+=
+
+|W T SBW | |W T SW W |
+
+.
+
+The largest eigenvectors of SW−1SB are the solution to this problem.
+
+9
+
+Applied to the range-regression task, we selected the discretized laser range measurements as class label for each input data point. LDA then projects to a lowdimensional space so that data points corresponding to the discretized range measurements can be separated best. The GP model learned with the low-dimensional features is named LDA-GP in our experimental evaluation.
+3.3. Edge-based Features Principal component analysis is an unsupervised method that does not take
+into account any prior information and also the linear discriminant analysis only uses information about class labels to perform dimensionality reduction to keep the data separated. However, there might be additional information available about the task to be solved—like the fact that distances to the closest obstacles are to be predicted in our case. Driven by the observation that there typically is a strong correlation between the extent of free space and the presence of horizontal edge features in the panoramic image, we also assessed the potential of edge-type features in our approach.
+To compute such visual features from the warped images, we apply Laws’ convolution masks [26]. They provide an easy way of constructing local feature extractors for discretized signals. The idea is to deﬁne three basic convolution masks
+• L3 = (1, 2, 1)T (Weighted Sum: Averaging),
+• E3 = (−1, 0, 1)T (First difference: Edges), and
+• S3 = (−1, 2, −1)T (Second difference: Spots),
+each having a different effect on (1D) patterns, and to construct more complex ﬁlters by a combination of the basic masks. In our application domain, we obtained good results with the (2D) directed edge ﬁlter E5L⊤5 , which is the outer product of E5 and L5. Here, E5 is a convolution of E3 with L3 and L5 denotes L3 convolved with itself. After ﬁltering with this mask, we apply an optimized threshold to yield a binary response. This feature type is denoted as Laws5 in the experimental section. As another well-known feature type, we applied the E3L3⊤ ﬁlter, i.e. the Sobel operator, in conjunction with Canny’s algorithm [27]. This ﬁlter yields binary responses at the image locations with maximal gray-value gradients in gradient direction. We denote this feature type as Laws3+Canny in Section 5. For both edge detectors, Laws5 and Laws3+Canny, we search along each image
+10
+
+Figure 6: Left: Example Laws5+LMD feature extracted from one of the Freiburg images. Right: Histogram for Laws5+LMD edge features. Each cell in the histogram is indexed by the pixel location of the edge feature (x-axis) and the length of the corresponding laser beam (y-axis). The optimized (parametric) mapping function that is used as a benchmark in our experiments is overlaid in green.
+column for the ﬁrst detected edge. This pixel index then constitutes the feature value.
+To increase the robustness of the edge detectors described above, we applied lightmap damping as an optional preprocessing step to the raw images. This means that, in a ﬁrst step, a copy of the image is converted to gray scale and strongly smoothed with a Gaussian ﬁlter, such that every pixel represents the brightness of its local environment. This is referred to as the lightmap. The brightness of the original image is then scaled with respect to the lightmap, such that the value component of the color is increased in dark areas and decreased in bright areas. In the experimental section, this operation is marked by adding +LMD to the feature descriptions. Figure 6 shows Laws5+LMD edge features extracted from an image of the Freiburg data set.
+All parameters involved in the edge detection procedures described above were optimized to yield features that lie as close as possible to the laser end points projected onto the omnidirectional image using the acquired training set. For our regression model, we can now construct 4D feature vectors v consisting of the Canny-based feature, the Laws5-based feature, and both features with additional preprocessing using lightmap-damping. Since every one of these individual features captures slightly different aspects of the visual input, the combination of all, in what we call the Feature-GP, can be expected to yield more accurate predictions than any single one.
+11
+
+As a benchmark for predicting range information from edge features, we also evaluated the individual features directly. For doing so, we ﬁtted a parametric function to training samples of feature-range pairs. This mapping function computes for each pixel location of an edge feature the length of the corresponding laser beam. The right diagram in Figure 6 shows the feature histogram for the Laws5+LMD features from one of our test runs that was used for the optimization. The color of a cell (cx, cy) in this diagram encodes the relative amount of feature detections that were extracted at the pixel location cx (measured from the center of the omnidirectional image) and that have a corresponding laser beam with a length of cy in the training set. The optimized projection function is overlayed in green.
+4. Learning Depth from Images
+This section presents the learning method used in our approach to ﬁnd the relationship between visual input and the free space around the robot. Given a training set of images and corresponding range scans acquired in a setting, we can treat the problem of predicting range in new situations as a supervised learning problem. The omnidirectional images can be mapped directly to the laser scans since both measurements can be represented in a common, polar coordinate system. Note that our approach is not restricted to omnidirectional cameras in principle. However, the correspondence between range measurements and omnidirectional images is a more direct one and the ﬁeld of view is considerably larger compared to standard perspective optics.
+4.1. Gaussian Processes for Range Predictions In the spirit of the Gaussian beam processes (GBP) model introduced in [3],
+we propose to put a Gaussian process (GP) prior on the range function, but in contrast, here we use the visual features v described in the previous section as indices for the range values rather than the bearing angles α.
+We extract for every viewing direction α a vector of visual features v from an image c and phrase the problem as learning the range function f (v) = y that maps the visual input v to distances y. We learn this function in a supervised manner using a training set D = {vi, yi}in=1 of observed features vi and corresponding laser range measurements yi. If we place a GP prior (see, e.g., [28]) on the non-linear function f , i.e., we assume that all range samples y indexed by their corresponding feature vectors v are jointly Gaussian distributed, we obtain
+12
+
+y∗ = f (v∗) ∼ N (µ∗, σ∗2)
+
+(1)
+
+for the noise-free range with
+
+µ∗
+
+=
+
+k⊤
+v∗v
+
+(Kvv
+
++
+
+σn2 I)−1 y
+
+(2)
+
+σ∗2
+
+=
+
+k(v∗,
+
+v∗)
+
+−
+
+k⊤
+v∗
+
+v
+
+(Kvv
+
++
+
+σn2 I)−1kv∗v
+
+(3)
+
+for a new query feature v∗. Here, the matrix Kvv ∈ Rn×n denotes the covariance matrix with [Kvv]ij = k(vi, vj). Furthermore, kv∗v ∈ Rn is given by [kv∗v]i = k(v∗, vi), y = (y1, . . . , yn)⊤, and I is the identity matrix. σn denotes the global
+noise parameter. As covariance function, we apply the squared exponential
+
+k(vp, vq) = σf2 · exp
+
+−
+
+1 2ℓ2
+
+|vp
+
+−
+
+vq|
+
+,
+
+(4)
+
+where l and σf , as well as the global noise parameter σn, are the so-called hyperparameters. A standard way of learning these hyperparameters from data, which we applied in this work, is to maximize the log data likelihood of the training data using scaled conjugate gradients (see, e.g., [28] for details).
+A particularly useful property of Gaussian processes for our application is the availability of the predictive uncertainty at every query point. This means that new features v∗ which lie close to points v of the training set, result in more conﬁdent predictions than features which fall into a less densely sampled region of feature space.
+
+4.2. Modeling Angular Dependencies
+So far, our model assumes independent range variables yi and it thus ignores dependencies that arise, for instance, because “neighboring” range variables and visual features are likely to correspond to the same object in the environment. Angular dependencies can be included, for example, by (a) explicitly considering the angle α as an additional index dimension in v or by (b) applying Gaussian beam processes (GBPs) as an independent post-processing step to the predicted range scan. While the ﬁrst variant would require a large amount of additional training data—since it effectively couples the visual appearance and the angle of observation, the second alternative is relatively easy to realize and to implement. Figure 3 gives a graphical representation of the second approach. The gray bars group sets of variables that are fully connected and jointly distributed according to
+
+13
+
+Figure 7: Graphical model for predicting ranges r from a camera image c. The gray bars group sets of variables that are fully connected and that are jointly distributed according to a GP model.
+
+a GP model. We denote with GPy the Gaussian process that maps visual features to ranges and with GPr the so-called heteroscedastic GP that is applied as a postprocessing step to single, predicted range scans. For GPr, the task is to learn the mapping α → r using a training set of predicted range values r. Since we
+
+do not want to constrain the model to learning from the mean predictions µ∗(xi) only, we need a way of incorporating the predictive uncertainties σ∗2(vi) for the
+
+feature-based range predictions y∗. This can be achieved by not using a ﬁxed noise matrix σn2I as in GPy (compare Eq. (2) and Eq. (3)), but instead its heteroscedastic extension
+
+R = diag σ∗2(v1), . . . , σ∗2(vn) ,
+
+(5)
+
+see [3]. This matrix does not depend on a global noise parameter σn, but rather on the individual conﬁdence estimates σ∗2(vi), with which GPy estimated the corresponding range value. Note that this “trick” of gating out training points by artiﬁcially increasing their associated variance was also applied in recent work on modeling gas distributions [29] for deriving a GP mixture model. A more detailed discussion of the approach can be found there and in [30].
+
+4.3. Summary of Our Approach The full approach that also considers the angular dependencies in a range scan
+is denoted by the postﬁx +GBP in the experimental evaluation. To obtain the prediction of a full range scan given one omnidirectional image, we proceed as follows:
+1. Warp the omnidirectional image into a panoramic view.
+
+14
+
+2. Extract for every pixel column i a vector of visual features vi. 3. Use GPy to make independent range predictions about yi. 4. Learn a heteroscedastic GBP GPr for the set of predicted ranges {yi}in=1
+indexed by their bearing angles αi and make the ﬁnal range predictions ri for the same bearing angles.
+As the following experimental evaluation revealed, this additional GBP treatment (post-processing with GPr) further increases the accuracy of range predictions. The gain, however, is rather small compared to what the GP treatment GPy adds to the accuracy achievable with the baseline feature mappings. This might be due to the fact that the extracted features—and the constellation of several feature types even more so—carry information of neighboring pixel strips, such that angular dependencies are incorporated at this early stage already.
+5. Experimental Evaluation
+The system for predicting range from single, omnidirectional images described in the previous sections was implemented in C/C++ and Python and tested on two benchmark data sets for image-based localization. The data sets, named Freiburg and Saarbru¨cken have been acquired in the context of the EU project CoSy. They have been made publicly available at [31] under the names COLDFreiburg and COLD-Saarbruecken. The data was recorded using a mobile robot equipped with a laser scanner, an omnidirectional camera, and Odometry sensors at the AIS lab of the University of Freiburg and at the German Research Center for Artiﬁcial Intelligence (DFKI) in Saarbru¨cken. The two environments have quite different characteristics—especially in the visual aspects. While the environment in Saarbru¨cken mainly consists of solid, regular structures and a homogeneously colored ﬂoor, the lab in Freiburg exhibits many glass panes, an irregular, wooden ﬂoor and challenging lighting conditions.
+The goal of the experimental evaluation was to verify that the proposed system is able to make sensible range predictions from single omnidirectional camera images and to quantify the beneﬁts of the GP approach in comparison to conceptually simpler approaches. We document a series of different experiments: First, we evaluate the accuracy of the estimated range scans using (a) the individual edge features directly, (b) the PCA-GP, (c) the LDA-GP, and (d) the Feature-GP, which constitutes our regression model with the four edge-based vision features as input dimensions. Then, we illustrate how these estimates can be used to build grid maps of the environment. We also evaluated whether applying the GBP model,
+15
+
+9
+
+Ground Truth Distances (Laser)
+
+8
+
+Predicted means (FeatureGP)
+
+7
+
+6
+
+5
+
+4
+
+3
+
+2
+
+1
+
+0 321012345
+
+Figure 8: Left: Estimated ranges projected back onto the camera image using the feature detectors directly (small dots) and using the Feature-GP model (red points). Right: Prediction results and the true laser scan at one of the test locations visualized from a birds-eye view.
+
+which was introduced in [3], as a post-processing step to the predicted range scans can further increase the prediction accuracy. The GBP model places a Gaussian process prior on the range function (rather than on the function that maps features to distances) and, thus, also models angular dependencies. We denote these models by Feature-GP+GBP, PCA-GP+GBP, and LDA-GP+GBP.
+5.1. Quantitative Results Table 1 summarizes the average RMSE (root mean squared error) obtained for
+different system conﬁgurations, which are detailed in the following. The error is measured as the difference between measured laser ranges and ranges predicted using the visual input. The ﬁrst four conﬁgurations, referred to as C01 to C04, apply the optimized mapping functions for the different edge features (see Figure 6). Depending on the data, the features provide estimates with an RMSE of between 1.7 m and 3 m. We then evaluated the conﬁgurations C05 and C06 which use the four edge-based features as inputs to a Gaussian process model as described in Section 4 to learn the mapping from the feature vectors to the distances. The learning algorithm was able to perform range estimation with an RMSE of around 1 m. Note that we measure the prediction error relative to the recorded laser beams rather than to the true geometry of the environment. Thus, we report a conservative error estimate that also includes mismatches due to reﬂected laser beams or due to imperfect calibration of the individual components. To give a visual impression of the prediction accuracy of the Feature-GP, we give a typical laser scan and the mean predictions in the right diagram in Figure 8.
+
+16
+
+Table 1: Average errors obtained with the different methods. The root mean squared errors (RMSE) are calculated relative to the mean predictions for the complete test sets.
+
+Conﬁguration
+C01: Laws5 C02: Laws5+LMD C03: Laws3+Canny C04: Laws3+Canny+LMD C07: PCA-GP C09: LDA-GP C05: Feature-GP C08: PCA-GP+GBP C10: LDA-GP+GBP C06: Feature-GP+GBP
+
+RMSE on test set
+
+Saarbru¨ cken
+
+Freiburg
+
+1.70m 2.01m
+
+2.87m 2.08m
+
+1.74m 2.06m
+
+2.87m 2.59m
+
+1.24m 1.20m 1.04m
+
+1.40m 1.31m 1.04m
+
+1.22m 1.17m 1.03m
+
+1.41m 1.29m 0.94m
+
+The PCA-GP approach (denoted as C07) that does not require engineered features, but rather works on the low-dimensional representation of the raw visual input computed using the PCA. The resulting six-dimensional feature vector is used as input to the Gaussian process model. With an RMSE of 1.2 m to 1.4 m, the PCA-GP outperforms all four engineered features, but is not as accurate as the Feature-GP. When using LDA for dimensionality reduction (C09) instead of PCA, we observe a reduction of the prediction error by around 4-8 per cent. Also the LDA is outperformed by Feature-GP in terms of prediction accuracy. It should be stressed, however, that PCA-GP as well as LDA-GP do not require any manually deﬁned features as they operate on the observed 420-dimensional pixel columns directly. For conﬁgurations C06, C08, and C10, we predicted the ranges per scan using the same methods as above, but additionally applying the GBP model [3] to incorporate angular dependencies between the predicted beams. This post-processing step yields slight improvements compared to the original variants C05, C07, and C09.
+The left image in Figure 8 depicts the predictions based on the individual vision features and the Feature-GP. It can be clearly seen from the image, that the different edge-based features model different parts of the range scan well. The Feature-GP fuses these unreliable estimates to achieve high accuracy on the whole scan. The result of the Feature-GP+GBP variant for the same situation is given in Figure 1. The right diagram in Figure 8 visualizes a typical prediction result and
+17
+
+6
+
+Laws3+Canny
+
+Laws3+Canny+LMD
+
+Laws5
+
+5
+
+Laws5+LMD
+
+Feature-GP
+
+Feature-GP+GBP
+
+4
+
+6
+
+Laws3+Canny
+
+Laws3+Canny+LMD
+
+Laws5
+
+5
+
+Laws5+LMD
+
+Feature-GP
+
+Feature-GP+GBP
+
+4
+
+RMSE RMSE
+
+3
+
+3
+
+2
+
+2
+
+1
+
+1
+
+0 0 200 400 600 800 100012001400
+Image Number
+
+0 0 500 1000 1500 2000 2500
+Image Number
+
+Figure 9: The evolution of the root mean squared error (RSME) for the individual images of the Saarbru¨cken (left) and Freiburg (right) data sets.
+
+the corresponding laser scan—which can be regarded here as the ground truth— from a birds-eye view. The evolution of the RMSE for the different methods over time is given in Figure 9. As can be seen from the diagrams, the prediction using the Feature-GP model outperforms the other techniques and achieves a nearconstant error rate.
+In summary, our GP-based technique outperforms the individual, engineered features for range prediction. The smoothed approach (C06) yields the best predictions with an RMSE of around 1 m. One can obtain good results by a combination of LDA for dimensionality reduction and GP learning with an error that is only slightly larger (C10 versus C06), even though this unsupervised method does not have access to background information.
+5.2. Error Analysis
+In this section, we analyze the prediction accuracy of our proposed method beyond the RMSE measure, that is, considering the entire distribution of prediction error in order to identify and document its different causes. The left diagram in Fig. 10 shows the histogram of prediction errors for a typical scan. It is clearly visible, that the reported RMSE values are strongly inﬂuenced by the heavy tails
+
+18
+
+Figure 10: Error histograms for omnidirectional range prediction from single images. Left: Independent predictions for ﬁxed beam orientations. Right: Accounting for uncertain beam orientations due to small angular miscalibration of the test and training setup.
+of the error distribution. The large majority of the predictions is accurate (less than 30cm error), while very few predictions have a high error of up to 3m. Close inspection of the results reveals, that such isolated high errors are mostly caused by a small angular misalignment between the camera and the laser scanner which recorded the reference test set. This effect is visualized in the right diagram in Fig. 11. The diagram shows the “true distances” as measured by the laser scanner, the predicted distances and the respective absolute errors. It can be seen that most of the absolute prediction error accounts to beam 18520 (ID in the entire test set) which is located close to a depth discontinuity. Already a very small angular misalignment between laser scanner and camera can lead to such peaks in the error function.
+As a result, the reported RMSE values have to be seen as a tool for comparing different approaches and settings rather than as a measure of precision for an actual application. From our experience, error histograms and concrete prediction examples deliver the best picture of the actual precision to be expected.
+To show the inﬂuence of angular misalignment as well as long-range predictions quantitatively, we give a comparison of different error measures in Tab. 2. In the row labeled “ﬁxed aligment”, we give the errors for direct comparisons
+
+Table 2: Comparison of error measures.
+
+Fixed alignment Uncertain alignment
+
+Root Mean Squared Error (RMSE) 0.88 m 0.67 m
+
+Mean Absolute Error 0.55 m 0.38 m
+
+Mean relative Error 0.19 0.14
+
+19
+
+Figure 11: Left: Range predictions of method C05 (Feature-GP) for a single perspective camera image taken from a test sequence. Right: Visualization of the prediction errors for a typical scan from a test sequence. Most of the absolute prediction error is caused by small angular misalignments (here: beam 18520) and for long-range predictions (exceeding 10m).
+between laser beams and prediction w.r.t. a ﬁxed beam orientation. For “uncertain aligment”, we allow for a small angular misalignment of the laser beams and their projections to the camera images. The relative errors in the last column are computed by dividing the range predictions by the true distances.
+As a reference for comparison, Saxena et al. [2] reports depth reconstruction errors in indoor environments of 0.084 on a log scale (base 10), which corresponds to 1.21m of mean absolute error. Including stereo information using a second camera, their error drops to 0.079 in log scale, that is, 1.19m on a regular scale.
+5.3. Using Perspective Cameras To show the ﬂexibility of our method, we conducted additional experiments
+using a single perspective camera (as opposed to an omnidirectional one). In this setting, the correspondence between range observations from the laser scanner (available only during training) and the camera image is not as direct as for omnidirectional, axis-aligned cameras. Nevertheless, the mapping function is bijective in the region observed by the camera and it can be computed analytically using projective geometry. The right image in Fig. 2 shows an example image and the laser beams transformed into image coordinates. The camera has a 50◦ ﬁeld of view and it covers approximately 2.2m to 30m in depth. The camera was tilted downwards by 10◦. We recorded two data sets containing 600 images each. One set was used for training, the other one for testing.
+In this experiment, we additionally evaluated a combination of PCA and LDA, for which we ﬁrst reduced the dimensionality of the data to 50 using PCA and
+20
+
+then applied LDA to further reduce to 6 dimensions. This is a common approach in face recognition, addressing the concern that LDA might perform poorly due to too little training data. PCA and LDA were learned from 100 images randomly drawn from the training set and the GP models used 300 random images. Test statistics were computed over the whole test set (50 beams per image).
+Table 3 gives the quantitative results for this experiment. The observed trend is similar to the one described in Sec. 5.1: The feature-based GP performs best, while the unsupervised methods (LDA and PCA) follow up with a higher mean prediction error. The combination of LDA and PCA did not yield signiﬁcant advantages in this setting. The absolute prediction errors are higher compared to the omnidirectional setting, mainly because the respective test set contains significantly more long-range predictions due to the heading of the camera towards the long corridor.
+Referring to the discussion in the previous section, it should be noted that the distribution of errors is strongly biased towards errors caused by small angular misalignments (see the right diagram in Fig. 11). For most practical applications, for example obstacle avoidance, such small angular misalignments do not have a negative impact. The left image in Fig. 11 shows a typical image from the test sequence including the predictions made using C05 (Feature-GP).
+
+Table 3: Average errors obtained with the different methods on single perspective camera images. The root mean squared errors (RMSE) are calculated relative to the mean predictions for the complete test sets.
+
+Conﬁguration C09: LDA-GP C07: PCA-GP C11: PCA-LDA-GP C05: Feature-GP
+
+Prediction errors (on single images of a perspective camera)
+
+Mean absolute error
+
+RMSE
+
+2.24m
+
+3.52m
+
+1.87m
+
+3.10m
+
+1.85m
+
+3.02m
+
+1.19m
+
+2.65m
+
+5.4. Non-Linear Dimensionality Reduction In addition to PCA and LDA, we also considered applying non-linear dimen-
+sionality reduction as a preprocessing step. Non-linear dimensionality reduction can be described as seeking a low-dimensional manifold (not necessarily a linear subspace) in which the observed data points can be represented well. Approaches to this problem include local linear embedding (LLE) [32] and ISOMAP [33].
+21
+
+We implemented LLE, due to our positive experience with this technique in the past. In this domain, however, LLE performed signiﬁcantly worse than all other techniques evaluated in Table 1. An analysis of the constructed manifolds indicated that the low performance may be caused by the signiﬁcant number of outliers present in our real-world data sets. Similar observations about LLE and the presence of outliers have also been reported by other researcher. Chang and Yeung [34], for example, report that adding between 5% and 10% outliers to perfect data can prevent LLE from ﬁnding an appropriate embedding.
+
+5.5. Learning Occupancy Maps from Predicted Scans
+Our approach can be applied to a variety of robotics tasks such as obstacle avoidance, localization, or mapping. To illustrate this, we show how to learn a grid map of the environment from the predictive range distributions. Compared to occupancy grid mapping where one estimates for each cell the probability of being occupied or free, we use the so-called reﬂection probability maps. A cell of such a map models the probability that a laser beam passing this cell is reﬂected or not. Reﬂection probability maps, which are learned using the so-called counting model, have the advantage of requiring no hand-tuned sensor model such as occupancy grid maps (see [35] for further details). The reﬂection probability mi of a cell i is given by
+
+mi
+
+=
+
+αi αi +
+
+βi
+
+,
+
+(6)
+
+where αi is the number of times an observation hits the cell, i.e., ends in it, and βi is the number of misses, i.e., the number of times a beam has intercepted a cell without ending in it. Since our GP approach does not estimate a single laser end point, but rather a full (normal) distribution p(z) of possible end points, we have to integrate over this distribution (see Figure 12). More precisely, for each grid cell ci, we update the cell’s reﬂectance values according to the predictive distribution p(z) according to the following formulas:
+
+αi ← αi +
+
+p(z) dz
+
+(7)
+
+z∈ci
+
+βj ← βi +
+
+p(z) dz .
+
+(8)
+
+z>ci
+
+Note that for perfectly accurate predictions, the extended update rule is equivalent to the standard formula stated above.
+
+22
+
+Figure 12: The counting model for reﬂectance grid maps in conjunction with sensor models that yield Gaussian predictive distributions over ranges.
+We applied this extended reﬂection probability mapping approach to the trajectories and range predictions that resulted from the experiments reported above. Figure 13 presents the laser-based maps using a standard reﬂection probability mapping system (left column) and our extended variant using the predicted ranges (right column) for the two environments (Freiburg on top and Saarbru¨cken below). In both cases, it is possible to build an accurate map, which is comparable to maps obtained with infrared proximity sensors [36] or sonars [21].
+6. Conclusion
+This paper presents a new approach to estimating the free space around a robot based on single images recorded with an omnidirectional camera. The task of estimating the range to the closest obstacle is achieved by applying a Gaussian process model for regression, utilizing edge-based features extracted from the image or, alternatively, using PCA or LDA to ﬁnd a low-dimensional representation of the visual input in an unsupervised manner. All learned models outperform the optimized individual features.
+We furthermore showed in experiments with a real robot that the range predictions are accurate enough to feed them into a mapping algorithm considering predictive range distributions and that the resulting maps are comparable to maps obtained with infrared or sonar sensors.
+Acknowledgments
+We would like to thank Andrzej Pronobis and Jie Luo for creating the CoSy data sets. This work has partly been supported by the EC under contract number FP7-231888-EUROPA and FP6-004250-CoSy, by the DFG under contract number SFB/TR-8, and by the German Ministry for Education and Research (BMBF) through the DESIRE project.
+23
+
+Figure 13: Maps of the Freiburg AIS lab (top row) and DFKI Saarbru¨cken (bottom row) using real laser data (left) and the predictions of the Feature-GP (right).
+References [1] G. Swaminathan, S. Grossberg, Laminar cortical mechanisms for the percep-
+tion of slanted and curved 3-D surfaces and their 2-D pictorical projections, Journal of Vision 2 (7) (2002) 79–79. [2] A. Saxena, S. Chung, A. Ng., 3-d depth reconstruction from a single still image, Int. Journal of Computer Vision (IJCV). [3] C. Plagemann, K. Kersting, P. Pfaff, W. Burgard, Gaussian beam processes: A nonparametric bayesian measurement model for range ﬁnders, in: Proc. of Robotics: Science and Systems (RSS), 2007. [4] F. Sinz, J. Quinonero-Candela, G. Bakir, C. Rasmussen, M. Franz, Learning depth from stereo, in: 26th DAGM Symposium, 2004.
+24
+
+[5] D. Lowe, Distinctive image features from scale-invariant keypoints, International Journal of Computer Vision 60 (2) (2004) 91–110.
+[6] H. Bay, A. Ess, T. Tuytelaars, L. Van Gool, SURF: Speeded up robust features, Computer Vision and Image Understanding (CVIU) 110 (3) (2008) 346–359.
+[7] A. Davision, I. Reid, N. Molton, O. Stasse, Monoslam: Real-time single camera slam, IEEE Transaction on Pattern Analysis and Machine Intelligence 29 (6).
+[8] H. Strasdat, C. Stachniss, M. Bennewitz, W. Burgard, Visual bearing-only simultaneous localization and mapping with improved feature matching, 2007.
+[9] B. Micusik, T. Pajdla, Structure from motion with wide circular ﬁeld of view cameras, IEEE Transactions on Pattern Analysis and Machine Intelligence 28 (7) (2006) 1135–1149.
+[10] R. Sim, J. J. Little, Autonomous vision-based exploration and mapping using hybrid maps and Rao-Blackwellised particle ﬁlters, in: Proc. of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS), 2006, pp. 2082–2089.
+[11] P. Favaro, S. Soatto, A geometric approach to shape from defocus, IEEE Trans. Pattern Anal. Mach. Intell. 27 (3) (2005) 406–417.
+[12] A. Torralba, A. Oliva, Depth estimation from image structure, IEEE Transactions on Pattern Analysis and Machine Learning.
+[13] H. Dahlkamp, A. Kaehler, D. Stavens, S. Thrun, G. Bradski, Self-supervised monocular road detection in desert terrain., in: Proc. of Robotics: Science and Systems (RSS), 2006.
+[14] J. Michels, A. Saxena, A. Ng, High speed obstacle avoidance using monocular vision and reinforcement learning, in: Int. Conf. on Machine Learning (ICML), 2005, pp. 593–600.
+[15] E. Menegatti, A. Pretto, A. Scarpa, E. Pagello, Omnidirectional vision scan matching for robot localization in dynamic environments, IEEE Transactions on Robotics 22 (3) (2006) 523–535.
+25
+
+[16] D. Hoiem, A. Efros, M. Herbert, Recovering surface layout from an image, Int. Journal of Computer Vision (IJCV) 75 (1).
+[17] F. Han, S.-C. Zhu, Bayesian reconstruction of 3d shapes and scenes from a single image, in: IEEE Int. Workshop on Higher-Level Knowledge in 3D Modeling and Motion Analysis, Washington, DC, USA, 2003, p. 12.
+[18] E. Delage, H. Lee, A. Ng., Automatic single-image 3d reconstructions of indoor manhattan world scenes., in: Proceedings of the 12th International Symposium of Robotics Research (ISRR), 2005.
+[19] R. Ewerth, M. Schwalb, B. Freisleben, Using depth features to retrieve monocular video shots, in: Proceedings of the 6th ACM international conference on Image and video retrieval (CIVR), ACM, New York, NY, USA, 2007, pp. 210–217.
+[20] H. Moravec, A. Elfes, High resolution maps from wide angle sonar, in: Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), St. Louis, MO, USA, 1985, pp. 116–121.
+[21] S. Thrun, A. Bu¨cken, W. Burgard, D. Fox, T. Fro¨hlinghaus, D. Hennig, T. Hofmann, M. Krell, T. Schimdt, Map learning and high-speed navigation in RHINO, in: AI-based Mobile Robots: Case studies of successful robot systems, MIT Press, Cambridge, MA, 1998.
+[22] K. Sabe, M. Fukuchi, J.-S. Gutmann, T. Ohashi, K. Kawamoto, T. Yoshigahara, Obstacle avoidance and path planning for humanoid robots using stereo vision, in: Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), New Orleans, LA, USA, 2004.
+[23] P. Elinas, R. Sim, J. J. Little, σSLAM: Stereo vision SLAM using the raoblackwellised particle ﬁlter and a novel mixture proposal distribution, in: Proc. of ICRA, 2006.
+[24] C. Plagemann, F. Endres, J. Hess, C. Stachniss, W. Burgard, Monocular range sensing: A non-parametric learning approach, in: Proc. of the IEEE Int. Conf. on Robotics & Automation (ICRA), Pasadena, CA, USA, 2008.
+[25] E. Alpaydin, Introduction To Machine Learning, MIT Press, 2004.
+26
+
+[26] E. R. Davies, Laws texture energy in texture, in: Machine Vision: Theory, Algorithms, Practicalities, Acedemic Press, 1997.
+[27] F. Canny, A computational approach to edge detection, IEEE Trans. Pattern Analysis and Machine Intelligence (1986) 679–714.
+[28] C. Rasmussen, C. Williams, Gaussian Processes for Machine Learning, MIT Press, 2006.
+[29] C. Stachniss, C. Plagemann, A. Lilienthal, W. Burgard, Gas distribution modeling using sparse gaussian process mixture models, in: Proc. of Robotics: Science and Systems (RSS), Zurich, Switzerland, 2008.
+[30] V. Tresp, Mixtures of gaussian processes, in: Proc. of the Conf. on Neural Information Processing Systems (NIPS), 2000.
+[31] EU Project CoSy. [link]. URL http://www.cognitivesystems.org/
+[32] S. Roweis, L. Saul, Nonlinear dimensionality reduction by locally linear embedding, Science 290 (5500) (2000) 2323–2326.
+[33] J. Tenenbaum, V. de Silva, J. Langford, A global geometric framework for nonlinear dimensionality reduction., Science 290 (5500) (2000) 2319–2323.
+[34] H. Chang, D.-Y. Yeung, Robust locally linear embedding, Pattern Recognition 39 (6) (2006) 1053–1065.
+[35] W. Burgard, C. Stachniss, D. Haehnel, Autonomous Navigation in Dynamic Environments, Vol. 35 of STAR Springer tracts in advanced robotics, Springer Verlag, 2007, Ch. Mobile Robot Map Learning from Range Data in Dynamic Environments.
+[36] Y. Ha, H. Kim, Environmental map building for a mobile robot using infrared range-ﬁnder sensors, Advanced Robotics 18 (4) (2004) 437–450.
+27
+
+[J2] H. Kretzschmar, G. Grisetti, and C. Stachniss. Life-long map learning for graph-based simultaneous localization and mapping. KI – Kuenstliche Intelligenz. In press.
+
+Life-long Map Learning for Graph-based SLAM Approaches in Static Environments
+Henrik Kretzschmar, Giorgio Grisetti, Cyrill Stachniss
+In this paper, we consider the problem of life-long map learning with mobile robots using the graph-based formulation of the simultaneous localization and mapping problem. To allow for life-long mapping, the memory and computational requirements for mapping should remain bounded when re-traversing already mapped areas. Our method discards observations that do not provide relevant new information with respect to the model constructed so far. This decision is made based on the entropy reduction caused by observations. As a result, our approach scales with the size of the environment and not with the length of the trajectory. The experiments presented in this paper illustrate the advantages of our method using real robot data.
+
+1 Introduction
+Maps of the environment are needed for a wide range of robotic applications, including transportation tasks and many service robotic applications. Therefore, learning maps is regarded as one of the fundamental problems in mobile robotics. In the last two decades, several eﬀective approaches for learning maps have been developed. The graph-based formulation of the simultaneous localization and mapping (SLAM) problem models the poses of the robot as nodes in a graph. Spatial constraints between poses resulting from observations or from odometry are encoded in the edges between the nodes. Graph-based approaches such as [Frese et al., 2005; Olson et al., 2006; Grisetti et al., 2007b], which are probably the most eﬃcient techniques at the moment, typically marginalize out the features (or local grid maps) and reduce the mapping problem to trajectory estimation without prior map knowledge. Therefore, the underlying graph structure is often called the pose graph.
+The majority of approaches, however, assumes that map learning is carried out as a preprocessing step and that the robot later on uses the model for tasks such as localization or path planning. A robot that is constantly updating the map of its environment has to address the so-called life-long SLAM problem. This problem cannot be handled well by most graph-based techniques since the complexity of these approaches grows with the length of the trajectory. As a result, the memory as well as the computational requirements grow over time and therefore these methods cannot be applied in this context.
+The contribution of this paper is a novel approach that enables graph-based SLAM approaches to operate in the context of life-long map learning in static scenes. Our approach is orthogonal to the underlying graph-based mapping technique and applies an entropy-driven strategy to prune the pose graph while minimizing the loss of information. This becomes especially important when re-traversing already mapped areas. As a result, our approach scales with the size of the environment and not with the length of the trajectory. It should be noted that not only long-term mapping systems beneﬁt from our method. Also traditional mapping systems are able to compute a map faster since less resources are claimed and less comparisons between observations are needed to solve the data association problem. We furthermore illustrate that the resulting grid maps are less blurred compared to the maps built without our approach.
+
+2 Related Work
+There is a large variety of SLAM approaches available in the robotics community. Common techniques apply extended and unscented Kalman ﬁlters [Leonard and Durrant-Whyte, 1991; Julier et al., 1995], sparse extended information ﬁlters [Thrun et al., 2004; Eustice et al., 2005], particle ﬁlters [Montemerlo and Thrun, 2003; Grisetti et al., 2007a], and graph-based, least square error minimization approaches [Lu and Milios, 1997; Frese et al., 2005; Olson et al., 2006; Grisetti et al., 2007b].
+The group of graph-based SLAM approaches for estimating maximum-likelihood maps is often regarded as the most eﬀective means to reduce the error in the pose graph. Lu and Milios [1997] were the ﬁrst to reﬁne a map by globally optimizing the system of equations to reduce the error introduced by constraints. Since then, a large variety of approaches for minimizing the error in the constraint network have been proposed. Duckett et al. [2002] use Gauss-Seidel relaxation. The multi-level relaxation (MLR) approach of Frese et al. [2005] apply relaxation at diﬀerent spatial resolutions. Given a good initial guess, it yields very accurate maps particularly in ﬂat environments. Folkesson and Christensen [2004] deﬁne an energy function for each node and try to minimize it. Thrun and Montemerlo [2006] apply variable elimination techniques to reduce the dimensionality of the optimization problem. Olson et al. [2006] presented a fast and accurate optimization approach which is based on the stochastic gradient descent (SGD). Compared to approaches such as MLR, it still converges from a worse initial guess. Based on Olson’s optimization algorithm, Grisetti et al. [2007b] proposed a diﬀerent parameterization of the nodes in the graph. The tree-based parameterization yields a signiﬁcant boost in performance. In addition to that, the approach can deal with arbitrary graph topologies. The approach presented in this paper is built upon the work of Grisetti et al. [2007b].
+Most graph-based approaches available today do not provide means to eﬃciently prune the pose graph, that has to be corrected by the underlying optimization framework. Most approaches can only add new nodes or apply a rather simple decision whether to add a new node to the pose graph or not (such as the question of how spatially close a node is to an existing one). However, there are some notable exceptions: Folkesson and Christensen [2004] combine nodes into so-called star nodes which then deﬁne rigid local submaps. The method applies de-
+
+Page 1
+

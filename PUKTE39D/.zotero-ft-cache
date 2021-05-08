@@ -1,0 +1,1221 @@
+LETTER
+
+Communicated by Andrew Barto
+
+Multiple Model-Based Reinforcement Learning
+Kenji Doya doya@atr.co.jp Human Information Science Laboratories, ATR International, Seika, Soraku, Kyoto 619-0288, Japan; CREST, Japan Science and Technology Corporation, Seika, Soraku, Kyoto 619-0288, Japan; Kawato Dynamic Brain Project, ERATO, Japan Science and Technology Corporation, Seika, Soraku, Kyoto 619-0288, Japan; and Nara Institute of Science and Technology, Ikoma, Nara 630-0101, Japan
+Kazuyuki Samejima samejima@atr.co.jp Human Information Science Laboratories, ATR International, Seika, Soraku, Kyoto 619-0288, Japan, and Kawato Dynamic Brain Project, ERATO, Japan Science and Technology Corporation, Seika, Soraku, Kyoto 619-0288, Japan
+Ken-ichi Katagiri keniti-k@syd.odn.ne.jp ATR Human Information Processing Research Laboratories, Seika, Soraku, Kyoto 619-0288, Japan, and Nara Institute of Science and Technology, Ikoma, Nara 630-0101, Japan
+Mitsuo Kawato kawato@atr.co.jp Human Information Science Laboratories, ATR International, Seika, Soraku, Kyoto 619-0288, Japan; Kawato Dynamic Brain Project, ERATO, Japan Science and Technology Corporation, Seika, Soraku, Kyoto 619-0288, Japan; and Nara Institute of Science and Technology, Ikoma, Nara 630-0101, Japan
+We propose a modular reinforcement learning architecture for nonlinear, nonstationary control tasks, which we call multiple model-based reinforcement learning (MMRL). The basic idea is to decompose a complex task into multiple domains in space and time based on the predictability of the environmental dynamics. The system is composed of multiple modules, each of which consists of a state prediction model and a reinforcement learning controller. The “responsibility signal,” which is given by the softmax function of the prediction errors, is used to weight the outputs of multiple modules, as well as to gate the learning of the prediction models and the reinforcement learning controllers. We formulate MMRL for both discrete-time, ﬁnite-state case and continuous-time, continuousstate case. The performance of MMRL was demonstrated for discrete case
+Neural Computation 14, 1347–1369 (2002) c 2002 Massachusetts Institute of Technology
+
+1348
+
+Kenji Doya et al.
+
+in a nonstationary hunting task in a grid world and for continuous case in a nonlinear, nonstationary control task of swinging up a pendulum with variable physical parameters.
+
+1 Introduction
+A big issue in the application of reinforcement learning (RL) to real-world control problems is how to deal with nonlinearity and nonstationarity. For a nonlinear, high-dimensional system, the conventional discretizing approach necessitates a huge number of states, which makes learning very slow. Standard RL algorithms can perform badly when the environment is nonstationary or has hidden states. These problems have motivated the introduction of modular or hierarchical RL architectures (Singh, 1992; Dayan & Hinton, 1993; Littman, Cassandra, & Kaelbling, 1995; Wiering & Schmidhuber, 1998; Parr & Russel, 1998; Sutton, Precup, & Singh, 1999; Morimoto & Doya, 2001). The basic problem in modular or hierarchical RL is how to decompose a complex task into simpler subtasks.
+This article presents a new RL architecture based on multiple modules, each composed of a state prediction model and an RL controller. With this architecture, a nonlinear or nonstationary control task, or both, is decomposed in space and time based on the local predictability of the environmental dynamics.
+The mixture of experts architecture (Jacobs, Jordan, Nowlan, & Hinton, 1991) has been applied to nonlinear or nonstationary control tasks (Gomi & Kawato, 1993; Cacciatore & Nowlan, 1994). However, the success of such modular architecture depends strongly on the capability of the gating network to decide which of the given modules should be recruited at any particular moment.
+An alternative approach is to provide each of the experts with a prediction model of the environment and to use the prediction errors for selecting the controllers. In Narendra, Balakrishnan, and Ciliz (1995), the model that makes the smallest prediction error among a ﬁxed set of prediction models is selected, and its associated single controller is used for control. However, when the prediction models are to be trained with little prior knowledge, task decomposition is initially far from optimal. Thus, the use of “hard” competition can lead to suboptimal task decomposition.
+Based on the Bayesian statistical framework, Pawelzik, Kohlmorge, and Mu¨ ller (1996) proposed the use of annealing in a “soft” competition network for time-series prediction and segmentation. Tani and Nolﬁ (1999) used a similar mechanism for hierarchical sequence prediction. The use of the softmax function for module selection and combination was originally proposed for a tracking control paradigm as the multiple paired forward-inverse models (MPFIM) (Wolpert & Kawato, 1998; Wolpert, Miall, & Kawato, 1998; Haruno, Wolpert, & Kawato, 1999). It was recently
+
+Multiple Model-Based Reinforcement Learning
+
+1349
+
+Figure 1: Schematic diagram of the MMRL architecture.
+reformulated as modular selection and identiﬁcation for control (MOSAIC) (Wolpert & Ghahramani, 2000; Haruno, Wolpert, & Kawato, 2001).
+In this article, we apply the idea of a softmax selection of modules to the paradigm of reinforcement learning. The resulting learning architecture, which we call multiple model-based reinforcement learning (MMRL), learns to decompose a nonlinear or nonstationary task through the competition and cooperation of multiple prediction models and reinforcement learning controllers.
+In section 2, we formulate the basic MMRL architecture and in section 3 describe its implementation in discrete-time and continuous-time cases, including multiple linear quadratic controllers (MLQC). We ﬁrst test the performance of the MMRL architecture for the discrete case in a hunting task with multiple preys in a grid world (section 4). We also demonstrate the performance of MMRL for continuous case in a nonlinear, nonstationary control task of swinging up a pendulum with variable physical parameters (section 5).
+2 Multiple Model-Based Reinforcement Learning
+Figure 1 shows the overall organization of the MMRL architecture. It is composed of n modules, each of which consists of a state prediction model and a reinforcement learning controller.
+The basic idea of this modular architecture is to decompose a nonlinear or nonstationary task into multiple domains in space and time so that within each of the domains, the environmental dynamics is predictable. The
+
+1350
+
+Kenji Doya et al.
+
+action output of the RL controllers, as well as the learning rates of both the predictors and the controllers, are weighted by the “responsibility signal,” which is a gaussian softmax function of the errors in the outputs of the prediction models. The advantage of this module selection mechanism is that the areas of specialization of the modules are determined in a bottom-up fashion based on the nature of the environment. Furthermore, for each area of module specialization, the design of the control strategy is facilitated by the availability of the local model of the environmental dynamics.
+In the following, we consider a discrete-time, ﬁnite-state environment,
+
+P(x(t) | x(t − 1), u(t − 1)) = F(x(t), x(t − 1), u(t − 1)),
+
+(t = 1, 2, . . .),
+
+(2.1)
+
+where x ∈ {1, . . . , N} and u ∈ {1, . . . , M} are discrete states and actions, and a continuous-time, continuous-state environment,
+
+x˙(t) = f (x(t), u(t)) + ν(t), (t ∈ [0, ∞)),
+
+(2.2)
+
+where x ∈ RN and u ∈ RM are state and action vectors, and ν ∈ RN is noise. Actions are given by a policy—either a stochastic one,
+
+P(u(t) | x(t)) = G(u(t), x(t)),
+
+(2.3)
+
+or a deterministic one,
+
+u(t) = g(x(t)).
+
+(2.4)
+
+The reward r(t) is given as a function of the state x(t) and the action u(t). The goal of reinforcement learning is to improve the policy so that more rewards are acquired in the long run. The basic strategy of reinforcement learning is to estimate cumulative future reward under the current policy as the “value function” V(x) for each state and then to improve the policy based on the value function. We deﬁne the value function of the state x(t) under the current policy as
+
+∞
+V(x(t)) = E γ kr(t + k)
+k=0
+
+(2.5)
+
+in discrete case (Sutton & Barto, 1998) and
+
+∞
+
+V(x(t)) = E
+
+e−
+
+s τ
+
+r(t
+
++
+
+s)
+
+ds
+
+0
+
+(2.6)
+
+in continuous case (Doya, 2000), where 0 ≤ γ ≤ 1 and 0 < τ are the parameters for discounting future reward.
+
+Multiple Model-Based Reinforcement Learning
+
+1351
+
+2.1 Responsibility Signal. The purpose of the prediction model in each module is to predict the next state (discrete time) or the temporal derivative of the state (continuous time) based on the observation of the state and the action. The responsibility signal λi(t) (Wolpert & Kawato, 1998; Haruno et al., 1999, 2001) is given by the relative goodness of predictions of multiple prediction models.
+For a uniﬁed description, we denote the new state in the discrete case as
+
+y(t) = x(t)
+
+(2.7)
+
+and the temporal derivative of the state in the continuous case as
+
+y(t) = x˙(t).
+
+(2.8)
+
+The basic formula for the responsibility signal is given by Bayes’ rule,
+
+λi(t) = P(i | y(t)) =
+
+P(i)P(y(t) | i)
+
+n j=1
+
+P( j)P(y(t)
+
+|
+
+, j)
+
+(2.9)
+
+where P(i) is the prior probability of selecting module i and P(y(t) | i) is the likelihood of model i given the observation y(t).
+In the discrete case, the prediction model gives the probability distribution of the new state xˆ(t) based on the previous state x(t − 1) and the action u(t − 1) as
+
+P(xˆ(t) | x(t − 1), u(t − 1)) = Fi(xˆ(t), x(t − 1), u(t − 1)) (i = 1, . . . , n).
+
+(2.10)
+
+If there is no prior knowledge of module selection, we take the priors as uniform (P(i) = 1/n), and then the responsibility signal is given by
+
+λi(t) =
+
+Fi(x(t), x(t − 1), u(t − 1))
+
+n j=1
+
+Fj
+
+(x(t),
+
+x(t
+
+−
+
+1),
+
+u(t
+
+−
+
+1))
+
+,
+
+(2.11)
+
+where x(t) is the newly observed state. In the continuous case, the prediction model gives the temporal deriva-
+tive of the state:
+
+xˆ˙i(t) = fi(x(t), u(t)).
+
+(2.12)
+
+By assuming that the prediction error is gaussian with variance σ 2, the responsibility signal is given by the gaussian softmax function,
+
+λi(t) =
+
+e−
+
+1 2σ 2
+
+x˙(t)−xˆ˙i(t) 2
+
+n j=1
+
+e−
+
+1 2σ 2
+
+x˙ (t)−xˆ˙ i (t)
+
+,
+2
+
+where x˙(t) is the observed state change.
+
+(2.13)
+
+1352
+
+Kenji Doya et al.
+
+2.2 Module Weighting by Responsibility Signal. In the MMRL architecture, the responsibility signal λi(t) is used for four purposes: weighting the state prediction outputs, gating the learning of prediction models, weighting the action outputs, and gating the learning of reinforcement learning controller:
+• State prediction: The outputs of the prediction models are weighted by the responsibility signal λi(t). In the discrete case, the prediction of the next state is given by
+
+n
+P(xˆ(t)) = λi(t)Fi(xˆ(t), x(t − 1), u(t − 1)).
+i=1
+
+(2.14)
+
+In the continuous case, the predicted state derivative is given by
+
+n
+xˆ˙(t) = λi(t)xˆ˙i(t).
+i=1
+
+(2.15)
+
+These predictions are used in model-based RL algorithms and also for the annealing of σ , as described later.
+• Prediction model learning: The responsibility signal λi(t) is also used for weighting the parameter update of the prediction models. In general, it is realized by scaling the error signal of prediction model learning by λi(t).
+• Action output: The outputs of reinforcement learning controllers are linearly weighted by λi(t) to make the action output. In the discrete case, the probability of taking an action u(t) is given by
+
+n
+P(u(t)) = λi(t)Gi(u(t), x(t)).
+i=1
+
+(2.16)
+
+In the continuous case, the output is given by the interpolation of modular outputs
+
+n
+
+n
+
+u(t) = λi(t)ui(t) = λi(t)gi(x(t)).
+
+i=1
+
+i=1
+
+(2.17)
+
+• Reinforcement learning: λi(t) is also used for weighting the learning of the RL controllers. The actual equation for the parameter update varies with the choice of the RL algorithms, which are detailed in the next section. When a temporal difference (TD) algorithm (Barto, Sutton, & Anderson, 1983; Sutton, 1988; Doya, 2000) is used, the TD error,
+
+δ(t) = r(t) + γ V(x(t + 1)) − V(x(t)),
+
+(2.18)
+
+Multiple Model-Based Reinforcement Learning
+
+1353
+
+in the discrete case and
+
+δ(t)
+
+=
+
+rˆ(t)
+
+−
+
+1 τ
+
+V(t)
+
++
+
+V˙ (t)
+
+(2.19)
+
+in the continuous case, is weighted by the responsibility signal
+
+δi(t) = λi(t)δ(t)
+
+(2.20)
+
+for learning of the ith RL controller.
+Using the same weighting factor λi(t) for training the prediction models and the RL controllers helps each RL controller learn an appropriate policy and its value function for the context under which its paired prediction model makes valid predictions.
+
+2.3 Responsibility Predictors. When there is some prior knowledge or
+belief about module selection, we incorporate the “responsibility predic-
+tors” (Wolpert & Kawato, 1998; Haruno et al., 1999, 2001). By assuming that their outputs λˆ i(t) are proportional to the prior probability of module selection, from equation 2.9, the responsibility signal is given by
+
+λi(t) =
+
+λˆ i(t)P(y(t) | i)
+
+n j=1
+
+λˆ j (t)P(y(t)
+
+|
+
+. j)
+
+(2.21)
+
+In modular decomposition of a task, it is desired that modules do not switch too frequently. This can be enforced by incorporating responsibility priors based on the assumption of temporal continuity and spatial locality of module activation.
+
+2.3.1 Temporal Continuity. The continuity of module selection is incorporated by taking the previous responsibility signal as the responsibility prediction signal. In the discrete case, we take the responsibility prediction based on the previous responsibility,
+
+λˆ i(t) = λi(t − 1)α,
+
+(2.22)
+
+where 0 < α < 1 is a parameter that controls the strength of the memory effect. From equations 2.21 and 2.22, the responsibility signal at time t is given by the product of likelihoods of past module selection,
+
+λi(t)
+
+=
+
+1 Z(t)
+
+t
+P(x(t
+k=0
+
+−
+
+k)
+
+|
+
+i)αk ,
+
+(2.23)
+
+where Z(t) denotes the normalizing factor, that is, Z(t) =
+
+n j=1
+
+t k=0
+
+P(x(t
+
+−
+
+k) | j)αk .
+
+1354
+
+Kenji Doya et al.
+
+In the continuous case, we choose the prior
+
+λˆ i(t) = λi(t − t) tα t ,
+
+(2.24)
+
+where t is an arbitrarily small time difference (note 2.24 coincides with
+
+2.22 with t = 1).
+
+Since the likelihood of the module i is given by the gaussian P(x˙(t) | i) =
+
+e−
+
+1 2σ 2
+
+x˙ (t)−xˆ˙ i (t)
+
+2
+,
+
+from
+
+recursion
+
+as
+
+in
+
+equation
+
+2.23,
+
+the
+
+responsibility
+
+signal
+
+at time t is given by
+
+λi(t)
+
+=
+
+1 Z(t)
+
+t/ t
+P(x˙(t − k
+k=0
+
+t) | i) tαk t
+
+=
+
+1 Z(t)
+
+e−
+
+1 2σ 2
+
+t
+
+t/ t k=0
+
+x˙(t−k
+
+t)−xˆ˙ i (t−k
+
+t)
+
+2αk
+
+t
+,
+
+(2.25)
+
+that is, a gaussian softmax function of temporally weighted squared errors. In the limit of t → 0, equation 2.25 can be represented as
+
+λi(t) =
+
+e−
+n j=1
+
+1 2σ 2
+
+Ei (t)
+
+e−
+
+1 2σ 2
+
+Ej
+
+(t)
+
+,
+
+(2.26)
+
+where Ei(t) is a low-pass ﬁltered prediction error E˙i(t) = log α Ei(t) + x˙(t) − xˆ˙i(t) 2.
+
+(2.27)
+
+The use of this low-pass ﬁltered prediction error for responsibility prediction is helpful in avoiding chattering of the responsibility signal (Pawelzik et al., 1996).
+
+2.3.2 Spatial Locality. In the continuous case, we consider a gaussian spatial prior,
+
+λˆ i(t) =
+
+e−
+n j=1
+
+1 2
+
+(x(t)−ci )
+
+M−i 1(x(t)−ci)
+
+e−
+
+1 2
+
+(x(t)−cj )
+
+Mj−1 (x(t)−cj
+
+)
+
+,
+
+(2.28)
+
+where ci is the center of the area of specialization, Mi is a covariance matrix that speciﬁes the shape, and denotes transpose. These parameters are updated so that they approximate the distribution of the input state x(t) weighted by the responsibility signal,
+
+c˙i = ηcλi(t)(−ci + x(t)), M˙ i = ηMλi(t)[−Mi + (x(t) − ci)(x(t) − ci) ],
+
+(2.29) (2.30)
+
+where ηc and ηM are update rates.
+
+Multiple Model-Based Reinforcement Learning
+
+1355
+
+3 Implementation of MMRL Architecture
+
+For the RL controllers of MMRL, it is generally possible to use model-free RL algorithms, such as actor-critic and Q-learning. However, because the prediction models of the environmental dynamics are intrinsic components of the architecture, it is advantageous to use these prediction models not just for module selection but also for designing RL controllers. In the following, we describe the use of model-based RL algorithms for discrete-time and continuous-time cases. One special implementation for the continuous-time case is the use of multiple linear quadratic controllers derived from linear dynamic models and quadratic reward models.
+
+3.1 Discrete-Time MMRL. Now we consider implementation of the MMRL architecture for discrete-time, ﬁnite-state, and ﬁnite-action problems. The standard way of using a predictive model in RL is to use it for action selection by the one-step search,
+
+u(t) = arg max E[rˆ(x(t), u) + γ V(xˆ(t + 1))],
+
+(3.1)
+
+u
+
+where rˆ(x(t), u) is the predicted immediate reward and xˆ(t + 1) is the next state predicted from the current state x(t) and a candidate action u.
+In order to implement this algorithm, we provide each module with a reward model rˆi(x, u), a value function Vi(x), and a dynamic model Fi(xˆ, x, u). Each candidate action u is then evaluated by
+
+q(x(t), u) = E[rˆ(x(t), u) + γ V(xˆ(t + 1)) | u]
+
+n
+
+N
+
+= λi(t)[rˆi(x(t), u) + γ Vi(xˆ)Fi(xˆ, x(t), u)]].
+
+i=1
+
+xˆ=1
+
+(3.2)
+
+For the sake of exploration, we use a stochastic version of the greedy action selection, equation 3.1, where the action u(t) is selected by a Gibbs distribution,
+
+P(u | x(t)) =
+
+eβq(x(t),u)
+
+M u =1
+
+eβ
+
+q(x(t),u
+
+)
+
+,
+
+(3.3)
+
+where β controls the stochasticity of action selection.
+The parameters are updated by the error signals weighted by the responsibility signal: λi(t)(Fi(j, x(t − 1), u(t − 1)) − c(j, x(t))) for the dynamic model (j = 1, . . . , N; c(j, x) = 1 if j = x and zero otherwise), λi(t)(rˆi(x(t), u(t))−r(t)) for the reward model, and λi(t)δ(t) for the value function model.
+
+3.2 Continuous-Time MMRL. Next we consider a continuous-time MMRL architecture. A model-based RL algorithm for a continuous-time,
+
+1356
+
+Kenji Doya et al.
+
+continuous-state system (see equation 2.2) is derived from the HamiltonJacobi-Bellman (HJB) equation,
+
+1 τ
+
+V(x(t))
+
+=
+
+max
+u
+
+r(x(t),
+
+u)
+
++
+
+∂ V(x(t)) ∂x
+
+f (x(t),
+
+u)
+
+,
+
+(3.4)
+
+where τ is the time constant of reward discount (Doya, 2000). Under the assumptions that the system is linear with respect to the action and the action cost is convex, a greedy policy is given by
+
+u=g
+
+∂ f (x, u) ∂V(x) ∂u ∂x
+
+,
+
+(3.5)
+
+where
+
+∂ V(x) ∂x
+
+is a vector representing the steepest ascent direction of the value
+
+function,
+
+∂ f (x,u) ∂u
+
+is a matrix representing the input gain of the dynamics, and
+
+g is a sigmoid function whose shape is determined by the control cost (Doya,
+
+2000).
+
+To implement the HJB-based algorithm, we provide each module with
+
+a dynamic model fi(x, u) and a value model Vi(x). The outputs of the dy-
+
+namic models, equation 2.12, are compared with the actually observed state
+
+dynamics x˙(t) to calculate the responsibility signal λi(t) according to equa-
+
+tion 2.13.
+
+The model outputs are linearly weighted by λi(t) for state prediction,
+
+n
+xˆ˙(t) = λi(t) fi(x(t), u(t)),
+i=1
+
+(3.6)
+
+and value function estimation,
+
+n
+V(x) = λi(t)Vi(x).
+i=1
+
+(3.7)
+
+The
+
+derivatives
+
+of
+
+the
+
+dynamic
+
+models
+
+∂ fi(x,u) ∂u
+
+and
+
+value
+
+models
+
+∂ Vi (x) ∂x
+
+are
+
+used to calculate the action for each module:
+
+ui(t) = g
+
+∂ fi(x, u) ∂Vi(x) ∂u ∂x
+
+.
+x(t)
+
+(3.8)
+
+They are then weighted by λi(t) according to equation 2.17 to make the actual action u(t).
+Learning is based on the weighted prediction errors λi(t)(xˆ˙i(t) − x˙(t)) for dynamic models and λi(t)δ(t) for value function models.
+
+Multiple Model-Based Reinforcement Learning
+
+1357
+
+3.3 Multiple Linear Quadratic Controllers. In a modular architecture like the MMRL, the use of universal nonlinear function approximators with large numbers of degrees of freedom can be problematic because it can lead to an undesired solution in which a single module tries to handle most of the task domain. The use of linear models for the prediction models and the controllers is a reasonable choice because local linear models have been shown to have good properties of quick learning and good generalization (Schaal & Atkeson, 1996). Furthermore, if the reward function is locally approximated by a quadratic function, then we can use a linear quadratic controller (see, e.g., Bertsekas, 1995) for the RL controller design.
+We use a local linear dynamic model,
+
+xˆ˙i(t) = Ai(x(t) − xdi ) + Biu(t),
+
+(3.9)
+
+and a local quadratic reward model,
+
+rˆi(x(t),
+
+u(t))
+
+=
+
+r0i
+
+−
+
+1 (x(t) 2
+
+−
+
+xri )
+
+Qi(x(t)
+
+−
+
+xri )
+
+−
+
+1u 2
+
+(t)Riu(t),
+
+(3.10)
+
+for each module, where xdi , xri is the center of local prediction for state and reward, respectively. The r0i is a bias of quadratic reward model.
+The value function is given by the quadratic form,
+
+Vi(x)
+
+=
+
+v0i
+
+−
+
+1 2
+
+(x
+
+−
+
+xvi )
+
+Pi(x
+
+−
+
+xvi ).
+
+The matrix Pi is given by solving the Riccati equation,
+
+(3.11)
+
+0
+
+=
+
+1 τ Pi
+
+− PiAi
+
+−
+
+AiPi
+
++ PiBiR−i 1BiPi
+
+− Qi.
+
+(3.12)
+
+The center xvi and the bias v0i of the value function are given by
+
+xvi = (Qi + PiAi)−1(Qixri + PiAixdi ),
+
+1 τ
+
+v0i
+
+=
+
+r0i
+
+−
+
+1 2
+
+(xvi
+
+−
+
+xri )
+
+Qi(xvi
+
+−
+
+xri ).
+
+(3.13) (3.14)
+
+Then the optimal feedback control for each module is given by the linear feedback,
+
+ui(t) = −R−i 1BTi Pi(x(t) − xvi ).
+
+(3.15)
+
+The action output is given by weighting these controller outputs by the responsibility signal λi(t):
+
+n
+u(t) = λi(t)ui(t).
+i=1
+
+(3.16)
+
+1358
+
+Kenji Doya et al.
+
+The parameters of the local linear models Ai, Bi, and xdi and those of the quadratic reward models r0i , Qi, and Ri are updated by the weighted prediction errors λi(t)(xˆ˙i(t)−x˙(t)) and λi(t)(rˆi(x, u)−r(t)), respectively. When we assume that the update of these models is slow enough, then the Riccati equations, 3.12, may be recalculated only intermittently. We call this method multiple linear quadratic controllers (MLQC).
+
+4 Simulation: Discrete Case
+In order to test the effectiveness of the MMRL architecture, we ﬁrst applied the discrete MMRL architecture to a nonstationary hunting task in a grid world. The hunter agent tries to catch a prey in a 7×7 torus grid world. There are 47 states representing the position of the prey relative to the hunter. The hunter chooses one of ﬁve possible actions: {north (N), east (E), south (S), west (W), stay}. A prey moves in a ﬁxed direction during a trial. At the beginning of each trial, one of four movement directions {NE, NW, SE, SW} is randomly selected, and a prey is placed at a random position in the grid world. When the hunter catches the prey by stepping into the same grid with the prey, a reward r(t) = 10 is given. Each step of movement costs r(t) = −1. A trial is terminated when the hunter catches a prey or fails to catch it within 100 steps.
+In order to compare the performance of MMRL with conventional methods, we applied standard Q-learning and compositional Q-learning (CQ-L) (Singh, 1992) to the same task. A major difference between CQ-L and MMRL is the criterion for modular decomposition: CQ-L uses the consistency of the modular value functions, while MMRL uses the prediction errors of dynamic models. In CQ-L, the gating network as well as component Q-learning modules are trained so that the composite Q-value well approximates the action value function of the entire problem. In the original CQ-L (Singh, 1992), the output of the gating network was based on the “augmenting bit” that explicitly signaled the change in the context. Since our goal now is to let the agent learn appropriate decomposition of the task without an explicit cue, we used a modiﬁed CQ-L (see the appendix for the details of the algorithm and the parameters).
+4.1 Results. Figure 2 shows the performance difference of standard Qlearning, CQ-L, and MMRL in the hunting task. The modiﬁed CQ-L did not perform signiﬁcantly better than standard, ﬂat Q-learning. Investigation of the modular Q functions of CQ-L revealed that in most simulation runs, modules did not appropriately differentiate for four different kinds of preys. On the other hand, the performance of MMRL approached close to theoretical optimum. This was because four modules successfully specialized in one of four kinds of prey movement.
+
+Multiple Model-Based Reinforcement Learning
+
+1359
+
+Figure 2: Comparison of the performance of standard Q-learning (gray line), modiﬁed CQ-L (dashed line), and MMRL (thick line) in the hunting task. The average number of steps needed for catching a prey during 200 trial epochs in 10 simulation runs is plotted. The dash-dotted line shows the theoretically minimal average steps required for catching the prey.
+Figure 3 shows examples of the value functions and the prediction models learned by MMRL. From the output of the prediction models Fi, it can be seen that the modules 1, 2, 3, and 4 were specialized for the prey moving to NE, NW, SW, and SE, respectively. The landscapes of the value functions Vi(x) are in accordance with these movement directions of the prey.
+A possible reason for the difference in the performance of CQ-L and MMRL in this task is the difﬁculty of module selection. In CQ-L, when the prey is far from the hunter, the differences in discounted Q values for different kinds of prey are minor. Thus, it would be difﬁcult to differentiate modules based solely on the Q values. In MMRL, on the other hand, module selection based on the state change, in this case prey movement, is relatively easy even when the prey is far from the hunter.
+5 Simulation: Continuous Case
+In order to test the effectiveness of the MMRL architecture for control, we applied the MLQC algorithm described in section 3.3 to the task of swinging up a pendulum with limited torque (see Figure 4) (Doya, 2000). The driving torque T is limited in [−Tmax, Tmax] with Tmax < mgl. The pendulum has to be swung back and forth at the bottom to build up enough momentum for a successful swing up.
+
+1360
+
+Kenji Doya et al.
+
+Figure 3: Example of value functions and prediction models learned by MMRL
+after 10,000 trials. Each slot in the grid shows the position of the prey relative to the hunter, which was used as the state x. (a) The state value functions Vi(x). (b) The prediction model outputs Fi(xˆ, x, u), where the current state x of the prey was ﬁxed as (2, 1), shown by the circle, and the action u was ﬁxed as ”stay.”
+
+The state space was two-dimensional: x = (θ, θ˙) ∈ [−π, π] × R, where θ is the joint angle (θ = 0 means the pendulum hanging down). The action was u = T. The reward was given by the height of the tip and the negative squared torque:
+
+r(x, u) = − cos θ − 1 RT2.
+
+(5.1)
+
+2
+
+A trial was started from random joint angle θ ∈ [−π/4, π/4] with no angular velocity. We devised the following automatic annealing process for the parameter σ of the softmax function for the responsibility signal, equation 2.26,
+
+σk+1 = ηaEk + (1 − η)σk,
+
+(5.2)
+
+where k denotes the number of trial and Ek is the average state prediction error during the kth trial. The parameters were η = 0.25, a = 2, and the initial value set as σ0 = 4.
+5.1 Task Decomposition in Space: Nonlinear Control. We ﬁrst used two modules, each of which had a linear dynamic model (see equation 3.9) and a quadratic reward model (see equation 3.10). The centers of the local linear dynamic models were initially placed randomly with the angular component in [−π, π].
+
+Multiple Model-Based Reinforcement Learning
+
+1361
+
+Each trial was started from a random position of the pendulum and lasted for 30 seconds.
+Figure 4 shows an example of swing-up performance from the bottom position. Initially, the ﬁrst prediction model predicts the pendulum motion better than the second one, so the responsibility signal λ1 becomes close to 1. Thus, the output of the ﬁrst RL controller u1, which destabilizes the bottom position, is used for control. As the pendulum is driven away from the bottom, the second prediction model predicts the movement better, so λ2 becomes higher and the second RL controller takes over and stabilizes the upright position.
+Figure 5 shows the changes of linear prediction models and quadratic reward models before and after learning. The two linear prediction models approximated the nonlinear gravity term. The ﬁrst model predicted the negative feedback acceleration around the equilibrium state with the pendulum hanging down. The second model predicted the positive feedback acceleration around the unstable equilibrium with the pendulum raised up. The two reward models also approximated the cosine reward function using parabolic curves.
+Figure 6 shows the dynamic and reward models when there were eight modules. Two modules were specialized for the bottom position, three modules were specialized near the top position, and two other modules were centered somewhere in between. The result shows that proper modularization is possible even when there are redundant modules.
+Figure 7 compares the time course of learning by MLQC with two, four, and eight modules and a nonmodular actor-critic (Doya, 2000). Learning was fastest with two modules. The addition of redundant modules resulted in more variability in the time course of learning. This is because there were multiple possible ways of modular decomposition, and due to the variability of the sample trajectories, it took longer for modular decomposition to stabilize. Nevertheless, learning by the eight-module MLQC was still much faster than by the nonmodular architecture.
+An interesting feature of the MLQC strategy is that qualitatively different controllers are derived by the solutions of the Riccati equations, 3.12. The controller at the bottom is a positive feedback controller that destabilizes the equilibrium where the reward is minimal, while the controller at the top is a typical linear quadratic regulator that stabilizes the upright state. Another important feature of the MLQC is that the modules were ﬂexibly switched simply based on the prediction errors. Successful swing up was achieved without any top-down planning of the complex sequence.
+
+5.2 Task Decomposition in Time: Nonstationary Pendulum. We then tested the effectiveness of the MMRL architecture for the nonlinear and nonstationary control tasks in which mass m and length l of the pendulum were changed every trial.
+
+1362
+
+Kenji Doya et al.
+
+Figure 4: (a) Example of swing-up performance. Dynamics are given by ml2θ¨ = −mgl sin θ − µθ˙ + T. Physical parameters are m = l = 1, g = 9.8, µ = 0.1, and Tmax = 5.0. (b) Trajectory from the initial state (0[rad],0.1[rad/s]). o: start, +: goal. Solid line: module 1. Dashed line: module 2. (c) Time course of the state (top), the action (middle), and the responsibility signal (bottom).
+
+Multiple Model-Based Reinforcement Learning
+
+1363
+
+Figure 5: Development of state and reward prediction of models. (a,b) Outputs of state prediction models (a) before and (b) after learning. (c,d) Outputs of the reward prediction model (c) before and (d) after learning. Solid line: module 1. Dashed line: module 2; dotted line: targets (x¨ and r). ◦: centers of spatial responsibility prediction ci.
+
+Figure 6: Outputs of eight modules. (a) State prediction models. (b) Reward models.
+
+1364
+
+Kenji Doya et al.
+
+Figure 7: Learning curves for the pendulum swing-up task. The cumulative
+
+reward
+
+20 0
+
+r(t)
+
+dt
+
+during
+
+each
+
+trial
+
+is
+
+shown
+
+for
+
+ﬁve
+
+simulation
+
+runs.
+
+(a)
+
+Two
+
+modules. (b) Four modules. (c) Eight modules. (d) Nonmodular architecture.
+
+We used four modules, each of which had a linear dynamic model (see
+
+equation 3.9) and a quadratic reward model (see equation 3.10). The centers
+
+xi of the local linear prediction models were initially set randomly. Each trial was started from a random position with θ ∈ [−π/4, π/4] and lasted for 40
+
+seconds.
+
+We implemented responsibility prediction with τc = 50, τM = 200, and τp = 0.1. The parameters of annealing were η = 0.1, a = 2, and an initial value of σ0 = 10.
+In the ﬁrst 50 trials, the physical parameters were ﬁxed at {m = 1.0, l =
+
+1.0}.
+
+Figure
+
+8a shows the change in
+
+the position
+
+gain ({A21}
+
+=
+
+∂ θ¨ ∂θ
+
+)
+
+of
+
+the
+
+four prediction models. The control performance is shown in Figure 8b.
+
+Figures 8c, 8d, and 8e show the outputs of prediction models in the section
+
+of {θ = 0, T = 0}.
+
+Initial position gains are set randomly (see Figure 8c). After 50 trials, both
+
+modules 1 and 2 specialized in the bottom region (θ 0) and learned similar
+
+prediction models. Modules 3 and 4 also learned the same prediction model
+
+in the top region (θ π) (see Figure 8d). Accordingly, the RL controllers in
+
+modules 1 and 2 learned a reward model with a minimum near (0, 0) , and
+
+Multiple Model-Based Reinforcement Learning
+
+1365
+
+Figure 8: Time course of learning and changes of the prediction models. (a)
+
+Changes of a coefﬁcient A21
+
+=
+
+∂ θ¨ ∂θ
+
+of the four prediction models, coefﬁcient with
+
+angle. (b) Change of average reward during each trial. Thin lines: results of 10
+
+simulation runs. Thick line: average to 10 simulation runs. Note that the average
+
+reward with the new, longer pendulum was lower even after successful learning
+
+because of its longer period of swinging. (c,d, and e) Linear prediction models
+
+in the section of {θ = 0, T = 0} (c) before learning, (d) after 50 trials with ﬁxed
+
+parameters, and (e) after 150 trials with changing parameters. Slopes of linear
+
+models correspond to A21 shown in a.
+
+a destabilizing feedback policy was given by equations 2.15 through 2.17. Modules 3 and 4 also learned a reward model with a peak near (π, 0) and implemented a stabilizing feedback controller.
+In 50 to 200 trials, the parameters of the pendulum were switched between {m = 1, l = 1.0} and {m = 0.2, l = 10.0} in each trial. At ﬁrst, the degenerated modules tried to follow the alternating environment (see Figure 8a), and thus swing up was not successful for the new, longer pendulum. The performance for the shorter pendulum was also disturbed (see Figure 8b). After about 80 trials, the prediction models gradually specialized in either new or learned dynamics (see Figure 8e), and successful swing up was achieved for both the shorter and longer pendulums.
+
+1366
+
+Kenji Doya et al.
+
+We found similar module specialization in 6 of 10 simulation runs. In 4 other runs, due to the bias in initial module allocation, three modules were aggregated in one domain (top or bottom) and one model covered the other domain during the stationary condition. However, after 150 trials in the nonstationary condition, module specialization, as shown in Figure 8e, was achieved.
+6 Discussion
+We proposed an MMRL architecture that decomposes a nonlinear or nonstationary task in space and time based on the local predictability of the system dynamics. We tested the performance of the MMRL in both nonlinear and nonstationary control tasks. It was shown in simulations of the pendulum swing-up task that multiple prediction models were successfully trained and corresponding model-based controllers were derived.
+The modules were specialized for different domains in the state space. It was also conﬁrmed in a nonstationary pendulum swing-up task that available modules are ﬂexibly allocated for different domains in space and time based on the task demands.
+The modular control architecture using multiple prediction models was proposed by Wolpert and Kawato as a computational model of the cerebellum (Wolpert et al., 1998; Wolpert & Kawato, 1998). Imamizu et al. (1997, 2000) showed in fMRI experiments of novel tool use that a large area of the cerebellum is activated initially, and then a smaller area remains active after long training. They proposed that such local activation spots are the neural correlates of internal models of tools (Imamizu et al., 2000). They also suggested that internal models of different tools are represented in separated areas in the cerebellum (Imamizu et al., 1997). Our simulation results in a nonstationary environment can provide a computational account of these fMRI data. When a new task is introduced, many modules initially compete to learn it. However, after repetitive learning, only a subset of modules are specialized and recruited for the new task.
+One might argue whether MLQC is a reinforcement learning architecture since it uses LQ controllers that were calculated off-line. However, when the linear dynamic models and quadratic reward models are learned on-line, as in our simulations, the entire system realizes reinforcement learning. One limitation of MLQC architecture is that the reward function should have helpful gradients in each modular domain. A method for backpropagating the value function of the successor module as the effective reward for the predecessor module is under development.
+In order to construct a hierarchical RL system, it appears necessary to combine both top-down and bottom-up approaches for task decomposition. The MMRL architecture provides one solution for the bottom-up approach. Combination of this bottom-up mechanism with a top-down mechanism is the subject of our ongoing study.
+
+Multiple Model-Based Reinforcement Learning
+
+1367
+
+Appendix: Modiﬁed Compositional Q-Learning
+
+On each time step, the gating variable gi(t) is given by the prior probability of module selection, in this case from the assumption of temporal continuity, equation 2.22:
+
+gi(t) =
+
+λi(t −
+
+n j=1
+
+λj(t
+
+1)α − 1)α
+
+.
+
+(A.1)
+
+The composite Q-values for state x(t) are then computed by
+
+n
+Qˆ (x(t), u) = gi(t)Qi(x(t), u),
+i=1
+and an action u(t) is selected by
+
+(A.2)
+
+P(u | x(t)) =
+
+eβ Qˆ (x(t), u) v∈U eβ Qˆ (x(t),
+
+v)
+
+.
+
+(A.3)
+
+After the reward r(x(t), u(t)) is acquired and the state changes to x(t + 1), the TD error for the module i is given by
+
+ei(t)
+
+=
+
+r(x(t),
+
+u(t))
+
++
+
+γ
+
+max
+u
+
+Qˆ (x(t
+
++
+
+1),
+
+u)
+
+−
+
+Qi(x(t),
+
+u(t)).
+
+(A.4)
+
+From gaussian assumption of value prediction error, the likelihood of module i is given by
+
+P(ei(t)
+
+|
+
+i)
+
+=
+
+e−
+
+1 2σ 2
+
+ei(t)2 ,
+
+(A.5)
+
+and thus the responsibility signal, or the posterior probability for selecting module i, is given by
+
+λi(t) =
+
+gi
+
+(t)e−
+
+1 2σ 2
+
+ei
+
+(t)2
+
+j
+
+gj(t)e−
+
+1 2σ 2
+
+ej (t)2
+
+.
+
+(A.6)
+
+The Q values of each module are updated with the weighted TD error λi(t)ei(t) as the error signal.
+The discount factor was set as γ = 0.9 and the greediness parameters as β = 1 for both MMRL and CQ-L. The decay parameter of temporal responsibility predictor was α = 0.8 for MMRL. We tried different values of α for CQ-L without success. The value used in Figures 2 and 3 was α = 0.99.
+
+1368
+
+Kenji Doya et al.
+
+Acknowledgments
+We thank Masahiko Haruno, Daniel Wolpert, Chris Atkeson, Jun Tani, Hidenori Kimura, and Raju Bapi for helpful discussions.
+
+References
+Barto, A. G., Sutton, R. S., & Anderson, C. W. (1983). Neuronlike adaptive elements that can solve difﬁcult learning control problems. IEEE Transactions on Systems, Man, and Cybernetics, 13, 834–846.
+Bertsekas, D. P. (1995). Dynamic programming and optimal control. Belmont, MA: Athena Scientiﬁc.
+Cacciatore, T. W., & Nowlan, S. J. (1994). Mixture of controllers for jump linear and non-linear plants. In J. D. Cowan, G. Tesauro, & J. Alspector (Eds.), Advances in neural information processing system, 6. San Mateo, CA: Morgan Kaufmann.
+Dayan, P., & Hinton, G. E. (1993). Feudal reinforcement learning. In C. L. Giles, S. J. Hanson, & J. D. Cowan (Eds.), Advances in neural information processing systems, 5 (pp. 271–278). San Mateo, CA: Morgan Kaufmann.
+Doya, K. (2000). Reinforcement learning in continuous time and space. Neural Computation, 12, 215–245.
+Gomi, H., & Kawato, M. (1993). Recognition of manipulated objects by motor learning with modular architecture networks. Neural Networks, 6, 485–497.
+Haruno, M., Wolpert, D. M., & Kawato, M. (1999). Multiple paired forwardinverse models for human motor learning and control. In M. S. Kearns, S. A. Solla, & D. A. Cohen (Eds.), Advances in neural information processing systems, 11 (pp. 31–37). Cambridge, MA: MIT Press.
+Haruno, M., Wolpert, D. M., & Kawato, M. (2001). MOSAIC model for sensorimotor learning and control. Neural Computation, 13, 2201–2220.
+Imamizu, H., Miyauchi, S., Sasaki, Y., Takino, R., Pu¨ tz, B., & Kawato, M. (1997). Separated modules for visuomotor control and learning in the cerebellum: A functional MRI study. In A. W. Toga, R. S. J. Frackowiak, & J. C. Mazziotta (Eds.), NeuroImage: Third International Conference on Functional Mapping of the Human Brain (Vol. 5). Copenhagen, Denmark: Academic Press.
+Imamizu, H., Miyauchi, S., Tamada, T., Sasaki, Y., Takino, R., Pu¨ tz, B., Yoshioka, T., & Kawato, M. (2000). Human cerebellar activity reﬂecting an acquired internal model of a new tool. Nature, 403, 192–195.
+Jacobs, R. A., Jordan, M. I., Nowlan, S. J., & Hinton, G. E. (1991). Adaptive mixtures of local experts. Neural Computation, 3, 79–87.
+Littman, M., Cassandra, A., & Kaelbling, L. (1995). Learning policies for partially observable environments: Scaling up. In A. Prieditis & S. Russel (Eds.), Machine Learning: Proceedings of the 12th International Conference (pp. 362–370). San Mateo, CA: Morgan Kaufmann.
+Morimoto, J. & Doya, K. (2001). Acquisition of stand-up behavior by a real robot using hierarchical reinforcement learning. Robotics and Autonomous Systems, 36, 37–51.
+
+Multiple Model-Based Reinforcement Learning
+
+1369
+
+Narendra, K. S., Balakrishnan, J., & Ciliz, M. K. (1995, June). Adaptation and learning using multiple models, switching and tuning. IEEE Control Systems Magazine, 37–51.
+Parr, R., & Russel, S. (1998). Reinforcement learning with hierarchies of machines. In M. I. Jordan, M. J. Kearns, & S. A. Solla (Eds.), Advances in neural information processing systems, 10 (pp. 1043–1049). Cambridge, MA: MIT Press.
+Pawelzik, K., Kohlmorge, J., & Mu¨ ller, K. R. (1996). Annealed competition of experts for a segmentation and classiﬁcation of switching dynamics. Neural Computation, 8, 340–356.
+Schaal, S., & Atkeson, C. G. (1996). From isolation to cooperation: An alternative view of a system of experts. In D. S. Touretzky, M. C. Mozer, & M. E. Hasselmo (Eds.), Advances in neural information processing systems, 8 (pp. 605–611). Cambridge, MA: MIT Press.
+Singh, S. P. (1992). Transfer of learning by composing solutions of elemental sequential tasks. Machine Learning, 8, 323–340.
+Sutton, R. S. (1988). Learning to predict by the methods of temporal difference. Machine Learning, 3, 9–44.
+Sutton, R. S., & Barto, A. G. (1998). Reinforcement learning. Cambridge, MA: MIT Press.
+Sutton, R., Precup, D., & Singh, S. (1999). Between MDPS and semi-MDPS: A framework for temporal abstraction in reinforcement learning. Artiﬁcial Intelligence, 112, 181–211.
+Tani, J., & Nolﬁ, S. (1999). Learning to perceive the world as articulated: An approach for hierarchical learning in sensory-motor systems. Neural Networks, 12, 1131–1141.
+Wiering, M., & Schmidhuber, J. (1998). HQ-learning. Adaptive Behavior, 6, 219– 246.
+Wolpert, D. M., & Ghahramani, Z. (2000). Computational principles of movement neuroscience. Nature Neuroscience, 3, 1212–1217.
+Wolpert, D. M., & Kawato, M. (1998). Multiple paired forward and inverse models for motor control. Neural Networks, 11, 1317–1329.
+Wolpert, D. M., Miall, R. C., & Kawato, M. (1998). Internal models in the cerebellum. Trends in Cognitive Sciences, 2, 338–347.
+
+Received June 12, 2000; accepted November 8, 2001.
+
+This article has been cited by:
+1. M. Donoso, A. G. E. Collins, E. Koechlin. 2014. Foundations of human reasoning in the prefrontal cortex. Science . [CrossRef]
+2. Peter Dayan. 2014. Rationalizable Irrationalities of Choice. Topics in Cognitive Science 6:2, 204-228. [CrossRef]
+3. Daisuke Uragami, Tatsuji Takahashi, Yoshiki Matsuo. 2014. Cognitively inspired reinforcement learning architecture and its application to giant-swing motion control. Biosystems 116, 1-9. [CrossRef]
+4. Sang Wan Lee, Shinsuke Shimojo, John P. O’Doherty. 2014. Neural Computations Underlying Arbitration between ModelBased and Model-free Learning. Neuron 81:3, 687-699. [CrossRef]
+5. Romain D. Cazé, Matthijs A. A. Meer. 2013. Adaptive properties of differential learning rates for positive and negative outcomes. Biological Cybernetics 107:6, 711-719. [CrossRef]
+6. Ignasi Cos, Mehdi Khamassi, Benoıˆt Girard. 2013. Modelling the learning of biomechanics and visual planning for decisionmaking of motor actions. Journal of Physiology-Paris 107:5, 399-408. [CrossRef]
+7. Ray J. Dolan, Peter Dayan. 2013. Goals and Habits in the Brain. Neuron 80:2, 312-325. [CrossRef]
+8. Jun-ichi Iwata, Keisetsu Shima, Jun Tanji, Hajime Mushiake. 2013. Neurons in the cingulate motor area signal context-based and outcome-based volitional selection of action. Experimental Brain Research 229:3, 407-417. [CrossRef]
+9. Jane Garrison, Burak Erdeniz, John Done. 2013. Prediction error in reinforcement learning: A meta-analysis of neuroimaging studies. Neuroscience & Biobehavioral Reviews 37:7, 1297-1310. [CrossRef]
+10. Fatemeh Yavari, Farzad Towhidkhah, Mohammad Ali Ahmadi-Pajouh. 2013. Are fast/slow process in motor adaptation and forward/inverse internal model two sides of the same coin?. Medical Hypotheses . [CrossRef]
+11. Wolfram Schultz. 2013. Updating dopamine reward signals. Current Opinion in Neurobiology 23:2, 229-238. [CrossRef]
+12. Yuka Ariki, Sang-Ho Hyon, Jun Morimoto. 2013. Extraction of primitive representation from captured human movements and measured ground reaction force to generate physically consistent imitated behaviors. Neural Networks 40, 32-43. [CrossRef]
+13. Akihiko Yamaguchi, Jun Takamatsu, Tsukasa Ogasawara. 2013. DCOB: Action space for reinforcement learning of high DoF robots. Autonomous Robots . [CrossRef]
+14. A. S. Kayser, M. D'Esposito. 2013. Abstract Rule Learning: The Differential Effects of Lesions in Frontal Cortex. Cerebral Cortex 23:1, 230-240. [CrossRef]
+15. Norikazu Sugimoto, Jun Morimoto, Sang-Ho Hyon, Mitsuo Kawato. 2012. The eMOSAIC model for humanoid robot control. Neural Networks 29-30, 8-19. [CrossRef]
+16. John P. O’Doherty. 2012. Beyond simple reinforcement learning: the computational neurobiology of reward-learning and valuation. European Journal of Neuroscience 35:7, 987-990. [CrossRef]
+17. Norikazu Sugimoto, Masahiko Haruno, Kenji Doya, Mitsuo Kawato. 2012. MOSAIC for Multiple-Reward Environments. Neural Computation 24:3, 577-606. [Abstract] [Full Text] [PDF] [PDF Plus]
+18. M. J. Frank, D. Badre. 2012. Mechanisms of Hierarchical Reinforcement Learning in Corticostriatal Circuits 1: Computational Analysis. Cerebral Cortex 22:3, 509-526. [CrossRef]
+19. William H Alexander, Joshua W Brown. 2011. Medial prefrontal cortex as an action-outcome predictor. Nature Neuroscience . [CrossRef]
+20. Nathaniel D. Daw, Samuel J. Gershman, Ben Seymour, Peter Dayan, Raymond J. Dolan. 2011. Model-Based Influences on Humans' Choices and Striatal Prediction Errors. Neuron 69:6, 1204-1215. [CrossRef]
+21. Chrisantha Fernando, Richard Goldstein, Eörs Szathmáry. 2010. The Neuronal Replicator Hypothesis. Neural Computation 22:11, 2809-2857. [Abstract] [Full Text] [PDF] [PDF Plus] [Supplementary Content]
+22. Jürgen Schmidhuber. 2010. Formal Theory of Creativity, Fun, and Intrinsic Motivation (1990–2010). IEEE Transactions on Autonomous Mental Development 2:3, 230-247. [CrossRef]
+23. R. D. Samson, M. J. Frank, Jean-Marc Fellous. 2010. Computational models of reinforcement learning: the role of dopamine as a reward signal. Cognitive Neurodynamics 4:2, 91-105. [CrossRef]
+24. Masahiro Fujita. 2009. Intelligence Dynamics: a concept and preliminary experiments for open-ended learning agents. Autonomous Agents and Multi-Agent Systems 19:3, 248-271. [CrossRef]
+25. Mehran Emadi Andani, Fariba Bahrami, Parviz Jabehdar Maralani, Auke Jan Ijspeert. 2009. MODEM: a multi-agent hierarchical structure to model the human motor control system. Biological Cybernetics 101:5-6, 361-377. [CrossRef]
+26. Aaron R. Seitz, Takeo Watanabe. 2009. The phenomenon of task-irrelevant perceptual learning. Vision Research 49:21, 2604-2610. [CrossRef]
+
+27. J. Vervaeke, T. P. Lillicrap, B. A. Richards. 2009. Relevance Realization and the Emerging Framework in Cognitive Science. Journal of Logic and Computation . [CrossRef]
+28. Michail Maniadakis, Panos Trahanias, Jun Tani. 2009. Explorations on artificial time perception. Neural Networks 22:5-6, 509-517. [CrossRef]
+29. Ana L. C. Bazzan. 2009. Opportunities for multiagent systems and multiagent reinforcement learning in traffic control. Autonomous Agents and Multi-Agent Systems 18:3, 342-375. [CrossRef]
+30. Justin C. Sanchez, Babak Mahmoudi, Jack DiGiovanna, Jose C. Principe. 2009. Exploiting co-adaptation for the design of symbiotic neuroprosthetic assistants. Neural Networks 22:3, 305-315. [CrossRef]
+31. Makito Oku, Kazuyuki Aihara. 2008. Networked reinforcement learning. Artificial Life and Robotics 13:1, 112-115. [CrossRef]
+32. Mehdi Khamassi, Antonius B. Mulder, Eiichi Tabuchi, Vincent Douchamps, Sidney I. Wiener. 2008. Anticipatory reward signals in ventral striatal neurons of behaving rats. European Journal of Neuroscience 28:9, 1849-1866. [CrossRef]
+33. A. N. Hampton, P. Bossaerts, J. P. O'Doherty. 2008. Neural correlates of mentalizing-related computations during strategic interactions in humans. Proceedings of the National Academy of Sciences 105:18, 6741-6746. [CrossRef]
+34. Jun Tani, Ryu Nishimoto, Jun Namikawa, Masato Ito. 2008. Codevelopmental Learning Between Human and Humanoid Robot Using a Dynamic Neural-Network Model. IEEE Transactions on Systems, Man, and Cybernetics, Part B (Cybernetics) 38:1, 43-59. [CrossRef]
+35. T TANIGUCHI, T SAWARAGI. 2008. Incremental acquisition of multiple nonlinear forward models based on differentiation process of schema model. Neural Networks 21:1, 13-27. [CrossRef]
+36. M BERTIN, N SCHWEIGHOFER, K DOYA. 2007. Multiple model-based reinforcement learning explains dopamine neuronal activity. Neural Networks 20:6, 668-675. [CrossRef]
+37. Pierre-Yves Oudeyer, Frdric Kaplan, Verena V. Hafner. 2007. Intrinsic Motivation Systems for Autonomous Mental Development. IEEE Transactions on Evolutionary Computation 11:2, 265-286. [CrossRef]
+38. M KAWATO, K SAMEJIMA. 2007. Efficient reinforcement learning: computational theories, neuroscience and robotics. Current Opinion in Neurobiology 17:2, 205-212. [CrossRef]
+39. Stefan Schaal. 2007. The New Robotics—towards human-centered machines. HFSP Journal 1:2, 115. [CrossRef]
+40. H IMAMIZU, S HIGUCHI, A TODA, M KAWATO. 2007. Reorganization of Brain Activity for Multiple Internal Models After Short But Intensive Training. Cortex 43:3, 338-349. [CrossRef]
+41. Y OHIGASHI, T OMORI. 2006. Modeling of autonomous problem solving process by dynamic construction of task models in multiple tasks environment. Neural Networks 19:8, 1169-1180. [CrossRef]
+42. Akitoshi Ogawa, Takashi Omori. 2006. Acquisition of learning processing in a navigation task using a functional parts combination model. Systems and Computers in Japan 37:4, 64-76. [CrossRef]
+43. Wai-Tat Fu, John R. Anderson. 2006. From Recurrent Choice to Skill Learning: A Reinforcement-Learning Model. Journal of Experimental Psychology: General 135:2, 184-206. [CrossRef]
+44. Tadahiro TANIGUCHI, Tetsuo SAWARAGI. 2006. Construction of Behavioral Concepts through Social Interactions based on Reward Design: Schema-Based Incremental Reinforcement Learning. Journal of Japan Society for Fuzzy Theory and Intelligent Informatics 18:4, 629-640. [CrossRef]
+45. S SCHAAL, N SCHWEIGHOFER. 2005. Computational motor control in humans and robots. Current Opinion in Neurobiology 15:6, 675-682. [CrossRef]
+46. J. Dowling, E. Curran, R. Cunningham, V. Cahill. 2005. Using Feedback in Collaborative Reinforcement Learning to Adaptively Optimize MANET Routing. IEEE Transactions on Systems, Man, and Cybernetics - Part A: Systems and Humans 35:3, 360-372. [CrossRef]
+47. Masafumi Okada, Daisuke Nakamura, Yoshihiko Nakamura. 2005. Self-organizing Symbol Acquisition and Motion Generation based on Dynamics-based Information Processing System. Transactions of the Japanese Society for Artificial Intelligence 20, 177-187. [CrossRef]
+48. J TANI, M ITO, Y SUGITA. 2004. Self-organization of distributedly represented multiple behavior schemata in a mirror system: reviews of robot experiments using RNNPB. Neural Networks 17:8-9, 1273-1289. [CrossRef]
+49. R PAINE, J TANI. 2004. Motor primitive and sequence self-organization in a hierarchical recurrent neural network. Neural Networks 17:8-9, 1291-1309. [CrossRef]
+50. N Schweighofer. 2004. Cerebellar aminergic neuromodulation: towards a functional understanding. Brain Research Reviews 44:2-3, 103-116. [CrossRef]
+
+51. Masahiko Haruno, Daniel M. Wolpert, Mitsuo Kawato. 2003. Hierarchical MOSAIC for movement generation. International Congress Series 1250, 575-590. [CrossRef]
+52. K Samejima. 2003. Inter-module credit assignment in modular reinforcement learning. Neural Networks 16:7, 985-994. [CrossRef]
+53. Y Wada. 2003. Acquisition and contextual switching of multiple internal models for different viscous force fields. Neuroscience Research 46:3, 319-331. [CrossRef]
+

@@ -1,0 +1,1596 @@
+Embodied Intelligence via Learning and Evolution
+
+arXiv:2102.02202v1 [cs.LG] 3 Feb 2021
+
+Agrim Gupta1
+
+Silvio Savarese1
+
+Surya Ganguli2,3,4
+
+Li Fei-Fei1,4
+
+1Department of Computer Science, Stanford University 2Department of Applied Physics, Stanford University 3Wu-Tsai Neurosciences Institute, Stanford University, Stanford, CA, USA 4Stanford Institute for Human-Centered Artiﬁcial Intelligence, Stanford University, Stanford, CA, USA
+
+Abstract
+The intertwined processes of learning and evolution in complex environmental niches have resulted in a remarkable diversity of morphological forms. Moreover, many aspects of animal intelligence are deeply embodied in these evolved morphologies. However, the principles governing relations between environmental complexity, evolved morphology, and the learnability of intelligent control, remain elusive, partially due to the substantial challenge of performing large-scale in silico experiments on evolution and learning. We introduce Deep Evolutionary Reinforcement Learning (DERL): a novel computational framework which can evolve diverse agent morphologies to learn challenging locomotion and manipulation tasks in complex environments using only low level egocentric sensory information. Leveraging DERL we demonstrate several relations between environmental complexity, morphological intelligence and the learnability of control. First, environmental complexity fosters the evolution of morphological intelligence as quantiﬁed by the ability of a morphology to facilitate the learning of novel tasks. Second, evolution rapidly selects morphologies that learn faster, thereby enabling behaviors learned late in the lifetime of early ancestors to be expressed early in the lifetime of their descendants. In agents that learn and evolve in complex environments, this result constitutes the ﬁrst demonstration of a long-conjectured morphological Baldwin effect. Third, our experiments suggest a mechanistic basis for both the Baldwin effect and the emergence of morphological intelligence through the evolution of morphologies that are more physically stable and energy efﬁcient, and can therefore facilitate learning and control.
+
+Evolution over the last 600 million years has generated a variety of “endless forms most beautiful”1 starting from an ancient bilatarian worm2, and culminating in a set of diverse animal morphologies. Moreover, such animals display remarkable degrees of embodied intelligence by leveraging their evolved morphologies to learn complex tasks. Indeed the ﬁeld of embodied cognition posits that intelligent behaviors can be rapidly learned by agents whose morphologies are well adapted to their environment3–5. In contrast, the ﬁeld of artiﬁcial intelligence (AI) has focused primarily on disembodied cognition, for example in domains of language6, vision7 or games8. The creation of artiﬁcial embodied agents with well adapted morphologies that can learn control tasks in diverse, complex environments is challenging because of the twin difﬁculties of: (1) searching through a combinatorially large number of possible morphologies, and (2) the computational time required to evaluate ﬁtness through lifetime learning. Hence, prior work has either evolved agents in severely limited morphological search spaces9–13 or focused on ﬁnding optimal parameters given a ﬁxed hand designed morphology14–16. Furthermore, the difﬁculty of evaluating ﬁtness forced prior work to (1) avoid learning adaptive controllers directly from raw sensory observations9–11,17; (2) learn hand designed controllers with few (≤ 100) parameters9–11; (3) learn to predict the ﬁtness of a morphology13,17; (4) mimic Lamarckian rather than Darwinian evolution by directly transmitting learned information across generations10,13. Moreover, prior works were also primarily limited to the simple task of locomotion over a ﬂat terrain with agents having few degrees of freedom (DoF)11,13 or with body plans composed of cuboids to further simplify the problem of learning a controller9–11.
+To overcome these substantial limitations, we propose Deep Evolutionary Reinforcement Learning (DERL), (Fig. 1a) a computational framework enabling us to simultaneously scale the creation of embodied agents across 3 axes of complexity: environmental, morphological, and control. DERL opens the door to performing large-scale in silico experiments to yield scientiﬁc insights into how learning and evolution cooperatively create sophisticated relationships between environmental complexity, morphological intelligence, and the learnability of control tasks. Moreover, DERL
+Video available here.
+
+Embodied Intelligence via Learning and Evolution
+
+a
+
+Mutation
+
+Population
+
+Selection Agent
+
+Feedback Sensor
+
+Controller
+
+Environment
+
+Effector
+
+Action
+
+Lifetime learning
+
+b
+Delete limb
+
+Limb params
+
+c
+Proprioceptive features
+Height field
+x, v, size of boxes
+Goal position
+d
+
+e
+
+μ
+
+Hill
+
+σ Steps
+
+Variable terrain
+
+Fully connected layer
+
+Rubble
+
+Manipulation in variable terrain
+
+Add limb(s)
+
+Figure 1: DERL overview. DERL (a) is a general framework to make embodied agents via two interacting adaptive processes. An outer loop of evolution optimizes agent morphology via mutation operations, some of which are shown in (b) and an inner reinforcement learning loop optimizes the parameters of a neural controller (c). d, Example agent morphologies in the UNIMAL design space. e, Variable terrain consists of three stochastically generated obstacles: hills, steps and rubble. In manipulation in variable terrain, an agent must start from an initial location (green sphere) and move a box to a goal location (red square).
+
+also alleviates sample inefﬁciency of reinforcement learning by creating embodied agents that can not only learn with less data, but also generalize to solve multiple novel tasks. DERL operates by mimicking the intertwined processes of Darwinian evolution over generations to search over morphologies, and neural learning within a lifetime, to evaluate how fast and well a given morphology can solve complex tasks through intelligent control. Our key contributions are: (1) an efﬁcient asynchronous method for parallelizing computations underlying learning and evolution across many computing elements, thereby allowing us to leverage the scaling of computation and models that has been so successful in other ﬁelds of AI6,18–20 and bring it bear on the ﬁeld of evolutionary robotics21; (2) the introduction of a UNIMAL, a UNIversal aniMAL morphological design space that is both highly expressive yet also enriched for useful controllable morphologies; (3) a paradigm to evaluate the intelligence embedded directly in a morphology by assessing how well each morphology facilitates the speed of reinforcement learning in a suite of test tasks involving tests of stability, agility and manipulation. We next describe the engineering elements underlying DERL, the scientiﬁc insights it empowers, and the capacity for creating more sample efﬁcient and multi-task RL agents it makes possible.
+
+DERL: Computational framework for creating embodied agents
+Previous evolutionary simulations9–11,13,17 commonly employed generational evolution22, where in each generation, the entire population is simultaneously replaced by applying mutations to the ﬁttest individuals. However, this paradigm scales poorly in creating embodied agents due to the signiﬁcant computational burden imposed by training every member of a large population before any further evolution can occur. Inspired by recent progress in neural architecture search23–25, we decouple the events of learning and evolution in a distributed asynchronous manner using tournament based evolution24,26. Speciﬁcally, each evolutionary run starts with a population of P = 576 agents with unique topologies to encourage diverse solutions. The initial population undergoes lifetime learning via reinforcement learning27 (RL) in parallel and the average ﬁnal reward determines ﬁtness. After initialization, each worker (CPUs) operates independently by conducting tournaments in groups of 4 wherein the ﬁttest individual is selected as a parent, and a mutated copy (child) is added to the population after evaluating its ﬁtness through lifetime learning. To keep the size of the population ﬁxed we consider only the most recent P agents as alive24. By moving from generational to asynchronous parallel evolution, we do not require learning to ﬁnish across the entire population before any further evolution occurs. Instead as soon as any agent ﬁnishes learning, the worker can immediately perform another step of selection, mutation and learning in a new tournament.
+For learning, each agent senses the world by receiving only low level egocentric proprioceptive and exteroceptive observations and chooses its actions via a stochastic policy determined by the parameters of a deep neural network (Fig. 1b) that are learned via proximal policy optimization (PPO)28. See Appendix B for details about the sensory inputs, neural controller architectures and learning algorithms employed by our agents.
+2
+
+0
+
+1
+
+0
+
+0.0
+
+20
+
+0
+
+0
+
+20 5
+
+0
+
+0
+
+0.5
+
+0
+
+0.0
+
+CoVt oI work (×103)
+
+30
+
+**** **
+
+20
+
+10
+
+****
+
+**
+
+***
+
+**
+
+***
+
+****
+
+75
+
+**
+Embodie3d
+
+Intellig0e.8nce
+
+**
+via
+
+Le2arning
+
+an3d
+
+Ev** olutio20n
+
+****
+40
+
+50
+
+2
+
+0.5
+
+2
+
+1
+
+10
+
+20
+
+25
+
+1
+
+0.2
+
+1
+
+DistDnce (m)
+
+! 11.00
+0.75 0.5705 0.25 0.0500
+0.00
+#
+
+0
+
+0
+
+0
+
+0
+
+0
+
+0
+
+0
+
+)Oat terrain
+
+VariaEOe terrain
+
+0anipuOation in variaEOe terrain
+
+Final reFliantialverelaabtiuvnedaanbFuendanFe
+
+DistDnce (m)
+
+35
+
+1800
+
+" 11.000
+
+25
+
+1500
+
+5ewDrd
+
+0.75 1100−01 0.50
+11000.−2−152
+
+15
+
+1200
+
+2000 0.2 4000
+
+00.4 2000 0.46000
+
+0 0.8 2000
+
+(vRlutiRn prRgressiRn (# mRrphRlRgies seDrched)
+
+$
+
+410.000
+
+11000.−0−203 0.0 0.6
+10−3 0.6
+
+0.08.2 1.0 0.8 1.0
+
+0.40.6 0.8 0.61.0
+Initial rank
+%
+0.6 0.8 1.0
+Initial rank
+
+0
+0.06.8 0.8 11.0.0 0.6 0.8 1.0
+
+1 5 120 5100 20 100
+
+&
+1.0
+
+Relative abundance
+
+0.8
+
+0.6
+
+0.4
+
+0.2
+
+0.0
+
+0
+
+2
+
+4
+
+6
+
+8
+
+10
+
+)
+
+Time (hr)
+
+'
+1.0
+
+0.8
+
+0.6
+
+0.4
+
+0.2
+
+0.0
+
+*
+
+0.0 2.5 5.0 7.5 10.0 12.5 15.0 7ime (hr)
+
+(
+1.0
+
+0.8
+
+0.6
+
+0.4
+
+0.2
+
+0.0
+
++
+
+0.0 2.5 5.0 7.5 10.0 12.5 15.0 7ime (hr)
+
+Figure 2: Evolutionary dynamics in multiple environments. a, Mean (n = 300) and 95% bootstrapped conﬁdence intervals of the ﬁtness of the top 100 agents in each of 3 evolutionary runs. b, Each dot represents a lineage that survived to the end of one of 3 evolutionary runs. Dot size reﬂects the total number of beneﬁcial mutations (see Appendix D) accrued by the lineage. The founder of a lineage need not have extremely high initial ﬁtness rank in order for it’s lineage to comprise a reasonably high fraction of the ﬁnal population. It can instead achieve population abundance by accruing many beneﬁcial mutations starting from a lower rank (i.e. large dots that are high and to the left). (c-e) Phylogenetic trees of a single evolutionary run where each dot represents a single UNIMAL, dot size reﬂects number of descendants, and dot opacity reﬂects ﬁtness, with darker dots indicating higher ﬁtness. These trees demonstrate that multiple lineages with descendants of high ﬁtness can originate from founders with lower ﬁtness (i.e. larger lighter dots). (f-h) Muller diagrams29 showing relative population abundance over time (in the same evolutionary run as in c-e) of the top 10 lineages with the highest ﬁnal population abundance. Each color denotes a different lineage and the opacity denotes its ﬁtness. Stars denote successful mutations which changed agent topology (i.e. adding/deleting limbs) and resulted in a sub-lineage with more than 20 descendants. The abundance of the rest of the lineages is reﬂected by white space. (i-k) Time-lapse images of agent policies in each of the three environments with boundary color corresponding to the lineages above.
+Overall, DERL enables us to perform large-scale experiments across 1152 CPUs involving on average 10 generations of evolution that search over and train 4000 morphologies, with 5 million agent-environment interactions (i.e. learning iterations) for each morphology. At any given instant of time, since we can train 288 morphologies in parallel asynchronous tournaments, this entire process of learning and evolution completes in less than 16 hours. To our knowledge this constitutes the largest scale simulations of simultaneous morphological evolution and RL to date.
+UNIMAL: A UNIversal aniMAL morphological design space
+To overcome the limited expressiveness of previous morphological search spaces, we introduce a UNIversal aniMAL (UNIMAL) design space (Fig. 1e). Our genotype is a kinematic tree corresponding to a hierarchy of articulated 3D rigid parts connected via motor actuated hinge joints. Nodes of the kinematic tree consist of two component types: a sphere representing the head which forms the root of the tree, and cylinders representing the limbs of the agent. Evolution proceeds through asexual reproduction via three classes of mutation operations (see Appendix A) that: (1) either shrink or grow the kinematic tree by growing or deleting limbs (Fig. 1d); (2) modify the physical properties of existing limbs, like their lengths and densities (Fig. 1d); (3) modify the properties of joints between limbs, including
+3
+
+Embodied Intelligence via Learning and Evolution
+
+WLdWh WLdWWhLdWh
+
+)lDW WHrrDLn
+
+9DrLDElH WHrrDLn
+
+0DnLpulDWLon Ln vDrLDElH WHrrDLn
+
+!
+0.80 1.0
+0.750.80
+0.70000..78.850
+0.6500..7705
+000..67.650 0.150
+0.65
+0.1205.$150
+0.10000..11025.540
+0.07005..110205 00..010700.520 0.075 0.0 0 0.0
+
+LHngWh LHnLgWHhngWh
+
+1.0
+)lDW WHrrDLn "
+)lDW WHrr0D.L9n 1.0 0.8 01..90
+0.7 00..89
+0.6 00..78
+26 00..67 0.6
+24 %26
+22 2246 20 2224
+
+9DrLDElH WHrrDLn 9DrLDElH WHrrDLn
+
+HHLghW HHLgHhHWLghW
+
+0DnLpulD0W.L7on#Ln vDrLDElH WHrrDLn
+0DnLpulDWLon Ln vDrLDElH WHrrDLn 0.6 0.7
+0.5 00..67
+0.4 00..56
+00..45
+0.4 16.5
+&
+16.016.5
+15.51166..05
+15.01156..50
+
+Do)V Do)VDo)V
+
+0DVV 0DVV0DVV
+
+1000 2000 3000 4000
+
+22002
+
+1000 2000 3000 4000 11550..05
+
+1000 2000 3000 4000
+
+(voluWLon 2p0rogrHVVLon (# of morphologLHV VHDrF1h5H.d0)
+
+1000 2000 3000 4000
+
+0
+
+1000 2000 3000 4000
+
+0
+
+1000 2000 3000 4000
+
+(voluWLon progrHVVLon (# of morphologLHV VHDrFhHd)
+
+1000 2000 0.32000 4000
+
+0 0.41000 2000 30000.6 4000
+
+0
+
+10000.8 2000 3000 4010.00
+
+(voluWLon progrHVVLon (# of morphologLHV VHDrFhHd)
+
+CovHrDgH CovCHroDvgHrHDgH
+
+Figure 3: Inﬂuence of environment on different morphological descriptors. (a-e) Progression of the mean of different morphological descriptors averaged over 3 runs in different environments for the entire population. Shaded region denotes 95% bootstrapped conﬁdence interval. (a-c) VT/MVT agents tend to be longer along the direction of forward motion and shorter in height compared to agents evolved in FT. d, Coverage is the ratio of volume of the agent morphology and it’s axis aligned bounding box. FT agents are less space ﬁlling as compared to VT and MVT agents. Agents evolved in all three environments have the similar masses (e) and DoFs (f).
+
+degrees of freedom (DoF), angular limits of rotation, and gear ratios. Importantly we only allow paired mutations that
+preserve bilateral symmetry, an evolutionarily ancient conserved feature of all animal body plans originating about 600 million years ago2. A key physical consequence is that the center of mass of every agent lies on the saggital plane,
+thereby reducing the degree of control required to learn left-right balancing. Despite this constraint, our morphological design space is highly expressive, containing approximately 1018 unique agent morphologies with less than 10 limbs.
+
+Successful evolution of diverse morphologies in complex environments
+DERL enables us for the ﬁrst time to move beyond locomotion in ﬂat terrain to simultaneously evolve morphologies and learn controllers for agents in 3 environments (Fig. 1c) of increasing complexity: (1) Flat terrain (FT); (2) Variable terrain (VT); and (3) Non prehensile manipulation in variable terrain (MVT). VT is an extremely challenging environment as during each episode a new terrain is generated by randomly sampling a sequence of obstacles. Indeed, prior work30 on learning locomotion in a variable terrain for a simple 9 DoF planar 2D walker required 107 agentenvironment interactions, despite using curriculum learning and a morphology speciﬁc reward function. MVT posses additional challenges since the agent must rely on complex contact dynamics to manipulate the box from a random location to a target location while also traversing VT. See Appendix A for a detailed description of these complex stochastic environments.
+DERL is able to ﬁnd successful morphological solutions for all 3 environments (Fig. 2a; see video for illustration of learnt behaviour). Indeed the relatively high average initial ﬁtness before evolution even occurs (Fig. 2a) reﬂects the efﬁcacy of the UNIMAL design space. Moreover DERL ﬁnds a diversity of successful solutions (Fig. 2b-h). Maintaining solution diversity is generically challenging for most evolutionary dynamics, as often only 1 solution and its nearby variations dominate. In contrast, by moving away from generational evolution in which the entire population competes simultaneously to survive in the next generation, to asynchronous parallel small tournament based competitions, DERL enables ancestors with lower initial ﬁtness to still contribute a relative large abundance of highly ﬁt descendants to the ﬁnal population (Fig. 2b). Given the initialized population exhibits morphological diversity, this evolutionary dynamics, as visualized by both phylogenetic trees (Fig. 2c-e) and Muller plots29 (Fig. 2fh), thereby ensures ﬁnal population diversity without sacriﬁcing ﬁtness. Indeed, the set of evolved morphologies include different variations of bipeds, tripeds, and quadrupeds with and without arms (Fig. 2i-k, 7, 8).
+We analyze the progression of different morphological descriptors across the 3 environments (Fig. 3), ﬁnding a strong impact of environment on evolved morphologies. While agents evolved in all environments have similar masses and control complexity (as measured by DoF ≈ 16), VT/MVT agents tend to be longer along the direction of forward motion and shorter in height compared FT agents. FT agents are less space ﬁlling compared to VT/MVT agents, as measured by the coverage31,32 of the morphology. The less space-ﬁlling nature of FT agents reﬂects a common strategy to have limbs spaced far apart on the body giving them full range of motion (Fig. 2i, 7a, 8a). Agents in FT exhibit both
+
+4
+
+Embodied Intelligence via Learning and Evolution
+
+a
+
+Patrol
+
+Point navigation
+
+Obstacle
+
+Exploration
+
+Escape
+
+Incline
+
+Push box incline
+
+Manipulate ball
+
+b
+
+444000000000
+
+55e5eewwawraardrdd
+
+222000000000
+
+c
+
+000
+
+55e5eewwawraardrdd
+
+222000000000
+111000000000
+000
+d
+333000 222000 111000
+000
+
+CCRCRVRtVVttRIRRIIwwRwrRRrkrkk
+
+333aaatttrrrRRROOO
+
+****
+
+**** **
+
+**
+
+**** ************** ***
+
+** ************ ** **
+
+nnnaaa333vvvRRRiiigggiiinnnaaattttttiiiRRRnnn
+
+666000000000
+
+****
+
+** *
+
+**
+
+111555000000
+
+444000000000
+
+111000000000
+
+222000000000
+
+555000000
+
+000
+
+000
+
+333000000000 222000000000 111000000000
+000
+
+**** ************** ***
+
+111000000000
+
+555000000
+
+000
+
+**
+
+****** ***
+
+222000
+
+*
+
+666000
+
+111000
+
+444000 222000
+
+000
+
+FFFOOOaaattt ttteeerrrrrraaaiiinnn000
+
+Task performance (5x106 environment interactions)
+
+222EEEVVVtttaaaFFFOOOeee *************** ***
+
+EEExxxpppOOORRRrrraaatttiiiRRRnnn
+
+**************
+
+777555
+
+****
+
+111555000
+
+555000
+
+111000000
+
+222555
+
+555000
+
+EEEVVVFFFaaapppeee
+
+******************** ** **** *
+
+333000000000
+
+222000000000
+
+111000000000
+
+IIInnnFFFOOOiiinnneee
+
+333uuuiiinnnVVVhhhFFFOOOiiiEEEnnnRRReeexxx
+
+000aaannniiiEEEpppaaauuuOOOOOOOOOaaattteee
+
+**** **
+
+111000000000
+
+**** **
+
+****
+
+**
+
+111000000000
+
+555000000
+
+555000000
+
+000
+
+000
+
+000
+
+000
+
+000
+
+Task performance (1x106 environment interactions)
+
+***
+
+**
+
+*** ***
+
+*
+
+444000
+
+*** **************
+****
+
+111555000
+
+**** ****************** *** **
+
+222000000000
+
+**** ************** ***
+
+444000000
+
+***
+
+**
+
+*** ***
+
+111555000000
+
+*
+
+**** **************** ** **
+
+222000
+
+111000000 555000
+
+111000000000
+
+111000000000
+
+222000000
+
+555000000
+
+000
+
+000
+
+000
+
+Cost of work (5x106 environment interactions)
+
+**** **
+
+777555000
+
+****** ***
+
+****
+
+**
+
+222000000
+
+**** **
+
+555000000
+
+222555000
+
+111000000
+
+666000
+
+****
+
+****** ***
+
+**
+
+444000
+
+222000
+
+000
+111555000 111000000
+555000
+
+000
+
+****************** ***
+
+444000
+
+222000
+
+VVVaaarrriiiaaa000EEEOOOeee ttteeerrrrrraaaiiinnn
+
+000
+
+000aaannniiipppuuuOOOaaa000tttiiiRRRnnn iiinnn vvvaaarrriiiaaaEEEOOOeee000ttteeerrrrrraaaiiinnn
+
+000
+
+Figure 4: Environmental complexity fosters morphological intelligence. a, Eight test tasks for evaluating morphological intelligence across 3 domains spanning stability, agility and manipulation ability. Initial agent location is speciﬁed by a green sphere, and goal location by a red square (see Appendix C for detailed task descriptions). (b-d) We pick the 10 best performing morphologies across 3 evolutionary runs per environment. Each morphology is then trained from scratch for all 8 test tasks with 5 different random seeds. Bars indicate median reward (n = 50) (b-c) and cost of work (d) with error bars denoting 95% bootstrapped conﬁdence intervals and color denoting evolutionary environment. b, Across 7 test tasks, agents evolved in MVT perform better than agents evolved in FT. c, With reduced learning iterations (5 million in (b) vs 1 million in (c)) MVT/VT agents perform signiﬁcantly better across all tasks. d, Agents evolved in MVT are more energy efﬁcient as measured by lower cost of work despite no explicit evolutionary selection pressure favoring energy efﬁciency. Statistical signiﬁcance was assessed using the two-tailed Mann-Whitney U Test; ∗P < 0.05; ∗ ∗ P < 0.01; ∗ ∗ ∗P < 0.001; ∗ ∗ ∗ ∗ P < 0.0001.
+
+a falling forward locomotion gait and a lizard like gait (Fig. 2i). Agents evolved in VT are often similar to FT but with additional mechanisms to make the gait more stable. For example, instead of having a single limb attached to the head which breaks falls and propels the agent forward, VT agents have two symmetrical limbs providing greater stability and maneuverability (Fig. 2j,k,7a, b). Finally, agents in MVT develop forward reaching arms mimicking pincer or claw like mechanisms that enable guiding a box to a goal position (Fig. 2k, 7c, 8c).
+
+Environmental complexity engenders morphological intelligence
+The few prior analyses of the impact of environment on evolved morphologies have focused on measuring various morphological descriptors32 or on morphological complexity31. However, a key challenge to designing any intelligent agent lies in ensuring that it can rapidly adapt to any new task. We thus focus instead on understanding how this capacity might arise through combined learning and evolution by characterizing the intelligence embodied in a morphology as a consequence of it’s evolutionary environment. Concretely, we compute how much a morphology facilitates the process of learning a large set of test tasks. This approach is similar to evaluating the quality of latent neural representations by computing their performance on downstream tasks via transfer learning33–35. Thus in our framework, intelligent morphologies by deﬁnition facilitate faster and better learning in downstream tasks. We create
+
+5
+
+Embodied Intelligence via Learning and Evolution
+
+Cost of work
+
+IterationV (×106) IterationV
+
+!
+1.00 3
+0.75 0.520 0.25
+1 0.00
+0.0 2
+#
+1.00 0.2755 0.250 0.1255 0.00
+0.0 2
+
+)lat terrain Flat terraVinariable terrVaainriable terra0inanipulation0iannvipaurilabtiloenteinrrvaainriable terrain
+
+1e6
+
+1e6
+
+1e6
+
+"
+
+)raFtion staEle population
+
+3
+
+3
+
+3
+
+3
+
+3
+
+0.7
+
+2 1 4 6 2 0.824 106
+4 6 0.82 10
+
+2
+
+2
+
+2
+
+1
+
+1
+
+1
+
+8 120.4 4 6 2 8 4 0.1606 8 120 GenerationVGenerationV
+
+50
+
+40
+
+35 40
+30
+
+30
+
+25
+
+20.4 4 6 8 0.160
+
+2
+
+Generations
+
+2
+
+0.5
+
+1 0.3
+
+04.8 6 2 8 4 1061.0 8
+
+10 0 1000 2000 3000 4000 (volution progression
+(# of morphologies searFhed)
+
+GeneratiRns
+
+1
+
+6
+
+$
+
+4
+
+8
+
+RewarG
+
+4000
+
+2000
+
+04.8 6 8 10 1.0
+
+0
+
+0
+
+2
+
+4
+
+IteratiRns (×106)
+
+Figure 5: A morphological Baldwin effect and its relationship to energy efﬁciency and stability. a, Mean (n = 100) iterations to achieve the 75th percentile ﬁtness of the initial population for the top 100 agents across 3 evolutionary runs, as a function of generations. b, Fraction of stable morphologies (see Appendix D) averaged over 3 evolutionary runs per environment. This
+fraction is higher in VT and MVT than FT, indicating that these more complex environments yield an added selection pressure for stability. c, Mean cost of work (see Appendix D) for same top 100 agents as in a. d, Learning curves for different generations of an
+illustrative agent evolved in FT indicate that later generations not only perform better but also learn faster. Thus overall evolution simultaneously discovers morphologies that are more energy efﬁcient (c), stable (b) and simplify control, leading to faster learning (a). Error bars (a, c) and shaded region (b) denote 95% bootstrapped conﬁdence interval.
+
+a suite of 8 tasks (Fig. 4a; see video for illustration of learnt behaviour) categorized into 3 domains testing agility (patrol, point navigation, obstacle and exploration), stability (escape and incline) and manipulation (push box incline and manipulate ball) abilities of the agent morphologies. Controllers for each task are learned from scratch, thus ensuring that differences in performance are solely due to differences in morphologies.
+We ﬁrst test the hypothesis that evolution in more complex environments generates more intelligent morphologies that perform better in our suite of test tasks (Fig. 4b). We ﬁnd that across 7 test tasks, agents evolved in MVT perform better than agents evolved in FT. VT agents perform better than FT agents in 5 out of 6 tasks in the domains of agility and stability, but have similar performance in the manipulation tasks. To test the speed of learning, we repeat the same experiment with 1/5th the learning iterations (Fig. 4c). The differences between MVT/VT agents and FT agents are now more pronounced across all tasks. These results suggest that morphologies evolved in more complex environments are more intelligent in the sense that they facilitate learning many new tasks both better and faster.
+
+Demonstration of a stronger form of the conjectured morphological Baldwin effect
+The coupled dynamics of evolution over generations and learning within a lifetime have long been conjectured to interact with each other in highly nontrivial ways. For example, Lamarckian inheritance, an early but now disfavored36 theory of evolution, posited that behaviors learned by an individual within its lifetime could be directly transmitted to its progeny so that they would be available as instincts soon after birth. We now know however that known heritable characters are primarily transmitted to the next generation through the genotype. However, over a century ago, Baldwin37 conjectured an alternate mechanism whereby behaviors that are initially learned over a lifetime in early generations of evolution will gradually become instinctual and potentially even genetically transmitted in later generations. This Baldwin effect seems on the surface like Lamarckian inheritance, but is strictly Darwinian in origin. A key idea underlying this conjecture38,39 is that learning itself comes with likely costs in terms of the energy and time required to acquire skills. For example, an animal that cannot learn to walk early in life may be more likely to die, thereby yielding a direct selection pressure on genotypic modiﬁcations that can speed up learning of locomotion. More generally, in any environment containing a set of challenges that are ﬁxed over evolutionary timescales, but that also come with a ﬁtness cost for the duration of learning within a lifetime, evolution may ﬁnd genotypic modiﬁcations that lead to faster phenotypic learning. Previous simulations of learning and evolution have provided toy instantiations of the Baldwin effect in highly simpliﬁed scenarios40–42. However, biologists have long conjectured that the Baldwin effect might hold at the level of morphological evolution and sensorimotor learning in complex environments38,43. But despite the prevalence of this conjecture, to date no prior study has demonstrated the Baldwin effect in morphological evolution either in vivo or in silico.
+6
+
+Embodied Intelligence via Learning and Evolution
+
+a
+1.0
+5000
+
+1
+r -0.59 3<0.0001
+
+2
+r -0.7 3<0.0001
+
+3
+r -0.42 3<0.0001
+
+Generations
+
+4
+
+5
+
+r -0.37 3 0.0001
+
+r -0.52 3<0.0001
+
+6
+r -0.48 3<0.0001
+
+7
+r -0.54 3<0.0001
+
+8
+r -0.67 3<0.0001
+
+2000.80
+
+0.6 2000
+
+15
+
+40
+
+r 0.05 3 0.6421
+
+15
+
+40
+
+r -0.35 3 0.0003
+
+15
+
+40
+
+r -0.12 3 0.2536
+
+15
+
+40
+
+r -0.52 3<0.0001
+
+15
+
+40
+
+r -0.52 3<0.0001
+
+15
+
+40
+
+r -0.57 3<0.0001
+
+15
+
+40
+
+r -0.62 3<0.0001
+
+15
+
+40
+
+r -0.65 3<0.0001
+
+5eward
+
+705.40
+
+1705.20
+
+30
+
+90
+
+r -0.31 3 0.0015
+
+30
+
+90
+
+r -0.13 3 0.1833
+
+30
+
+90
+
+r -0.1 3 0.329
+
+30
+
+90
+
+r -0.09 3 0.384
+
+30
+
+90
+
+r -0.37 3 0.0002
+
+30
+
+90
+
+r -0.17 3 0.0936
+
+30
+
+90
+
+r -0.17 3 0.0985
+
+30
+
+90
+
+r -0.38 3 0.002
+
+1000 0.0
+
+0.020
+
+60
+
+20 0.620
+
+20
+
+60
+
+02.04
+
+60
+
+20
+
+600.6 20
+
+60
+
+200.8 60
+
+20
+
+60 1.0
+
+Cost of work
+
+b
+1.0 4 4
+2 0.28
+0
+
+0etriF
+
+3atroO
+1**
+**
+
+3oint
+
+navigation
+
+1.5
+
+2**
+**
+
+30
+
+2EVtaFOe
+3 ***
+***
+
+1.0
+
+20
+
+0.5
+r 0.63
+3<0.0001
+0.0
+
+r 0.48
+
+10
+
+3<0.0001
+
+0
+
+r 0.38 3 0.0002
+
+(xpOoration
+
+4 **
+****
+
+75
+
+15
+
+(VFape
+5 ****
+**** *
+
+50
+
+10
+
+25 r 0.28
+3 0.0047
+0
+
+5 r 0.5
+3<0.0001
+0
+
+InFOine 6 ** 60
+40
+20 r 0.39
+3 0.0001
+0
+
+3uVh Eox
+
+inFOine
+
+7
+
+**
+
+10
+
+**
+
+0anipuOate
+
+EaOO
+
+8
+
+*
+
+1.5
+
+5
+r 0.51 3<0.0001
+0
+
+1.0
+0.5
+r 0.68 3<0.0001
+0.0
+
+15 30
+
+15 30
+
+15 30
+
+15 30
+
+15 30
+
+15 30
+
+15 30
+
+15 30
+
+0.6 4 2
+2 0.4 1
+
+**** ***
+
+1.0
+
+r 0.32 0.5
+3 0.0147
+
+****
+
+20
+
+***
+
+r 0.22
+
+10
+
+3 0.0552
+
+*** *
+
+***
+
+40
+
+****
+
+r 0.1 3 0.338
+
+20 r 0.33
+3 0.0013
+
+15
+
+**** *** **
+
+10
+r 0.43
+5 3<0.0001
+
+****
+
+40
+
+***
+
+20 r 0.53
+3<0.0001
+
+4
+
+***
+
+*
+
+2r 0.56
+3<0.0001
+
+**** ** ****
+1.0
+r 0.57
+0.53<0.0001
+
+Iterations (×106) 0etriF
+
+0 30
+
+75 0.0 30
+
+75
+
+030
+
+75
+
+300
+
+75
+
+300
+
+75
+
+300
+
+75
+
+300 75
+
+300.0 75
+
+CoVt oI work (×103)
+
+0.42 30 2 20
+0.0 10 0.020 0
+
+**** **
+75
+r -0.15
+3 0.2005 50
+60 2520
+0
+
+**** **
+3
+
+r -0.0 3 0.964
+
+2
+
+0.620
+
+120
+
+0 )Oat terrain
+
+**
+
+***
+
+0.8
+
+**
+
+**
+2
+
+***
+
+3
+
+**
+
+****
+
+20
+
+****
+
+r 0.25 3 0.0119
+60
+
+0.5 r 0.27
+3 0.0063
+
+00.22.04
+
+60
+
+r 0.36
+3 0.0002
+1
+
+20
+
+600.6
+
+2
+
+r 3
+
+0.38 0.0001
+
+201
+
+60
+
+r 0.41 3<0.0001
+10
+200.8 60
+
+0 Cost oI wo0rk
+
+0
+
+0
+
+VariaEOe terrain
+
+0anipuOation in variaEOe terrain
+
+40
+
+r 0.39 3 0.0018
+
+20
+
+20
+
+60 1.0
+
+0
+
+Figure 6: Relationship between energy efﬁciency, ﬁtness and learning speed. a, Correlation between ﬁtness (reward at the end of lifetime learning) and cost of work for the top 100 agents across 3 evolutionary runs. b, Correlation between learning speed (iterations required to achieve the 75th percentile ﬁtness of the initial population same as Fig 5a) and cost of work for same top 100 agents as in (a). Across all generations, morphologies which are more energy efﬁcient perform better (negative correlation) and learn faster (positive correlation). (a, b) Shown are the correlation coefﬁcients (r) and P values obtained from two-tailed Pearson’s
+correlation.
+
+In our simulations, we ﬁnd the ﬁrst evidence for the existence of a morphological Baldwin effect, as reﬂected by a rapid reduction over generations in the learning time required to achieve a criterion level of ﬁtness for the top 100 agents in all three environments (Fig. 5a). Remarkably, within only 10 generations, average learning time is cut in half. As an illustrative example of how learning is accelerated, we show the learning curves for different generations of an agent evolved in FT (Fig. 5d). The 8th generation agent not only outperforms the 1st generation agent by a factor of 2 at the end of learning, but can also achieve the ﬁnal ﬁtness of the ﬁrst generation agent in 1/5th the time. Moreover, we note that we do not have any explicit selection pressure in our simulations for fast learning, as the ﬁtness of a morphology is determined solely by its performance at the end of learning. Nevertheless, evolution still selects for faster learners without any direct selection pressure for doing so. Thus we actually discover a stronger form of the Baldwin effect than has been previously conjectured in the literature38,39 by demonstrating that an explicit selection pressure for the speed of skill acquisition is not necessary for the Baldwin effect to hold. Intriguingly, the existence of this morphological Baldwin effect could be exploited in future studies to create embodied agents with lower sample complexity and higher generalizability.
+7
+
+Embodied Intelligence via Learning and Evolution
+A mechanistic underpinning for morphological intelligence and the strong Baldwin effect
+We next search for potential mechanistic basis for how evolution may both engender morphological intelligence (Fig. 4b,c) as well select for faster learners without any direct selection pressure for learning speed (i.e. the stronger form of the Baldwin effect in Fig. 5a). We hypothesize, along the lines of conjectures in embodied cognition3–5, that evolution discovers morphologies that can more efﬁciently exploit the passive dynamics of physical interactions between the agent body and the environment, thereby simplifying the problem of learning to control, which can both enable better learning in novel environments (morphological intelligence), and faster learning over generations (Baldwin effect). Any such intelligent morphology is likely to exhibit the physical properties of both energy efﬁciency and passive stability, and so we examine both properties.
+We deﬁne energy efﬁciency as the amount of energy spent per unit mass to accomplish a goal (see Appendix D). Surprisingly, without any direct selection pressure for energy efﬁciency, evolution nevertheless selected for energy efﬁcient morphological solutions (Fig. 5c). We verify such energy efﬁciency is not achieved simply by reducing limb densities (Fig. 3e). On the contrary, across all three environments the total body mass actually increases suggesting that energy efﬁciency is achieved by selecting for morphologies which more effectively leverage the passive physical dynamics of body-environment interactions. Moreover, morphologies which are more energy efﬁcient perform better (Fig. 6a) and learn faster (Fig. 6b) at any ﬁxed generation. Similarly, evolution selects more passively stable (see Appendix D) morphologies over time in all 3 environments, though the fraction of stable morphologies is higher in VT/MVT relative to FT, indicating higher relative selection pressure for stability in these more complex environments (Fig. 5b). Thus, over evolutionary time, both energy efﬁciency (Fig. 5c) and stability (Fig. 5b) improve in a manner that is tightly correlated with learning speed (Fig. 5a).
+These correlations suggest that energy efﬁciency and stability may be key physical principles that partially underpin both the evolution of morphological intelligence and the Baldwin effect. With regards to the Baldwin effect, variations in energy efﬁciency lead to positive correlations across morphologies between two distinct aspects of learning curves: the performance at the end of a lifetime, and the speed of learning at the beginning. Thus evolutionary processes that only select for the former will implicitly also select for the latter, thereby explaining the stronger form of the evolutionary Baldwin effect that we observe. With regards to morphological intelligence, we note that MVT and VT agents possess more intelligent morphologies compared to FT agents as evidenced by better performance in test tasks (Fig. 4b), especially with reduced learning iterations (Fig. 4c). Moreover, VT/MVT agents are also more energy efﬁcient compared to FT agents (Fig. 4d). An intuitive explanation of this differential effect of environmental complexity is that the set of subtasks that must be solved accumulates across environments from FT to VT to MVT. Thus, MVT agents must learn to solve more subtasks than FT agents in the same amount of learning iterations. This may result in a higher implicit selection pressure for desirable morphological traits like stability and energy efﬁciency in MVT/VT agents as compared to FT agents. And in turn these traits may enable better, faster, and more energy efﬁcient performance in novel tasks for MVT/VT agents relative to FT agents (Fig. 4b-d).
+Conclusion
+Thus overall the large-scale simulations made possible by DERL yield scientiﬁc insights into how learning, evolution and environmental complexity can interact to generate intelligent morphologies that can simplify control by leveraging the passive physics of body-environment interactions. Intriguingly, we ﬁnd that the ﬁtness of an agent can be rapidly transferred within a few generations of evolution from its phenotypic ability to learn to its genotypically encoded morphology through a Baldwin effect. These evolved morphologies in turn endow agents with better and faster learning capacities in many novel tasks through embodied morphological intelligence, likely realized through increased passive stability and energy efﬁcency. Indeed this Baldwinian transfer of intelligence from phenotype to genotype has been conjectured to free up phenotypic learning resources to learn more complex behaviors in animals43, including the emergence of language44 and imitation45 in humans. This suggests that just as our large scale simulations of learning and evolution can speed up reinforcement learning through the emergence of morphological intelligence, further large-scale explorations of learning and evolution in other contexts may yield new scientiﬁc insights into the emergence of rapidly learnable intelligent behaviors, as well as new engineering advances in our ability to instantiate them in machines.
+8
+
+Embodied Intelligence via Learning and Evolution
+
+a
+
+Flat terrain
+
+b
+
+Variable terrain
+
+c
+
+Manipulation in variable terrain
+
+Figure 7: Best agent morphologies evolved in different environments. A subset of the top 10 agent morphologies evolved across 3 evolutionary runs. See reporting methodology in Appendix D for details about selection procedure and video for illustration of learnt behaviour.
+9
+
+Embodied Intelligence via Learning and Evolution
+
+a
+
+Flat terrain
+
+b
+
+Variable terrain
+
+c
+
+Manipulation in variable terrain
+
+Figure 8: Example agent morphologies evolved in different environments. A subset of the top 100 agent morphologies evolved across 3 evolutionary runs. See reporting methodology in Appendix D for details about selection procedure.
+10
+
+Embodied Intelligence via Learning and Evolution
+References
+1. Darwin, C. On the origin of species by means of natural selection (John Murray, London, 1859). 2. Evans, S. D., Hughes, I. V., Gehling, J. G. & Droser, M. L. Discovery of the oldest bilaterian from the Ediacaran
+of South Australia. en. Proc. Natl. Acad. Sci. U. S. A. 117, 7845–7850 (Apr. 2020). 3. Pfeifer, R. & Scheier, C. Understanding intelligence (MIT press, 2001). 4. Brooks, R. A. New approaches to robotics. Science 253, 1227–1232 (1991). 5. Bongard, J. Why morphology matters. The horizons of evolutionary robotics 6, 125–152 (2014). 6. Brown, T. B. et al. Language Models are Few-Shot Learners. arXiv e-prints, arXiv:2005.14165. arXiv: 2005.
+14165 [cs.CL] (May 2020). 7. He, K., Zhang, X., Ren, S. & Sun, J. Deep Residual Learning for Image Recognition in 2016 IEEE Conference
+on Computer Vision and Pattern Recognition (CVPR) (2016), 770–778. 8. Silver, D. et al. Mastering the game of Go with deep neural networks and tree search. Nature 529, 484–489
+(2016). 9. Sims, K. Evolving 3D morphology and behavior by competition. Artiﬁcial life 1, 353–372 (1994). 10. Jelisavcic, M., Glette, K., Haasdijk, E. & Eiben, A. Lamarckian Evolution of Simulated Modular Robots. Fron-
+tiers in Robotics and AI 6, 9 (2019). 11. Auerbach, J. E. & Bongard, J. C. Environmental inﬂuence on the evolution of morphological complexity in
+machines. PLoS Comput Biol 10, e1003399 (2014). 12. Auerbach, J. et al. Robogen: Robot generation through artiﬁcial evolution in Artiﬁcial Life Conference Proceed-
+ings 14 (2014), 136–137. 13. Wang, T., Zhou, Y., Fidler, S. & Ba, J. Neural Graph Evolution: Automatic Robot Design in International Con-
+ference on Learning Representations (2019). 14. Luck, K. S., Amor, H. B. & Calandra, R. Data-efﬁcient co-adaptation of morphology and behaviour with deep
+reinforcement learning in Conference on Robot Learning (2020), 854–869. 15. Schaff, C., Yunis, D., Chakrabarti, A. & Walter, M. R. Jointly learning to construct and control agents using deep
+reinforcement learning in 2019 International Conference on Robotics and Automation (ICRA) (2019), 9798– 9805. 16. Ha, D. Reinforcement learning for improving agent design. Artiﬁcial life 25, 352–365 (2019). 17. Zhao, A. et al. RoboGrammar: graph grammar for terrain-optimized robot design. ACM Transactions on Graphics (TOG) 39, 1–16 (2020). 18. Kaplan, J. et al. Scaling Laws for Neural Language Models. arXiv e-prints, arXiv:2001.08361. arXiv: 2001. 08361 [cs.LG] (Jan. 2020). 19. Henighan, T. et al. Scaling Laws for Autoregressive Generative Modeling. arXiv e-prints, arXiv:2010.14701. arXiv: 2010.14701 [cs.LG] (Oct. 2020). 20. Chen, T., Kornblith, S., Swersky, K., Norouzi, M. & Hinton, G. E. Big self-supervised models are strong semisupervised learners. Advances in Neural Information Processing Systems 33 (2020). 21. Lipson, H. & Pollack, J. B. Automatic design and manufacture of robotic lifeforms. Nature 406, 974–978 (2000). 22. Alba, E. Parallel Metaheuristics: A New Class of Algorithms ISBN: 0471678066 (Wiley-Interscience, USA, 2005). 23. Real, E. et al. Large-Scale Evolution of Image Classiﬁers in Proceedings of the 34th International Conference on Machine Learning - Volume 70 (JMLR.org, Sydney, NSW, Australia, 2017), 2902–2911. 24. Real, E., Aggarwal, A., Huang, Y. & Le, Q. V. Regularized evolution for image classiﬁer architecture search in Proceedings of the AAAI Conference on Artiﬁcial Intelligence 33 (2019), 4780–4789. 25. Zoph, B. & Le, Q. V. Neural architecture search with reinforcement learning in International Conference on Learning Representations (2017). 26. Goldberg, D. E. & Deb, K. in Foundations of Genetic Algorithms 69–93 (Elsevier, 1991). 27. Sutton, R. S. & Barto, A. G. Reinforcement learning: An introduction (MIT press, 2018). 28. Schulman, J., Wolski, F., Dhariwal, P., Radford, A. & Klimov, O. Proximal Policy Optimization Algorithms. arXiv e-prints, arXiv:1707.06347. arXiv: 1707.06347 [cs.LG] (July 2017). 29. Muller, H. J. Some genetic aspects of sex. The American Naturalist 66, 118–138 (1932). 30. Heess, N. et al. Emergence of Locomotion Behaviours in Rich Environments. arXiv e-prints, arXiv:1707.02286. arXiv: 1707.02286 [cs.AI] (July 2017).
+11
+
+Embodied Intelligence via Learning and Evolution
+31. Auerbach, J. E. & Bongard, J. C. On the relationship between environmental and morphological complexity in evolved robots in Proceedings of the 14th annual conference on Genetic and evolutionary computation (2012), 521–528.
+32. Miras, K., Ferrante, E. & Eiben, A. Environmental inﬂuences on evolvable robots. PloS one 15, e0233848 (2020). 33. Pratt, L. Y., Mostow, J., Kamm, C. A. & Kamm, A. A. Direct Transfer of Learned Information Among Neural
+Networks. in AAAI 91 (1991), 584–589. 34. Chen, T., Kornblith, S., Norouzi, M. & Hinton, G. A Simple Framework for Contrastive Learning of Visual
+Representations in Proceedings of the 37th International Conference on Machine Learning (eds III, H. D. & Singh, A.) 119 (PMLR, Virtual, 2020), 1597–1607. 35. He, K., Fan, H., Wu, Y., Xie, S. & Girshick, R. Momentum contrast for unsupervised visual representation learning in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (2020), 9729–9738. 36. Weismann, A. The germ-plasm: a theory of heredity (Scribner’s, 1893). 37. Mark, B. J. A new factor in evolution. The American Naturalist 30, 441–451 (1896). 38. Turney, P. D. Myths and legends of the Baldwin effect in ICML Workshop on Evolutionary Computation and Machine Learning (1996), 135–142. 39. Mayley, G. Landscapes, learning costs, and genetic assimilation. Evolutionary Computation 4, 213–234 (1996). 40. Hinton, G. E. & Nowlan, S. J. How learning can guide evolution. Complex systems 1, 495–502 (1987). 41. Ackley, D. & Littman, M. Interactions between learning and evolution. Artiﬁcial life II 10, 487–509 (1991). 42. Anderson, R. W. Learning and evolution: A quantitative genetics approach. Journal of Theoretical Biology 175, 89–101 (1995). 43. Waddington, C. H. Canalization of development and the inheritance of acquired characters. Nature 150, 563–565 (1942). 44. Deacon, T. W. The symbolic species: The co-evolution of language and the brain 202 (WW Norton & Company, 1998). 45. Giudice, M. D., Manera, V. & Keysers, C. Programmed to learn? The ontogeny of mirror neurons. Developmental science 12, 350–363 (2009). 46. Todorov, E., Erez, T. & Tassa, Y. Mujoco: A physics engine for model-based control in 2012 IEEE/RSJ International Conference on Intelligent Robots and Systems (2012), 5026–5033. 47. Williams, R. J. Simple statistical gradient-following algorithms for connectionist reinforcement learning. Machine learning 8, 229–256 (1992). 48. Schulman, J., Moritz, P., Levine, S., Jordan, M. & Abbeel, P. High-Dimensional Continuous Control Using Generalized Advantage Estimation in Proceedings of the International Conference on Learning Representations (ICLR) (2016). 49. Kostrikov, I. PyTorch Implementations of Reinforcement Learning Algorithms https : / / github . com / ikostrikov/pytorch-a2c-ppo-acktr-gail. 2018. 50. Tassa, Y. et al. dm control: Software and Tasks for Continuous Control. arXiv e-prints, arXiv:2006.12983. arXiv: 2006.12983 [cs.RO] (June 2020). 51. Henderson, P. et al. Deep Reinforcement Learning that Matters in Thirty-Second AAAI Conference on Artiﬁcial Intelligence (2018). 52. Von Karman, T. & Gabrielli, G. What price speed? Speciﬁc power required for propulsion of vehicles. Mechanical Engineering 72, 775–781 (1950). 53. Siciliano, B. & Khatib, O. Springer Handbook of Robotics in Springer Handbooks (2016). 54. Alexander, R. M. Models and the scaling of energy costs for locomotion. The Journal of Experimental Biology 208, 1645–1652 (2005). 55. Yu, W., Turk, G. & Liu, C. K. Learning Symmetric and Low-Energy Locomotion. ACM Trans. Graph. 37. ISSN: 0730-0301 (July 2018). 56. McGhee, R. B. & Frank, A. A. On the stability properties of quadruped creeping gaits. Mathematical Biosciences 3, 331–351 (1968).
+12
+
+Embodied Intelligence via Learning and Evolution
+Appendix A: Evolutionary setup
+Distributed Asynchronous Evolution. Simultaneously evolving and learning embodied agents with many degrees of freedom that can perform complex tasks, using only low-level egocentric sensory inputs, required developing a highly parallel and efﬁcient computational framework which we call Deep Evolutionary Reinforcement Learning (DERL). Each evolutionary run starts with an initial population of P agents (here P = 576) with unique randomly generated morphologies (described in more detail below) chosen to encourage diverse solutions, as evidenced in (Fig. 2b), and prevent inefﬁcient allocation of computational resources on similar morphologies. Controllers for all P initial morphologies are learned in parallel for 5 million agent-environment interactions (learning iterations) each, and the average reward attained over approximately the last 100, 000 iterations at the end of lifetime learning yields a ﬁtness function over morphologies. Starting from this initial population, nested cycles of evolution and learning proceed in an asynchronous parallel fashion.
+Each evolutionary step consists of randomly selecting T = 4 agents from the current population to engage in a tournament24,26. In each tournament, the agent morphology with the highest ﬁtness among the 4 is selected to be a parent. Its morphology is then mutated to create a child which then undergoes lifetime learning to evaluate its ﬁtness. Importantly, the child starts lifetime learning with a randomly initialized controller, so that only morphological information is inherited from the parent. Such tabula rasa RL can be extremely sample inefﬁcient especially in complex environments. Hence, we further parallelize experience collection for training each agent over 4 CPU cores. 288 such tournaments and child training are run asynchronously and in parallel over 288 workers each consisting of 4 CPUs, for a total of 1152 CPUs. The entire computation takes place over 16 Intel Xeon Scalable Processors (Cascade Lake) each of which has 72 CPUs yielding the total of 1152 CPUs. To keep the population size P the same, the oldest member of the population is removed after a child is added24. Moreover, this design choice also makes the framework highly fault tolerant; if any compute node fails, a new node can be brought online without affecting the current population. In contrast, if population size is maintained by removing least ﬁt individual in a tournament, compute node failures will need additional book keeping to maintain total population size. Fault tolerance signiﬁcantly reduces the cost to run DERL on cloud services by leveraging spare unused capacity (spot instances) which is often up to 90% cheaper compared to on demand instances.
+UNIversal aniMAL (UNIMAL) design space. The design of any space of morphologies is subject to a stringent tradeoff between the richness and diversity of realizable morphologies and the computational tractability of ﬁnding successful morphologies by evaluating it’s ﬁtness. Here, we introduce the UNIMAL design space (Fig. 1d), which is an efﬁcient search space over morphologies that introduces minimal constraints while containing physically realistic morphologies and gaits that can learn locomotion and mobile manipulation. Our genotype is a kinematic tree, or a directed acyclic graph, corresponding to a hierarchy of articulated 3D rigid parts connected via motor actuated hinge joints. Nodes of the kinematic tree consist of two component types: a sphere representing the head which forms the root of the tree, and cylinders representing the limbs of the agent. Evolution proceeds through asexual reproduction via an efﬁcient set of three classes of mutation operations (Fig. 1b) that: (1) either shrink or grow the kinematic tree by starting from a sphere and growing or deleting limbs (grow limb(s), delete limb(s)); (2) modify the physical properties of existing limbs, like their lengths and densities (mutate density, limb params); (3) modify the properties of joints between limbs, including degrees of freedom (DoF), angular limits of rotation, and gear ratios (mutate DoF, joint angle, and gear). During the population initialization phase a new morphology is created by ﬁrst sampling a total number of limbs to grow and then applying mutation operations until the agent has the desired number of limbs. We now provide a description of the mutation operations in detail:
+Grow limb(s): This mutation operation grows the kinematic tree by adding at most 2 limbs at a time. We maintain a list of locations where a new limb can be attached. The list is initialized with center of the root node. To add a new limb we randomly sample an attachment location from a uniform distribution over possible locations, and randomly sample the number of limbs to add as well as the limb parameters. Limb parameters (Table 1) include radius, height, limb density, and orientation w.r.t. to the parent limb. We enforce that all limbs have the same density, so only the ﬁrst grow limb mutation samples limb density, and all subsequent limbs have the same density. However, due to the mutate density operation, all limb densities can change simultaneously under this mutation from a parent to a child. We also only allow limb orientations which ensure that the new limb is completely below the parent limb; i.e. the kinematic tree can only grow in the downward direction. The addition of a limb is considered successful, if after attachment of the new limb the center of mass of the agent lies on the saggital plane and there are no self intersections. Self intersections can be determined by running a short simulation and detecting collisions between limbs. If the new limb collides with other limbs at locations other than the attachment site, the mutation is discarded. Finally, if the limb(s) were successfully attached we update the list of valid attachment locations by adding the mid and end points of the new limb(s). Symmetry is further enforced by ensuring that if a pair of limbs were added then all future mutation operations will operate on both the limbs.
+13
+
+Embodied Intelligence via Learning and Evolution
+
+Hyperparameter
+Max limbs Limb radius Limb height Limb density Limb orientation theta Limb orientation phi Head radius Head density Joint axis Motor gear range
+Joint limits
+
+Value
+10 0.05 [0.2, 0.3, 0.4] [500, 600, 700, 800, 900, 1000] [0, 45, 90, 135, 180, 225, 270, 315] [90, 135, 180] 0.10 [500, 600, 700, 800, 900, 1000] [x, y, xy] [150, 200, 250, 300] [(−30, 0), (0, 30), (−30, 30), (−45, 45), (−45, 0), (0, 45), (−60, 0), (0, 60), (−60, 60) (−90, 0), (0, 90), (−60, 30)(−30, 60)]
+
+Table 1: Hyperparameters for UNIMAL design space. Mutation operations choose a random element from the corresponding list of possible parameters. The set of all possible values of these hyperparameter choices yields an estimate of 1018 possible
+morphologies.
+
+Delete limb(s): This mutation operation only affects leaf nodes of the kinematic tree. Leaf limb(s) or end effectors are randomly selected and removed from the kinematic tree in a manner that ensures symmetry.
+Mutate limb parameters: A limb is modelled as cylinder which is parameterized by it’s length and radius (Table 1). Each mutation operation ﬁrst selects a limb or pair of symmetric limbs to mutate and then randomly samples new limb parameters for mutation.
+Mutate density: In our design space, all limbs have the same density. To mutate the density we randomly select a new density value (Table 1). Similarly, we can also mutate the density of the head.
+Mutate DoF, gear and joint angle: We describe the three mutations affecting the joints between limbs together, due their similarity. Two limbs are connected by motor actuated hinge joints. A joint is parameterized by it’s axis of rotation, joint angle limits and motor gear ratio46. There can be at most two hinge joints between two limbs. In MuJoCo46, each limb can be described in its own frame of reference in which the limb is extended along the z-axis. In this same frame of reference of the child limb, the 2 possible axes of rotations of the two hinge joints between the child and parent limbs, correspond to the x-axis or the y-axis. The main thing this precludes is rotations of a limb about its own axis.
+While attaching a new limb all joint parameters are selected from a predetermined list of possible values (Table 1). Each mutation operation ﬁrst selects a limb or pair of symmetric limbs to mutate and then modiﬁes the corresponding parameter by a randomly chosen value.
+Environments. DERL enables us to simultaneously evolve and learn agents in three environments (Fig. 1e) of increasing complexity: (1) Flat terrain (FT); (2) Variable terrain (VT); and (3) Non prehensile manipulation in variable terrain (MVT). We use the MuJoCo46 physics simulator for all our experiments. We now provide a detailed description of each environment:
+Flat terrain. The goal of the agent is to maximize forward displacement over the course of an episode. At the start of an episode an agent is initialized on one end of a square arena of size (150 × 150 square meters (m2)).
+Variable terrain. Similar to FT, the goal of the agent is to maximize forward displacement over the course of an episode. At the start of an episode an agent is initialized on one end of a square arena of size (100 × 100m2). In each episodes, a completely new terrain is created by randomly sampling a sequence of obstacles (Fig. 1e) and interleaving them with ﬂat terrain. The ﬂat segments in VT are of length l ∈ [1, 3]m along the desired direction of motion, and obstacle segments are of length l ∈ [4, 8]m. Each obstacle is created by sampling from a uniform distribution over a predeﬁned range of parameter values. We consider 3 types of obstacles: 1. Hills: Parameterized by the amplitude a of sin wave where a ∈ [0.6, 1.2]m. 2. Steps: A sequence of 8 steps of height 0.2m. The length of each step is identical and is equal to one-eight of the total obstacle length. Each step sequence is always 4-steps up followed by 4-steps down. 3. Rubble: A sequence of random bumps created by clipping a repeating triangular sawtooth wave at the top such that the height h of each individual bump clip is randomly chosen from the range h ∈ [0.2, 0.3]m. Training an agent for locomotion in variable terrain is extremely challenging as prior work30 on learning locomotion in a similar terrain for a hand designed 9 DoF planar 2D walker required 107 agent-environment interactions, despite using curriculum learning and a morphology speciﬁc reward function.
+
+14
+
+Embodied Intelligence via Learning and Evolution
+
+Manipulation in variable terrain. This environment is like VT with an arena of size (60 × 40m2). However, here the goal of the agent is to move a box (a cube with side length 0.2m) from it’s initial position to a goal location. All parameters for terrain generation are the same as VT. In each episode, in addition to creating a new terrain, both the initial box location and ﬁnal goal location are also randomly chosen with the constraint that the goal location is always further along the direction of forward motion than the box location.
+These environments are designed to ensure that the number of sub-tasks required to achieve high ﬁtness is higher for more complex environments. Speciﬁcally, a FT agent has to only learn locomotion on a ﬂat terrain. In addition, a VT agent needs to also learn to walk on hills, steps and rubble. Finally, along with all the sub-tasks which need to be mastered in VT, a MVT agent should also learn directional locomotion and non prehensile manipulation of objects. The difference in arena sizes is simply chosen to maximize simulation speed while being big enough that agents can’t typically complete the task sooner than an episode length of 1000 agent-environment interactions (iterations). Hence, the arena size for MVT is smaller than VT.
+
+Appendix B: Learning algorithm
+
+Reinforcement Learning. The RL paradigm provides a way to learn efﬁcient representations of the environment from
+
+high-dimensional sensory inputs, and use these representations to interact with the environment in a meaningful way.
+
+At each time step the agent receives an observation ot that does not fully specify the state (st) of the environment, takes an action at, and is given a reward rt. A policy πθ(at|ot) models the conditional distribution over action at ∈ A
+
+given an observation ot ∈ O(st). The goal is to ﬁnd a policy which maximizes the expected cumulative reward
+
+R=
+
+H t=0
+
+γtrt
+
+under
+
+a
+
+discount
+
+factor
+
+γ
+
+∈
+
+[0,
+
+1),
+
+where
+
+H
+
+is
+
+the
+
+horizon
+
+length.
+
+Observations. At each time step, the agent senses the world by receiving low level egocentric proprioceptive and exteroceptive observations (Fig. 1c). Proprioceptive observations depend on the agent morphology and include joint angles, angular velocities, readings of a velocimeter, accelerometer, and a gyroscope positioned at the head, and touch sensors attached to the limbs and head as provided in the MuJoCo46 simulator. Exteroceptive observations include task speciﬁc information like local terrain proﬁle, goal location, and the position of objects and obstacles.
+
+Information about the terrain is provided as 2D heightmap sampled on a non-uniform grid to reduce the dimensionality of data. The grid is created by decreasing the sampling density as the distance from the root of the body increases30. All heights are expressed relative to the height of the ground immediately under the root of the agent. The sampling points range from 1m behind the agent to 4m ahead of it along the direction of motion, as well as 4m to the left and right (orthogonal to the direction of motion). Note the height map is not provided as input in tasks like patrol, point navigation etc. where the terrain is ﬂat and does not have obstacles. Information about goal location for tasks like point navigation, patrol etc. and the position and velocity of objects like ball/box for manipulation tasks are provided in an egocentric fashion, using the reference frame of the head.
+
+Rewards. The performance of RL algorithms is dependent on good reward function design. A common practice is to have certain components of the reward function be morphology dependent30. However, designing morphology
+dependent reward functions is not feasible when searching over a large morphological design space. One way to circumvent this issue is to limit the design space to morphologies with similar topologies13. But this strategy is ill-
+suited as our goal is to have an extremely expressive morphological design space with minimal priors and restrictions.
+Hence, we keep the reward design simple, ofﬂoading the burden of learning the task from engineering reward design
+to agent morphological evolution.
+
+For FT and VT at each time step t the agent receives a reward rt given by, rt = wxvx − wc a 2
+
+where vx is the component of velocity in the +x direction (the desired direction of motion), a is the input to the actuators, and wx and wc weight the relative importance of the two reward components. Speciﬁcally, wx = 1, and wc = 0.001. This reward encourages the agent to make forward progress, with an extremely weak penalty for very large joint torques. Note that for selecting tournament winners in the evolutionary process, we only compare the forward progress component of the reward i.e. wxvx. Hence, there is no explicit selection pressure to minimize energy. We adopt similar a strategy for tournament winner selection in MVT.
+
+For MVT at each time step t the agent receives a reward rt given by, rt = waodao + wogdog − wc a 2
+
+Here dao is geodesic distance between the agent and the object (box) in the previous time step minus this same quantity in the current time step. This reward component encourages the agent to come close to the box and remain close to it.
+
+15
+
+Embodied Intelligence via Learning and Evolution
+
+Hyperparameter
+Discount γ GAE parameter λ PPO clipping parameter Policy epochs Batch size Entropy coefﬁcient Reward normalization Reward clipping Observation normalization Observation clipping Timesteps per rollout # Workers # Environments Total timesteps Optimizer Initial learning rate Learning rate schedule Gradient clipping (l2 norm) Clipped value function Value loss coefﬁcient
+
+Value
+.99 0.95 0.2
+4 512 0.01 Yes [−10, 10] Yes [−10, 10] 128
+4 32 5 × 106 Adam 0.0003 Linear decay 0.5 Yes 0.5
+
+Table 2: PPO hyperparameters.
+
+dog is geodesic distance between the object and the goal in previous time step minus this same quantity in the current time step. This encourages the agent to manipulate the object towards the goal. The ﬁnal component involving a 2 provides a weak penalty on large joint torques as before. The weights wao, wog, wc determine the relative importance of the three components. Speciﬁcally, wao = wog = 100, and wc = 0.001. In addition, the agent is provided a sparse reward of 10 when it’s within 0.75m of the initial object location, and again when the object is within 0.75m of goal
+location. This sparse reward further encourages the agent to minimize the distance between the object and the goal
+location while being close to the object.
+
+In addition, we use early termination across all environments when we detect a fall. We consider an agent to have fallen if the head of the agents falls below 50% of it’s original height. We found employing this early termination criterion was essential in ensuring diverse gaits. Without early termination, almost all agents would immediately fall and move in a snake like gait.
+
+Policy Architecture. The agent chooses it’s action via a stochastic policy πθ where θ are the parameters of a pair of deep neural networks: a policy network which produces an action distribution (Fig. 1c), and a critic network which predicts discounted future returns. Each type of observation is encoded via a two layer MLP with hidden dimensions [64, 64]. The encoded observations across all types are then concatenated and further encoded into a 64 dimensional vector, which is ﬁnally passed into a linear layer to generate the parameters of a Gaussian action policy for the policy network and discounted future returns for the critic network. The size of the output layer for the policy network depends on the number of actuated joints. We use tanh non-linearities everywhere, except for the output layers. The parameters of the networks are optimized using Proximal Policy Optimization28 (PPO).
+
+Optimization. Policy gradient methods are a popular class of algorithms for ﬁnding the policy parameters θ which maximize R via gradient ascent. Vanilla policy gradient47 (VPG) is given by L = E[Aˆt∇θ log πθ], where Aˆt is an estimate of the advantage function. VPG estimates can have high variance and be sensitive to hyperparameter
+
+changes. To overcome this PPO28 optimizes a modiﬁed objective L = E min(lt(θ)Aˆt, clip(lt(θ), 1 − , 1 + )Aˆt ,
+
+where
+
+lt(θ)
+
+=
+
+πθ (at|ot) πold (at |ot )
+
+denotes
+
+the
+
+likelihood
+
+ratio
+
+between
+
+new
+
+and
+
+old
+
+policies
+
+used
+
+for
+
+experience collection.
+
+We
+
+use Generalized Advantage Estimation48 to estimate the advantage function. The modiﬁed objective keeps lt(θ) within
+
+and functions as an approximate trust-region optimization method; allowing for the multiple gradient updates for a
+
+mini-batch of experience, thereby preventing training instabilities and improving sample efﬁciency. We adapt an open
+
+source49 implementation of PPO (see Table 2 for hyperparamter values). We keep the number of learning iterations the
+
+same across all evolutionary environments. In all environments, agents have 5 millions learning iterations to perform
+
+lifetime learning.
+
+16
+
+Embodied Intelligence via Learning and Evolution
+Appendix C: Evaluation task suite
+A key contribution of our work is to take a step towards quantifying morphological intelligence. Concretely, we compute how much a morphology facilitates the process of learning a large set of test tasks. We create a suite of 8 tasks (Fig. 4a) categorized into 3 domains testing agility (patrol, point navigation, obstacle and exploration), stability (escape and incline) and manipulation (push box incline and manipulate ball) abilities of the agent morphologies. Controllers for each task are learned from scratch, thus ensuring that differences in performance are solely due to differences in morphologies. Note that form RL perspective both task and environment are the same i.e. both are essentially markov decision processes. Here, we use the term environment to distinguish between evolutionary task and test tasks. We now provide a description of the evaluation tasks and rewards used to train the agent.
+Patrol: The agent is tasked with running back and forth between two goal locations 10m apart along the x axis. Success in this task requires the ability to move fast for a short duration and then quickly change direction repeatedly. At each time step the agent receives a reward rt given by,
+rt = wagdag − wc a 2
+where dag is geodesic distance between the agent and the goal in the previous time step minus this same quantity in the current time step, wag = 100, and wc = 0.001. In addition, when the agent is within 0.5m of the goal location, we ﬂip the goal location and provide the agent a sparse reward of 10. Point Navigation: An agent is spawned at the center of a ﬂat arena (100 × 100 m2). In each episode, the agent has to reach a random goal location in the arena. Success in this task requires the ability to move in any direction. The reward function is similar to the patrol task.
+Obstacle: The agent has to traverse a dense area of static obstacles and reach the end of the arena. The base and height of each obstacle varies between 0.5m to 3m. The environment is a rectangular ﬂat arena (150 × 60 m2) with 50 random obstacles initialized at the start of each episode. Success in this task requires the ability to quickly maneuver around obstacles. The obstacle information is provided in the form of terrain height map. The reward function is similar to that of locomotion in FT. Exploration: The agent is spawned at the center of a ﬂat arena (100 × 100m2). The arena is discretized into grids of size (1 × 1m2) and the agent has to maximize the number of distinct squares visited. At each time step agent receives,
+rt = we(et − et−1) − wc a 2
+where et denotes total number of locations explored till time step t, we = 1, and wc = 0.001. In addition to testing agility this task is challenging, as unlike in the case of dense locomotion rewards for previous tasks, here the agent gets a sparser reward. Escape: The agent is spawned at the center of a bowl shaped terrain surrounded by small hills50 (bumps). The agent has to maximize the geodesic distance from the start location (escape the hilly region). This task tests the agent’s ability to balance itself while going up/down on a random hilly terrain. At each time step the agent receives reward,
+rt = wddas − wc a 2
+where das is geodesic distance between the agent and the initial location in the current time step minus this same quantity in the previous time step, wd = 1, and wc = 0.001. Incline: The agent is tasked to move on rectangular arena (150 × 40m2) inclined at 10◦. Reward is similar to FT.
+Push Box Incline: A mobile manipulation task, where the objective is to push a box (of side length 0.2m) along an inclined plane. The agent is spawned at the start of a rectangular arena (80 × 40m) inclined at 10◦. Reward is similar to MVT.
+Manipulate Ball: A mobile manipulation task, where the objective is to move a ball from a source location to a target location. In each episode a ball (radius 0.2m) is placed at a random location on a ﬂat square arena (30 × 30m) and the agent is spawned at the center. This task poses a challenging combination of locomotion and object manipulation, since the agent must rely on complex contact dynamics to manipulate the movement of the ball while also maintaining balance. Reward is similar to MVT.
+Appendix D: Evaluation
+Reporting Methodology. The performance of RL algorithms is known to be strongly dependent on the choice of the seed for random number generators51. To control for this variation, within an evolutionary run we use the same seed
+17
+
+Embodied Intelligence via Learning and Evolution
+for all lifetime learning across all morphologies. However we take several steps to ensure robustness to this choice. First, we repeat each evolutionary run 3 times for each environment with different random seeds. Then to ﬁnd the best morphologies for each environment in a manner that is robust to choice of seed, we select the top 3 agents from all surviving lineages across all 3 evolutionary runs. Typically, in a single evolutionary run we ﬁnd 15 to 20 surviving lineages, yielding a total of 135 to 180 good morphologies per environment (at 3 per lineage over 3 evolutionary runs). Then we further train these morphologies 5 times with 5 entirely new random seeds. This ﬁnal step ensures robustness to choice of seed without having to run evolution many times. Finally, we select the 100 best agents in these new training runs for each environment. These 100 agents are used to generate the data shown in Fig. 2a, Fig. 5a, c, and Fig. 6. We also compare the performance of the top 10 out of these 100 agents across the suite of 8 test tasks (Fig. 4b-d). For all test tasks we use the same network architecture, hyperparameter values and learning procedure as used during evolution, and train the controller from scratch with 5 random seeds. Cost of Work. Cost of transportation52 (COT) is a dimensionless measure that quantiﬁes how much energy is applied to a system of a speciﬁed mass M in order to move the system a speciﬁed distance D. That is,
+E COT =
+M gD
+where E is the total energy consumption for travelling distance D, M is the total mass of the system, and g is the acceleration due to gravity. COT and it’s variants have been used in a wide range of domains to compare energy efﬁcient motion of different robotic systems53, vehicles52 and animals54. We note that COT essentially measures energy spent per unit mass per unit distance, as the normalization factor g required to make this measure dimensionless is the same for all systems. We adapt this metric to more general RL tasks to measure energy per unit mass per unit reward instead of energy per unit mass per unit distance. That is we deﬁne a cost of work (COW) by,
+E COW =
+M gr
+where E is the energy spent, M is the mass, and r is the reward achieved. For most locomotion tasks like locomotion in FT/VT, patrol, obstacle, escape and incline where reward is proportional to distance travelled; COW and COT are essentially the same albeit with different units. We measure energy as the absolute sum of all joint torques55. This deﬁnition was used to compute energy efﬁciency (with lower COW indicating higher energy efﬁciency) in both evolutionary environments (Fig. 5c) and test tasks (Fig. 4b-d).
+Stability. Informally, passive stability is the ability to stand without falling and is achieved via mechanical design of the agent/robot. Dynamic stability is ability to move without falling over and is achieved via control. Formally an agent is passively stable, when the centre of mass is inside the support polygon and the polygon’s area is greater than zero56. The support polygon is the convex hull of all of the agent’s contact points with the ground. We measure passive stability by checking if the agent falls over without any control. The agent is initialized at the center of arena and we measure the position of the head at the beginning and after 400 time steps (a full episode is 1000 time steps). An agent is passively stable if the head position after 400 time steps is above 50% of original height. Note that we use the violation of this same condition for early termination of the episode (see Rewards). We use this notion of passive stability in Fig. 5b.
+Beneﬁcial mutations. We deﬁne a mutation to be beneﬁcial if the difference between the child and parent ﬁtness is above a certain threshold. Although any non-zero increase in ﬁtness is a beneﬁcial mutation, small changes in ﬁtness acquired via RL might not be statistically meaningful, especially since during evolution the ﬁtness is calculated using a single seed. Hence, we heuristically set the threshold as a minimum increase in ﬁnal average reward by 300 for FT and 100 for VT and MVT. Roughly these numbers correspond to the 75th percentile in the distribution of ﬁtness increases across all mutations in a given environment. We use this deﬁnition of beneﬁcial mutations in Fig. 2b.
+Acknowledgements
+We thank Daniel Yamins, Daniel S. Fisher, Benjamin M. Good and Ilija Radosavovic for feedback on the draft. S.G. thanks the James S. McDonnell and Simons foundations, NTT Research, and an NSF CAREER award for funding. A.G. and L.F-F. thank Adobe, Weichai America Corp and Stanfod HAI for funding.
+18
+

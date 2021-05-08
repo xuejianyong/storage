@@ -1,0 +1,1696 @@
+Learning by Playing – Solving Sparse Reward Tasks from Scratch
+
+arXiv:1802.10567v1 [cs.LG] 28 Feb 2018
+
+Martin Riedmiller * 1 Roland Hafner * 1 Thomas Lampe 1 Michael Neunert 1 Jonas Degrave 1 Tom Van de Wiele 1 Volodymyr Mnih 1 Nicolas Heess 1 Tobias Springenberg 1
+
+Abstract
+We propose Scheduled Auxiliary Control (SACX), a new learning paradigm in the context of Reinforcement Learning (RL). SAC-X enables learning of complex behaviors – from scratch – in the presence of multiple sparse reward signals. To this end, the agent is equipped with a set of general auxiliary tasks, that it attempts to learn simultaneously via off-policy RL. The key idea behind our method is that active (learned) scheduling and execution of auxiliary policies allows the agent to efﬁciently explore its environment – enabling it to excel at sparse reward RL. Our experiments in several challenging robotic manipulation settings demonstrate the power of our approach. A video of the rich set of learned behaviours can be found at https://youtu.be/mPKyvocNe M.
+1. Introduction
+Consider the following scenario: a learning agent has to control a robot arm to open a box and place a block inside. While deﬁning the reward for this task is simple and straightforward (e.g. using a simple mechanism inside the box such as a force sensor to detect a placed block), the underlying learning problem is hard. The agent has to discover a long sequence of “correct” actions in order to ﬁnd a conﬁguration of the environment that yields the sparse reward – the block contained inside the box. Discovering this sparse reward signal is a hard exploration problem for which success via random exploration is highly unlikely.
+Over the last decades, a multitude of methods have been developed to help with the above mentioned exploration problem. These include for example: shaping rewards (Ng et al., 1999; Randløv & Alstrøm, 1998; Gu et al., 2017), curriculum learning (Heess et al., 2017; Ghosh et al., 2018; Forestier et al., 2017), transfer of learned policies from simulation to reality (see Duan et al. (2017); Sadeghi et al.
+*Equal contribution 1Google DeepMind, London, GB. Correspondence to: Martin Riedmiller <riedmiller@google.com>, Roland Hafner <rhafner@google.com>.
+
+(2017); Tobin et al. (2017); Rusu et al. (2017) for recent examples), learning from demonstrations (Ross et al., 2011; Vecerik et al., 2017; Kober & Peters, 2011; Sermanet et al., 2017; Nair et al., 2017), learning with model guidance, see e.g. Montgomery & Levine (2016), or inverse RL (Ng & Russell, 2000; Ziebart et al., 2008). All of these approaches rely on the availability of prior knowledge that is speciﬁc to a task. Moreover, they often bias the control policy in a certain – potentially suboptimal – direction. For example, using a shaped reward designed by the experimenter, inevitably, biases the solutions that the agent can ﬁnd. In contrast to this, when a sparse task formulation is used, the agent can discover novel and potentially preferable solutions. We would thus, arguably, prefer to develop methods that support the agent during learning but preserve the ability of the agent to learn from sparse rewards. Ideally, our new methods should reduce the speciﬁc prior task knowledge that is required to cope with sparse rewards.
+In this paper, we introduce a new method dubbed Scheduled Auxiliary Control (SAC-X), as a ﬁrst step towards such an approach. It is based on four main principles:
+1. Every state-action pair is paired with a vector of rewards, consisting of (typically sparse) externally provided rewards and (typically sparse) internal auxiliary rewards.
+2. Each reward entry has an assigned policy, called intention in the following, which is trained to maximize its corresponding cumulative reward.
+3. There is a high-level scheduler which selects and executes the individual intentions with the goal of improving performance of the agent on the external tasks.
+4. Learning is performed off-policy (and asynchronously from policy execution) and the experience between intentions is shared – to use information effectively.
+Although the approach proposed in this paper is generally applicable to a wider range of problems, we discuss our method in the light of a typical robotics manipulation application with sparse rewards: stacking various objects and cleaning a table.
+Auxiliary rewards in these tasks are deﬁned based on the mastery of the agent to control its own sensory observations (e.g. images, proprioception, haptic sensors). They are
+
+Learning by Playing
+
+designed to be easily implementable in a real robot setup. In particular, we deﬁne auxiliary rewards on a raw sensory level – e.g. whether a touch is detected or not. Or, alternatively, deﬁne them on a higher level that requires a small amount of pre-computation of entities, e.g. whether any object moved or whether two objects are close to each other in the image plane. Based on these basic auxiliary tasks, the agent must effectively explore its environment until more interesting, external rewards are observed; an approach which is inspired by the playful phase of childhood in humans.
+We demonstrate the capabilities of SAC-X in simulation on challenging robot manipulation tasks such as stacking and tidying a table-top using a robot arm. All tasks are deﬁned via sparse, easy to deﬁne, rewards and solved using the same set of auxiliary reward functions. In addition, we demonstrate that our method is sample efﬁcient, allowing us to learn from scratch on a real robot.
+2. Related Work
+The idea of using auxiliary tasks in the context of reinforcement learning has been explored several times in literature. Among the ﬁrst papers to make use of this idea, is the work by (Sutton et al., 2011) where general value functions are learned for a large collection of pseudo-rewards corresponding to different goals extracted from the sensorimotor stream. General value functions have recently been extended to Deep RL in work on Universal Value Function Aproximators (UVFA) (Schaul et al., 2015). These are in turn are inherently connected to learning to predict the future via “successor” representations (Dayan, 1993; Kulkarni et al., 2016b; Barreto et al., 2017) or forecasts (Schaul & Ring, 2013; Lample & Chaplot, 2017; Dosovitskiy & Koltun, 2017) and are trained to be predictive of features extracted from future states. In contrast to the setting explored in this paper, all of the aforementioned approaches do not utilize the learned sub-policies to drive exploration for an external “common” goal. They also typically assume independence between different policies and value functions. In a similar vein to the UVFA approach, recent work on Hindsight Experience Replay (HER) (Andrychowicz et al., 2017) proposed to generate many tasks for a reinforcement learning agent by randomly sampling goals along previously experienced trajectories. Our approach can be understood as an extension of HER to semantically grounded, and scheduled, goals.
+A related strand of research has considered learning a shared representation for multiple RL tasks.
+Closest to the ideas presented in this paper and serving as the main inspiration for our approach, is the recent work on Deep Reinforcement Learning with the UNREAL agent (Jaderberg et al., 2017) and Actor Critic agents for naviga-
+
+tion (Mirowski et al., 2016) (discrete action control) as well as the Intentional Unintentional Agent (Cabi et al., 2017) (considering continuous actions). While these approaches mainly consider using auxiliary tasks to provide additional learning signals – and additional exploration by following random sensory goals – we here make active use of the auxiliary tasks by switching between them throughout individual episodes (to achieve exploration for the main task).
+Our work is also connected to the broader literature on multitask (reinforcement) learning (see e.g. Caruana (1997) for a general overview and Lazaric et al. (2008); Mehta et al. (2008) for RL applications) and work on reinforcement learning via options (Dietterich, 1998; Bacon et al., 2017; Daniel et al., 2012). In contrast to these approaches we here learn skills that are semantically grounded via auxiliary rewards, instead of automatically discovering a decomposed solution to a single task.
+The approach we take for scheduling the learning and execution of different auxiliary tasks can be understood from the perspective of “teaching” a set of increasingly more complicated problems – see e.g. the literature on curriculum learning (Bengio et al., 2009) – where we consider a ﬁxed number of problems and learn a teaching policy online. Research on this topic has a long history, both in the machine learning and psychology literature. Recent examples from the ﬁeld of RL include the PowerPlay algorithm (Schmidhuber, 2013), that invents and teaches new problems on the ﬂy, as well as research on learning complex tasks via curriculum learning for RL (Heess et al., 2017) and hierarchical learning of real robot tasks (Forestier et al., 2017). (Hierarchical) Reinforcement Learning with the help of so called “intrinsic motivation” rewards (Chentanez et al., 2005; Singh et al., 2009) has, furthermore, been studied for controlling real robots by Ngo et al. (2012) and combined with Deep RL techniques by Kulkarni et al. (2016a); Dilokthanakul et al. (2017). In contrast to our work these approaches typically consider internal measures such as learning progress to deﬁne rewards, rather than auxiliary tasks that are grounded in physical reality.
+3. Preliminaries
+We consider the problem of Reinforcement Learning (RL) in a Markov Decision Process (MDP) . We make use of the following basic deﬁnitions: Let s ∈ RS be the state of the agent in the MDP M – we use the term state and observation of the state (e.g. proprioceptive features, object positions or images) interchangeably to simplify notation. Denote with a ∈ RA the action vector and p(st+1|st, at) the probability density of transitioning to state st+1 when executing action at in st. All actions are assumed to be sampled from a policy distribution πθ(a|s), with parameters θ. After executing an action – and transitioning in the environment – the agent
+
+Learning by Playing
+
+receives a scalar reward rM(st, at).
+
+With these deﬁnitions in place, we can deﬁne the goal of
+
+Reinforcement Learning as maximizing the sum of dis-
+
+counted rewards Eπ[R(τ0:∞)] = Eπ[
+
+∞ t=0
+
+γ
+
+t
+
+r(st
+
+,
+
+at)
+
+|
+
+at ∼ π(·|st), st+1 ∼ p(·|st, at), s0 ∼ p(s)], where p(s)
+
+denotes the initial state distribution or, if assuming random
+
+restarts, the state visitation distribution, and we use the short
+
+notation τt:∞ = {(st, at), . . . } to refer to the trajectory starting in state t. For brevity of notation, we will, in the
+
+following, omit the dependence of the expectation on sam-
+
+ples from the transition and initial state distribution where
+
+unambiguous.
+
+4. Scheduled Auxiliary Control
+We will now introduce our method for RL in sparse reward problems. For the purpose of this paper, we deﬁne a sparse reward problem as ﬁnding the optimal policy π∗ in an MDP M with a reward function that is characterized by an ’ region’ in state space. That is we have
+
+rM(s, a) =
+
+δsg (s) 0
+
+if d(s, sg) ≤ else,
+
+(1)
+
+where sg denotes a goal state, d(s, sg) denotes the distance between the goal state and the current state s – deﬁned on a
+subset of the variables comprising s and measured according
+to some metric, i.e. we could have d(s, sg) = s − sg 2. Further, δsg (s) deﬁnes the reward surface within the epsilon region; in this paper we will choose the most extreme case where is small and we set δsg (s) = 1 (constant).1
+
+4.1. A Hierarchical RL Approach for Learning from Sparse Rewards
+To enable learning in the setting described above we derive an algorithm that augments the sparse learning problem with a set of low-level auxiliary tasks.
+Formally, let A = {A1, . . . , AK } denote the set of auxiliary MDPs. In our construction, these MDPs share the state, observation and action space as well as the transition dynamics with the main task M,2 but have separate auxiliary reward functions rA1 (s, a), . . . , rAK (s, a). We assume full control over the auxiliary rewards; i.e. we assume knowledge of how to compute auxiliary rewards and assume we can evaluate them at any state action pair. Although this assumption might appear restrictive at ﬁrst glance, we will – as mentioned before – make use of simple auxiliary rewards that
+1Instead, we could also deﬁne a small reward gradient within the -region to enforce precise control by setting, for example, δsg (s) = exp(−d(s, sg)).
+2We note that in the experiments we later also allow for multiple external (main) tasks, but omit this detail here for clarity of the presentation.
+
+can be obtained from the activation of the agents sensors.
+
+Given the set of reward functions we can deﬁne intention policies and their return as πθ(a|s, T ) and
+
+∞
+
+Eπθ(a|s,T ) RT (τt:∞) = Eπθ(a|s,T )
+
+γtrT (st, at) ,
+
+t=0
+(2)
+
+where T ∈ T = A ∪ {M}, respectively.
+
+To derive a learning objective based on these deﬁnitions it is useful to ﬁrst remind ourselves what the aim of such a procedure should be: Our goal for learning is to both, i) train all auxiliary intentions policies and the main task policy to achieve their respective goals, and ii) utilize all intentions for fast exploration in the main sparse-reward MDP M. We accomplish this by deﬁning a hierarchical objective for policy training that decomposes into two parts.
+
+Learning the intentions The ﬁrst part is given by a joint policy improvement objective for all intentions. We deﬁne the action-value function QT (st, at) for task T as
+
+QT (st, at) = rT (st, at) + γEπT RT (τt+1:∞) , (3)
+
+where we have introduced the short-hand notation πT = πθ(a|x, T ). Using this deﬁnition we deﬁne the (joint) policy improvement objective as ﬁnding arg maxθ L(θ) where θ is the collection of all intention parameters and,
+
+|A|
+
+L(θ) = L(θ; M) + L(θ; Ak),
+
+(4)
+
+k=1
+
+with L(θ; T ) =
+
+E QT (s, a) | a ∼ πθ(·|s, T ) .
+
+B∈T p(s|B)
+
+(5)
+
+That is, we optimize each intention to select the optimal action for its task starting from an initial state drawn from the state distribution p(s|B), obtained by following any other policy π(a|s, B) with B ∈ T = A ∪ {M} (the task which we aimed to solve before). We note that this change is a subtle, yet important, departure from a multi-task RL formulation. By training each policy on states sampled according to the state visitation distribution of each possible task we obtain policies that are “compatible” – in the sense that they can solve their task irrespective of the state that the previous intention-policy left the system in. This is crucial if we want to safely combine the learned intentions.
+
+Learning the scheduler The second part of our hierarchical objective is concerned with learning a scheduler that sequences intention-policies. We consider the following setup: Let ξ denote the period at which the scheduler can
+
+Learning by Playing
+
+switch between tasks.3 Further denote by H the total number of possible task switches within an episode4 and denote by T0:H−1 = {T0, . . . , TH−1} the H scheduling choices made within an episode. We can deﬁne the return of the
+main task given these scheduling choices as
+
+H (h+1)ξ−1
+
+RM(T0:H−1) =
+
+γtrM(st, at),
+
+h=0 t=hξ
+
+(6)
+
+where at ∼ πθ(·|st, Th).
+
+Denoting the scheduling policy with PS (T |T0:h−1) we can deﬁne the probability of an action at, when behaving according to the scheduler, as
+πS (at|st, T0:h−1) = πθ(at|st, T )PS (T |T0:h−1), (7)
+T
+from which we can sample in two steps (as in Eq. (6)) by ﬁrst choosing a sub-task every ξ steps and then sampling an action from the corresponding intention. Combining these two deﬁnitions, the objective L(S) for learning a scheduler S – by ﬁnding the solution arg maxS L(S) – reads:
+L(S) = EPS RM(T0:H−1) | Th ∼ PS (T |T0:h−1) . (8)
+Note that, for the purpose of optimizing the scheduler, we consider the individual intentions as ﬁxed in Equation (8) – i.e. we do not optimize it w.r.t. θ – since we would otherwise be unable to guarantee preservation of the individual intentions (which are needed to efﬁciently explore in the ﬁrst place). We also note that the scheduling policy, as deﬁned above, ignores the dependency on the state shξ in which a task is scheduled (i.e. PS uses a partially observed state). In addition to this learned scheduler we also experiment with a version that schedules intentions at random throughout an episode, which we denote with SAC-U in the following. Note that such a strategy is not as naive as it initially appears: due to the fact that we allow several intentions to be scheduled within an episode they will naturally provide curriculum training data for each other. A successful ’move object’ intention will, for example, leave the robot arm in a position close to the object, making it easy for a lift intention to discover reward.
+As mentioned in Section 2 the problem formulation described above bears similarities to several other multi-task RL formulations. In particular we want to highlight that it can be interpreted as a generalization of the IUA and UNREAL objectives (Cabi et al., 2017; Jaderberg et al., 2017) to stochastic continuous controls – in combination with active execution of auxiliary tasks and (potentially learned)
+3We choose ξ = 150 in our experiments. In general h should span multiple time-steps to enforce commitment to one task.
+4We consider a ﬁnite horizon setting in the following to simplify the presentation.
+
+scheduling within an episode. It can also be understood as a hierarchical extension of Hindsight Experience Replay (Andrychowicz et al., 2017), where the agent behaves according to a ﬁxed set of semantically grounded auxiliary tasks – instead of following random goals – and optimizes over the task selection.
+
+4.2. Policy Improvement
+To optimize the objective from Equation (5) we take a gradient based approach. We ﬁrst note that learning for each intention π(a|s, T ), as deﬁned in Equation (5), necessitates an off-policy treatment – since we want each policy to learn from data generated by all other policies. To establish such a setup we assume access to a parameterized predictor QˆπT (s, a; φ) (with parameters φ) of state-action values; i.e. QˆπT (s, a; φ) ≈ QπT (s, a) – as described in Section 4.3. Using this estimator, and a replay buffer B containing trajectories τ gathered from all policies, the policy parameters θ can be updated by following the gradient
+
+∇θL(θ) ≈
+
+∇θE QˆTπ (st, a; φ)+α log πθ(a|st, T ) ,
+
+T ∈T τ ∼B
+
+πθ
+
+(·|st ,T st ∈τ
+
+)
+
+(9)
+
+where Eπθ(·|st,T )[log πθ(a|st, T )] corresponds to an additional (per time-step) entropy regularization term (with
+
+weighting parameter α). This gradient can be computed via
+
+the reparametrization trick (Rezende et al., 2014; Kingma &
+
+Welling, 2014) for policies whose sampling process is differ-
+
+entiable (such as the Gaussian policies used in this work), as
+
+described in the work on stochastic value gradients (Heess
+
+et al., 2015). We refer to the supplementary material for a
+
+detailed derivation.
+
+In contrast to the intention policies, the scheduler has to quickly adapt to changes in the incoming stream of experience data – since the intentions change over time and hence the probability that any intention triggers the main task reward is highly varying during the learning process. To account for this, we choose a simple parametric form for the scheduler: Assuming a discrete set of tasks T we can ﬁrst realize that the solution
+
+PS = arg max L(S),
+
+(10)
+
+PS
+
+to Equation (8) can be approximated by the Boltzmann distribution
+
+PS (Th|T1:h−1; η) =
+
+exp(EPS [RM(Th:H )]/η) T¯h:H exp(EPS [RM(T¯h:H )]/η
+
+)
+
+,
+
+(11)
+
+where the temperature parameter η dictates the greediness
+
+of the schedule; and hence limη→∞ PS (T |T1:h−1; η) corre-
+
+sponds to the optimal policy (the solution from (10)) at any
+
+scheduling point. To be precise, the Boltzmann policy cor-
+
+Learning by Playing
+
+responds to maximizing L(S) together with an additional entropy regularizer on the scheduler.
+
+This distribution can be represented via an approximation of the schedule returns Q(T1:h−1, Th) ≈ EPS [RM(Th:H )|T1:h−1]. For a ﬁnite, small, number of tasks – as in this paper – Q(T1:h−1, Th) can be represented in tabular form. Speciﬁcally, we form a Monte Carlo estimate of the expectation, using the last M = 50 executed trajectories, which yields
+
+1 Q(T0:h−1, Th) = M
+
+M
+RM τ (Th:H ),
+
+(12)
+
+i=1
+
+where RM τ (Th:H ) is the cumulative discounted return along trajectory τ (computed as in Equation (6) but with ﬁxed
+states and action choices).
+
+Using the improved policy from Equation (9) and the scheduler deﬁned via Equation (11) we can then collect addition data by following the scheduled action distribution πS (a|s, Tq:h−1) given by Equation (7).
+
+4.3. Policy Evaluation
+
+We use Retrace (Munos et al., 2016) for off-policy eval-
+uation of all intentions. Concretely, we train parametric Q-functions (neural networks) QˆπT (s, a; φ) by minimizing the following loss, deﬁned on data from the replay B:
+
+min L(φ) = E(τ,b,B)∼B
+φ
+
+QˆπT (s, a; φ) − Qret 2 , with
+
+∞
+
+j
+
+Qret =
+
+γj−i ck rT (sj , aj ) + δQ(si, sj ) ,
+
+j=i
+
+k=i
+
+δQ(si, sj ) = Eπθ (a|s,T )[QTπ (si, ·; φ )] − QπT (sj , aj ; φ ),
+
+ck = min
+
+1, πθ (ak|sk, T ) b(ak|sk, B)
+
+,
+
+(13)
+
+where τ denotes a trajectory (together with action choices
+
+and rewards) sampled from the replay buffer, b denotes a be-
+
+haviour policy under which the data was generated, and B is
+
+the task the behaviour policy tried to accomplish. We again
+highlight that b was not necessarily aiming to achieve task T for which QˆT should predict action-values. The importance weights ck then weight the actions selected under the behavior policy with their probability under π. Here φ and
+θ denote the parameters of target policy and Q-networks
+
+(Mnih et al., 2015), which are periodically exchanged with the current parameters φ, θ. This is common practice in
+
+Deep-RL algorithms to improve learning stability.
+
+5. Experiments
+To benchmark our method we perform experiments based on a Kinova Jaco robot arm in simulation and on hardware.
+
+5.1. Experimental Setup
+In all experiments the auxiliary tasks are chosen to provide the agent with information about how well it is exploring its own sensory space. They are easy to compute and are general – in the sense that they transfer across tasks. They are deﬁned over all available sensor modalities. For proprioception, for example, we choose to maximize / minimize joint angles, for the haptic sensors we deﬁne tasks for activating / deactivating ﬁnger touch or force-torque sensors. In image space, we deﬁne auxiliary tasks on the object level (i.e. ’move red object’ or ’place red object close to green object in camera plane’). All these predicates can be easily computed and mapped to a sparse reward signal (as in Equation (1)). A full list of auxiliary rewards can be found in the supplementary material.
+We present learning results for SAC-X with the two schedulers described in Section 4.1: a sequentially uniform scheduler SAC-U and SAC-X with a learned scheduler SAC-Q. In ablation studies, we also investigate a non-scheduling version of our setup, where we strictly followed the policy that optimizes the external reward. Since this procedure is similar to the one used by the IU agent (Cabi et al., 2017) – but enhanced with retrace and stochastic policies to ensure an even comparison –, we denote this variant with ’IUA’ in the following. As a strong off-policy learning baseline we also include a comparison to DDPG (Lillicrap et al., 2016).
+All simulation experiments use raw joint velocities (9 DOF) as control signals at 50 ms time steps. Episodes lasted for 360 time-steps in total with scheduler choices every ξ = 180 steps. Observations consist of proprioceptive information (joint angles, joint velocities) of the arm as well as sensor information coming from a virtual force-torque sensor in the wrist, virtual ﬁnger touch sensors and simulated camera images. We provide results for both learning from raw pixels and learning from extracted image features (i.e. information about pose and velocities of the objects contained in the scene) we refer to the supplementary material for details on the policy network architecture. All experiments are repeated with 5 different random seeds; learning curves report the median performance among the 5 runs (with shaded areas marking the 5% and 95% quantiles respectively).
+To speed up experimentation, all simulation results are obtained in an off-policy learning setup where data is gathered by multiple agents (36 actors) which send collected experience to a pool of learners (36 learners were used). This setup is explained in more detail in the Supplementary material. While this is a compromise on data-efﬁciency – trading it off with wall-clock time – our real world experiments, in which a single robot is the only data source, reveal that SAC-X can be very data-efﬁcient.
+
+Learning by Playing
+
+cum. stacking reward cum. stacking reward
+
+140
+
+SAC-Q
+
+120
+
+SAC-U
+
+100
+
+SAC-Q (pixels)
+
+80
+
+DDPG
+
+60
+
+IUA
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6
+
+0.8
+
+episodes/actor
+
+1.0 1e4
+
+Figure 1. Cumulative reward for the extrinsic task of stacking block one on block two. Both SAC-U and SAC-Q learn the task reliably. The reference experiment using DDPG fails completely (ﬂat line). The IUA approach learns slower and less reliably. Note that all results were obtained via 36 actors and learners.
+5.2. Stacking Two Blocks
+For our initial set of algorithm comparisons we consider the task of stacking a block on top of another, slightly larger, object. This constitutes a challenging robotics task as it requires the agent to acquire several core abilities: grasping the ﬁrst block placed arbitrarily in the workspace, lifting it up to a certain height, precisely placing it on top of the second block. In addition, the agent has to ﬁnd a stable conﬁguration of the two blocks. The expected behavior is shown in the bottom image sequence in Figure 4. We use a sparse reward for a successful stack: the stack reward is one if the smaller object is only in contact with other objects in the scene, but not with the robot or the ground. Otherwise the reward is zero. In addition to this main task reward the agent has access to the standard set of auxiliary rewards, as deﬁned in the supplementary material.
+Figure 1 shows a comparison between SAC-X and several baselines in terms of of average stacking reward. As shown in the plot, both SAC-U (uniform scheduling) and SAC-Q reliably learn the task for all seeds. SAC-U reaches a good performance after around 5000 episodes per actor, while SAC-Q is faster and achieves a slightly better ﬁnal performance – thanks to its learned scheduler. To demonstrate that our method is powerful enough to learn policies and action-value functions from raw images, we performed the same stacking experiment with information of the block positions replaced by two camera images of the scene – that are processed by a CNN and then concatenated to the proprioceptive sensor information (see supplementary material for details). The results of this experiment reveal that while learning from pixels (SAC-Q (pixels)) is slower than from features, the same overall behaviour can be learned.
+
+0
+TOUCH NOTOUCH
+MOVE(1) STACK(1)
+
+1000 2000 3000 4000 5000 6000 7000 8000 episodes/actor
+
+Figure 2. Learning times for a subset of the 13 auxiliary intentions we used in the SAC-Q approach and for the external stacking task. Red color codes for reward. First the agent learns to interact with the objects by touching them and moving them around, then more complex intentions can be learned until, ﬁnally, stacking is learned.
+
+140
+
+SAC-Q
+
+120
+
+SAC-U
+
+100
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4
+
+episodes/actor
+
+1e4
+
+Figure 3. Comparison, in terms of cumulative reward, between SAC-Q and SAC-U for the ’banana’ stacking experiment.
+
+quickly, once observed). But the variability in the learning process is much higher and learning is signiﬁcantly slower. Finally, DDPG fails on this task; the reason being that a stacking reward is extremely unlikely to be observed by pure random exploration and therefore DDPG can not gather the data required for learning. Both results support the core conjecture: scheduling and execution of auxiliary intentions enables reliable and successful learning in sparse reward settings. Figure 2 gives some insight into the learning behaviour, plotting a subset of the learned intentions (see the supplementary for all results). The agent ﬁrst learns to touch (TOUCH) or stay away from the block (NOTOUCH) then it learns to move the block and ﬁnally stack it.
+5.3. Stacking a ’Banana’ on Top of a Block
+Using less uniform objects than simple blocks poses additional challenges, both for grasping and for stacking: some object shapes only allow for speciﬁc grasps or are harder to stack in a stable conﬁguration. We thus perform a second experiment in which a banana shaped object must be placed on top of a block. For an approach relying on shaping rewards, this would require careful re-tuning of the shaping. With SAC-X, we can use the same set of auxiliary tasks.
+
+In the no scheduling case, i.e. when the agent follows its behaviour policy induced by the external reward (’IUA’), the ﬁgure reveals occasional successes in the ﬁrst half of the experiment, followed by late learning of the task. Presumably learning is still possible since the shared layers in the policy network bias behaviour towards touching/lifting the brick (and Retrace propagates rewards along trajectories
+
+Figure 3 depicts the results of this experiment. Both SAC-U and SAC-Q can solve the task. In this case however, the advantages of a learning scheduler that focuses on solving the external task become more apparent. One explanation for this is that stacking the banana does require a careful ﬁne-tuning of the stacking policy – on which the learned scheduler naturally focuses.
+
+Learning by Playing
+
+cum. stacking reward (2 on 1) cum. stacking reward (1 on 2)
+
+Figure 4. Depiction of the agent stacking two blocks in either conﬁguration, red above green or vice-versa.
+
+Figure 6. The ’clean-up’ task. The images depict a trajectory (leftto-right, top-to-bottom) of the ﬁnal behaviour for the ’put all in box’ intention.
+
+140 120 100
+
+SAC-Q SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0 0.2
+
+140 120 100
+
+SAC-Q SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0 0.2
+
+0.4 0.6 0.8 episodes/actor
+0.4 0.6 0.8 episodes/actor
+
+1.0 1.2 1e4
+1.0 1.2 1e4
+
+Figure 5. Comparison, in terms of learning speed, between SAC-Q and SAC-U for the two block stacking task.
+
+5.4. Stacking Blocks Both Ways
+Next we extend the stacking task by requiring the agent to both: stack the small red block on the large green block (1 on 2 in the Figure 4) as well as vice-versa (2 on 1 in the ﬁgure). This is an example of an agent learning multiple external tasks at once. To cope with multiple external tasks, we learn multiple schedulers (one per task) and pick between them at random (assuming external tasks have equal importance).
+Both SAC-U and SAC-Q are able to accomplish the external tasks from pure rewards (see Figure 5). As is also apparent from the ﬁgure, the SAC-X agent makes efﬁcient use of its replay buffer: Compared to the initial stacking experiment (Section 5.2), which required 5000 episodes per actor, SAC-X only requires 2500 additional episodes per actor to learn the additional task. In addition to this quantitative evaluation, we note that the observed behaviour of the learned agent also exhibits intuitive strategies to deal with complicated situations. For example, if the agent is started
+
+cum. all in box reward
+
+cum. inbox(1)
+
+140 120 100
+
+SAC-Q SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.5
+
+1.0
+
+1.5
+
+2.0
+
+episodes/actor
+
+1e4
+
+100
+
+SAC-Q
+
+80
+
+SAC-U
+
+60
+
+DDPG IUA
+
+40
+
+20
+
+0
+
+0.0
+
+0.5
+
+1.0
+
+1.5
+
+episodes/actor
+
+1e24.0
+
+Figure 7. Learning for the cleanup task, shown is the most difﬁcult external task where two blocks are required to be in the box to get a reward signal. SAC-Q is the only successful approach (bottom). SAC-U here ’only’ learns to put a single block into the box (top).
+
+in a situation where block one is already stacked on block two, it has learned to ﬁrst put block one back on the table, and then stack block two on top of the ﬁrst block - all in one single policy (please also see the supplementary video at 0:50 mins for a demonstration).
+5.5. The ’clean-up’ Task
+The clean-up task (see Figure 6) is an example where a sequence of speciﬁc movements have to be executed in order to solve the task. In addition to the two different sized blocks from the last experiments, we add a new object to the scene: a static box with a lid that can be opened.
+We rely on the same auxiliary tasks as in the stack blocks experiment, adding one additional sparse auxiliary intention for each object in relation to the box: ’bring object above and close to the box’. In contrast to previous experiments, we now have 4 sparse extrinsic tasks and corresponding
+
+Learning by Playing
+
+0 OPENBOX INBOX(1) INBOX(2) INBOX_ALL
+
+2000 4000 6000 8000 10000 12000 14000 16000 18000 episodes/actor
+
+Figure 8. Expected reward in the ’clean-up’ experiment, SAC-Q learns alll four extrinsic tasks reliably. In addition it reliably learns to also solve the 15 auxiliary tasks (not depicted here).
+
+intention policies: i) open the box (OPENBOX in the Figure), ii) put object 1 in box (INBOX(1)), iii) put object 2 in box (INBOX(2)), and iv) put all objects in the box (INBOX ALL). With a total of 15 auxiliary and 4 extrinsic tasks, this is the most complex scenario presented in this paper. Figure 7 shows a comparison between SAC-X and baselines for this task. Remarkably, even though the reward for placing the objects into the box can only be observed once they are correctly placed, SAC-Q learns all extrinsic tasks (see also Figure 8 and the supplementary for a detailed comparison to SAC-U), and the auxiliary tasks, reliably and can interpolate between intention policies (see supplementary video). All baselines fail in this setting, indicating that SAC-X is a signiﬁcant step forward for sparse reward RL.
+
+0 ABOVE_AATTA((TL11I(O,,CFhttTPLaaaOEEnrrDNSggd(EEee,11ttDD))))
+0 OPENED CLOSED AT(hand,1) LIFTED(1)
+
+200 400 600 800 1000 episodes/actor
+200 400 600 800 1000 episodes/actor
+
+Figure 9. Learning statistics for a real robot experiment for the bring (top) and lift (bottom) task. As before, red indicates reward within an episode (averaged over the last 10), and we plot successes for all used auxiliary tasks (see the supplementary for a detailed listing).
+
+5.6. Learning from Scratch on the Real Robot
+For learning on the real robot, we consider two tasks: lifting a block and a bring task. We ﬁrst checked the feasibility of both tasks in simulation by learning using a single actor run in real-time. Using SAC-X, both tasks can be successfully learned from pure rewards with full 9 DOF raw joint velocity control. The learning time on the real robot however would have been the equivalent of several days of non-stop experimentation on the real robot. For practical feasibility we therefore made the following adaptations: we used a cartesian controller for velocity based control of the hand plus one control action for actuation of two ﬁngers, resulting in a 4 dimensional continuous control vector. Note that the proprioceptive information provided to the controller still consist of the joint positions and velocities.
+In the lift experiment three auxiliary rewards were deﬁned (rewarding the robot for closing ﬁngers, opening ﬁngers and proximity to the brick). The learning curves, depicted in Figure 9 (top), reveal that using a single robot arm SAC-Q successfully learns to lift after about 1200 episodes, requiring about 10 hours of learning time on the real robot. When tested on about 50 trials on the real robot, the agent is 100% successful in achieving the lifting task.
+In an even more challenging setup, we trained SAC-Q to also place the block at in a given set of locations in its workspace; adding additional tasks that reward the agent for reaching said location. Again, learning was successful (see Figure 9, bottom), and the agent showed robust, non-trivial control behavior: The resulting policy developed various techniques
+
+Figure 10. Image sequence depicting a trained SAC-Q agent on the real robot solving the bring (top) and lift (bottom) task.
+for achieving the task including dragging and pushing the block with one ﬁnger as well as lifting and carrying the block to the goal location. Furthermore, the agent learned to correct the block position of imprecisely placed objects and learned to move the gripper away once the task is completed. This reactive and rich control behaviour is due to the closedloop formulation of our approach.
+6. Conclusion
+This paper introduces SAC-X, a method that simultaneously learns intention policies on a set of auxiliary tasks, and actively schedules and executes these to explore its observation space - in search for sparse rewards of externally deﬁned target tasks. Utilizing simple auxiliary tasks enables SAC-X to learn complicated target tasks from rewards deﬁned in a ’pure’, sparse, manner: only the end goal is speciﬁed, but not the solution path.
+We demonstrated the power of SAC-X on several challenging robotics tasks in simulation, using a common set of simple and sparse auxiliary tasks and on a real robot. The learned intentions are highly reactive, reliable, and exhibit a rich and robust behaviour. We consider this as an important step towards the goal of applying RL to real world domains.
+
+Learning by Playing
+
+7. Acknowledgements
+The authors would like to thank Yuval Tassa, Tom Erez, Jonas Buchli, Dan Belov and many others of the DeepMind team for their help and numerous useful discussions and feedback throughout the preparation of this manuscript.
+References
+Andrychowicz, Marcin, Crow, Dwight, Ray, Alex, Schneider, Jonas, Fong, Rachel, Welinder, Peter, McGrew, Bob, Tobin, Josh, Abbeel, Pieter, and Zaremba, Wojciech. Hindsight experience replay. In Advances in Neural Information Processing Systems, pp. 5055–5065, 2017.
+Ba, Lei Jimmy, Kiros, Ryan, and Hinton, Geoffrey E. Layer normalization. CoRR, arXiv:abs/1607.06450, 2016.
+Bacon, Pierre-Luc, Harb, Jean, and Precup, Doina. The optioncritic architecture. In Proceedings of the Thirty-First AAAI Conference on Artiﬁcial Intelligence, 2017.
+Barreto, Andre, Dabney, Will, Munos, Remi, Hunt, Jonathan J, Schaul, Tom, Silver, David, and van Hasselt, Hado P. Successor Features for transfer in reinforcement learning. In Advances in Neural Information Processing Systems 30 (NIPS). 2017.
+Bengio, Y., Louradour, J., Collobert, R., and Weston, J. Curriculum learning. In International Conference on Machine Learning, ICML, 2009.
+Cabi, Serkan, Colmenarejo, Sergio Gomez, Hoffman, Matthew W., Denil, Misha, Wang, Ziyu, and de Freitas, Nando. The Intentional Unintentional Agent: Learning to solve many continuous control tasks simultaneously. In 1st Annual Conference on Robot Learning, CoRL 2017, Mountain View, California, USA, November 13-15, Proceedings, pp. 207–216, 2017.
+Caruana, Rich. Multitask learning. Machine Learning, 1997.
+Chentanez, Nuttapong, Barto, Andrew G., and Singh, Satinder P. Intrinsically Motivated reinforcement learning. In Advances in Neural Information Processing Systems 17 (NIPS). 2005.
+Clevert, Djork-Arne´, Unterthiner, Thomas, and Hochreiter, Sepp. Fast and accurate deep network learning by exponential linear units (elus). CoRR, arXiv:abs/1511.07289, 2015.
+Daniel, C., Neumann, G., and Peters, J. Hierarchical relative entropy policy search. In Fifteenth International Conference on Artiﬁcial Intelligence and Statistics, JMLR Proceedings, 2012.
+Dayan, Peter. Improving generalization for temporal difference learning: The successor representation. Neural Computation, 1993.
+Dietterich, Thomas G. The maxq method for hierarchical reinforcement learning. In In Proceedings of the Fifteenth International Conference on Machine Learning (ICML), 1998.
+Dilokthanakul, Nat, Kaplanis, Christos, Pawlowski, Nick, and Shanahan, Murray. Feature control as intrinsic motivation for hierarchical reinforcement learning. CoRR, arXiv:abs/1705.06769, 2017.
+
+Dosovitskiy, Alexey and Koltun, Vladlen. Learning to act by predicting the future. In International Conference on Learning Representations (ICLR), 2017.
+Duan, Yan, Andrychowicz, Marcin, Stadie, Bradly C., Ho, Jonathan, Schneider, Jonas, Sutskever, Ilya, Abbeel, Pieter, and Zaremba, Wojciech. One-shot imitation learning. In Advances in Neural Information Processing Systems (NIPS), pp. 1087–1098, 2017.
+Forestier, Se´bastien, Mollard, Yoan, and Oudeyer, Pierre-Yves. Intrinsically motivated goal exploration processes with automatic curriculum learning. arXiv preprint arXiv:1708.02190, 2017.
+Ghosh, Dibya, Singh, Avi, Rajeswaran, Aravind, Kumar, Vikash, and Levine, Sergey. Divide-and-conquer reinforcement learning. International Conference on Learning Representations (ICLR), 2018.
+Gu, Shixiang, Holly, Ethan, Lillicrap, Timothy, and Levine, Sergey. Deep reinforcement learning for robotic manipulation with asynchronous off-policy updates. In IEEE International Conference on Robotics and Automation (ICRA), 2017.
+Heess, Nicolas, Wayne, Gregory, Silver, David, Lillicrap, Tim, Erez, Tom, and Tassa, Yuval. Learning continuous control policies by stochastic value gradients. In Advances in Neural Information Processing Systems, pp. 2944–2952, 2015.
+Heess, Nicolas, TB, Dhruva, Sriram, Srinivasan, Lemmon, Jay, Merel, Josh, Wayne, Greg, Tassa, Yuval, Erez, Tom, Wang, Ziyu, Eslami, S. M. Ali, Riedmiller, Martin A., and Silver, David. Emergence of locomotion behaviours in rich environments. arXiv:abs/1707.02286, 2017.
+Horgan, Dan, Quan, John, Budden, David, Barth-Maron, Gabriel, Hessel, Matteo, van Hasselt, Hado, and Silver, David. Distributed prioritized experience replay. 2018.
+Jaderberg, Max, Mnih, V, Czarnecki, W M, Schaul, T, Leibo, J Z, Silver, D, and Kavukcuoglu, K. Unreal: Reinforcement learning with unsupervised auxiliary tasks. In ICLR 2017, 2017.
+Kingma, Diederik P and Ba, Jimmy. Adam: A method for stochastic optimization. In International Conference on Learning Representations (ICLR), 2015.
+Kingma, Diederik P and Welling, Max. Auto-encoding variational bayes. In The International Conference on Learning Representations (ICLR), 2014.
+Kober, J. and Peters, J. Policy search for motor primitives in robotics. Machine Learning, 2011.
+Kulkarni, Tejas D., Narasimhan, Karthik, Saeedi, Ardavan, and Tenenbaum, Josh. Hierarchical Deep reinforcement learning: Integrating temporal abstraction and intrinsic motivation. In Advances in Neural Information Processing Systems (NIPS), 2016a.
+Kulkarni, Tejas D., Saeedi, Ardavan, Gautam, Simanta, and Gershman, Samuel J. Deep Successor reinforcement learning. arXiv preprint arXiv:1606.02396, 2016b.
+Lample, Guillaume and Chaplot, Devendra Singh. Playing FPS games with deep reinforcement learning. In Proceedings of the Thirty-First AAAI Conference on Artiﬁcial Intelligence, 2017.
+
+Learning by Playing
+
+Lazaric, Alessandro, Restelli, Marcello, and Bonarini, Andrea. Transfer of samples in batch reinforcement learning. In Proceedings of the 25th International Conference on Machine Learning (ICML), 2008.
+Lillicrap, Timothy P., Hunt, Jonathan J., Pritzel, Alexander, Heess, Nicolas, Erez, Tom, Tassa, Yuval, Silver, David, and Wierstra, Daan. Continuous control with deep reinforcement learning. In International Conference on Learning Repepresentations (ICLR), 2016.
+Mehta, Neville, Natarajan, Sriraam, Tadepalli, Prasad, and Fern, Alan. Transfer in variable-reward hierarchical reinforcement learning. Machine Learning, 2008.
+Mirowski, Piotr, Pascanu, Razvan, Viola, Fabio, Soyer, Hubert, Ballard, Andrew J., Banino, Andrea, Denil, Misha, Goroshin, Ross, Sifre, Laurent, Kavukcuoglu, Koray, Kumaran, Dharshan, and Hadsell, Raia. Learning to Navigate in complex environments. arXiv preprint arXiv:1611.03673, 2016.
+Mnih, Volodymyr, Kavukcuoglu, Koray, Silver, David, Rusu, Andrei A., Veness, Joel, Bellemare, Marc G., Graves, Alex, Riedmiller, Martin, Fidjeland, Andreas K., Ostrovski, Georg, Petersen, Stig, Beattie, Charles, Sadik, Amir, Antonoglou, Ioannis, King, Helen, Kumaran, Dharshan, Wierstra, Daan, Legg, Shane, and Hassabis, Demis. Human-level control through deep reinforcement learning. Nature, 518, 2015.
+Montgomery, W. and Levine, S. Guided policy search as approximate mirror descent. 2016.
+Munos, Re´mi, Stepleton, Tom, Harutyunyan, Anna, and Bellemare, Marc G. Safe and efﬁcient off-policy reinforcement learning. In Neural Information Processing Systems (NIPS), 2016.
+Nair, Ashvin, McGrew, Bob, Andrychowicz, Marcin, Zaremba, Wojciech, and Abbeel, Pieter. Overcoming exploration in reinforcement learning with demonstrations. CoRR, arXiv:abs/1709.10089, 2017.
+Ng, Andrew Y. and Russell, Stuart. Algorithms for inverse reinforcement learning. In Proceedings of the 17th International Conference on Machine Learning (ICML), 2000.
+Ng, Andrew Y., Harada, Daishi, and Russell, Stuart J. Policy invariance under reward transformations: Theory and application to reward shaping. In Proceedings of the Sixteenth International Conference on Machine Learning (ICML), 1999.
+Ngo, Hung Quoc, Luciw, Matthew D., Fo¨rster, Alexander, and Schmidhuber, Ju¨rgen. Learning skills from play: Artiﬁcial curiosity on a katana robot arm. In The 2012 International Joint Conference on Neural Networks (IJCNN), 2012.
+Randløv, Jette and Alstrøm, Preben. Learning to drive a bicycle using reinforcement learning and shaping. In Proceedings of the Fifteenth International Conference on Machine Learning (ICML), 1998.
+Rezende, Danilo Jimenez, Mohamed, Shakir, and Wierstra, Daan. Stochastic backpropagation and approximate inference in deep generative models. In Proceedings of the 31st International Conference on Machine Learning (ICML), 2014.
+Ross, Ste´phane, Gordon, Geoffrey J., and Bagnell, Drew. A reduction of imitation learning and structured prediction to no-regret online learning. In AISTATS, volume 15 of JMLR Proceedings, pp. 627–635. JMLR.org, 2011.
+
+Rusu, Andrei A., Vecerik, Matej, Rotho¨rl, Thomas, Heess, Nicolas, Pascanu, Razvan, and Hadsell, Raia. Sim-to-real robot learning from pixels with progressive nets. In 1st Annual Conference on Robot Learning (CoRL), 2017.
+Sadeghi, Fereshteh, Toshev, Alexander, Jang, Eric, and Levine, Sergey. Sim2real view invariant visual servoing by recurrent control. arXiv preprint arXiv:1712.07642, 2017.
+Schaul, Tom and Ring, Mark B. Better Generalization with Forecasts. In Proceedings of the International Joint Conference on Artiﬁcial Intelligence (IJCAI), Beijing, China, 2013.
+Schaul, Tom, Horgan, Daniel, Gregor, Karol, and Silver, David. Universal Value function approximators. In Proceedings of the 32nd International Conference on Machine Learning (ICML), 2015.
+Schmidhuber, Ju¨rgen. PowerPlay: Training an increasingly general problem solver by continually searching for the simplest still unsolvable problem. In Front. Psychol., 2013.
+Sermanet, Pierre, Xu, Kelvin, and Levine, Sergey. Unsupervised perceptual rewards for imitation learning. In Robotics: Science and Systems XIII (RSS), 2017.
+Singh, S., Lewis, R. L., and Barto, A. G. Where do rewards come from? In Taatgen, N.A. and van Rijn, H. (eds.), Proceedings of the 31st Annual Conference of the Cognitive Science Society. Austin, TX, 2009.
+Sutton, Richard S., Modayil, Joseph, Delp, Michael, Degris, Thomas, Pilarski, Patrick M., White, Adam, and Precup, Doina. Horde: A scalable real-time architecture for learning knowledge from unsupervised sensorimotor interaction. In The 10th International Conference on Autonomous Agents and Multiagent Systems - Volume 2, AAMAS ’11, pp. 761–768, Richland, SC, 2011. International Foundation for Autonomous Agents and Multiagent Systems. ISBN 0-9826571-6-1, 978-0-9826571-6-4.
+Tobin, Joshua, Fong, Rachel, Ray, Alex, Schneider, Jonas, Zaremba, Wojciech, and Abbeel, Pieter. Domain randomization for transferring deep neural networks from simulation to the real world. 2017 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS), pp. 23–30, 2017.
+Vecerik, Matej, Hester, Todd, Scholz, Jonathan, Wang, Fumin, Pietquin, Olivier, Piot, Bilal, Heess, Nicolas, Rotho¨rl, Thomas, Lampe, Thomas, and Riedmiller, Martin A. Leveraging demonstrations for deep reinforcement learning on robotics problems with sparse rewards. arXiv:abs/1707.08817, 2017.
+Ziebart, Brian D., Maas, Andrew L., Bagnell, J. Andrew, and Dey, Anind K. Maximum entropy inverse reinforcement learning. In AAAI, 2008.
+
+Learning by Playing
+
+Table 1. Proprioceptive observations used in all simulation experiments.
+
+Entry
+arm joint pos arm joint vel ﬁnger joint pos ﬁnger joint vel ﬁnger touch TCP pos
+
+dimensions
+6 6 3 3 3 3
+
+unit
+rad rad / s
+rad rad / s
+N m
+
+Table 2. Object feature observations, used in the default simulation experiments. For the pixel experiments these observations are not used. The pose of the objects is represented as world coordinate position and quaternions. In the table m denotes meters, q refers to a quaternion which is in arbitrary units (au).
+
+Entry
+object i pose object i velocity object i relative pos
+
+dimensions
+7 6 3
+
+unit
+m au m/s, dq/dt
+m
+
+A. Details on the Experimental Setup
+A.1. Simulation
+For the simulation of the Jaco robot arm the numerical simulator MuJoCo 5 was used – using a model we identiﬁed from our real robot setup.
+The simulation was run with a numerical time step of 10 milliseconds, integrating 5 steps, to get a control interval of 50 milliseconds for the agent. In this way we can resolve all important properties of the robot arm and the object interactions in simulation.
+The objects that are used are based on wooden toy blocks. We use a cubic block with side lengths of 5 cm (red object) and a cuboid with side lengths of 5cm x 5cm x 8cm (green block). For the banana stacking experiment a combination of 3 different geometric (capsule shaped) primitives with radius 2.5 cm are used, resulting in a banana shaped object of 12 cm in length (replacing the red object).
+All experiments made use of an experiment table with sides of 60 cm x 30 cm in length, which is assumed to be the full working space for all experiments. The objects are spawned at random on the table surface. The robot hand is initialized randomly above the table-top with a height offset of up to 20 cm above the table (minimum 10 cm) and the ﬁngers in an open conﬁguration. The simulated Jaco is controlled by raw joint velocity commands (up to 0.8 radians per second) in all 9 joints (6 arm joints and 3 ﬁnger joints). All experiments run on episodes with 360 steps length (which gives a total simulated real time of 18 seconds per episode). For the SAC-X experiments we schedule 2 intentions each episode, holding the executed intention ﬁxed for 180 steps.
+For the feature based experiments in simulation we make use of the proprioceptive features that the Jaco robot can deliver (see Table 1). In addition, for the default simulation experiments, we use features from the objects in the scene, that are computed directly in simulation (see table 2). This gives a total of 56 observation entries. For the cleanup experiment, we add the lid angle and lid angle velocity, which gives a total of 58 observations for this experiment.
+5MuJoCo: see www.mujoco.org
+
+Table 3. Pixel observations that replace the object observations of table 2 for the pixel experiments.
+
+Entry
+
+dimensions unit
+
+camera 1 48 x 48 x 3 rgb camera 2 48 x 48 x 3 rgb
+
+For the pixel experiments, we use two RGB cameras with an resolution of 48 x 48 (see table 3) in combination with the proprioceptive features (table 1).
+A.1.1. AUXILIARY REWARD OVERVIEW
+We use a basic set of general auxiliary tasks for our experiments. Dependent on the type and number of objects in the scene the number of available auxiliary tasks can vary.
+• TOUCH, NOTOUCH: Maximizing or minimizing the sum of touch sensor readings on the three ﬁngers of the Jaco hand. (see Eq. 25 and Eq. 26)
+• MOVE(i): Maximizing the translation velocity sensor reading of an object. (see Eq. 24)
+• CLOSE(i,j): distance between two objects is smaller than 10cm (see Eq. 14)
+• ABOVE(i,j): all points of object i are above all points of object j in an axis normal to the table plane (see Eq. 15)
+• BELOW(i,j): all points of object i are below all points of object j in an axis normal to the table plane (see Eq. 19)
+• LEFT(i,j): all points of object i are bigger than all points of object j in an axis parallel to the x axes of the table plane (see Eq. 17)
+• RIGHT(i,j): all points of object i are smaller than all points of object j in an axis parallel to the x axes of the table plane (see Eq. 20)
+• ABOVECLOSE(i,j), BELOWCLOSE(i,j), LEFTCLOSE(i,j), RIGHTCLOSE(i,j): combination of
+
+Learning by Playing
+
+relational reward structures and CLOSE(i,j) (see Eq. 16, 21, 18, 22)
+• ABOVECLOSEBOX(i): ABOVECLOSE(i,box object)
+We deﬁne the auxiliary reward structures, so that we can - in principle - compute all the required information from one or two image planes (two cameras looking at the workspace). Replacing the world coordinates referenced above with pixel coordinates.
+In the following equations a deﬁnition of all rewards is given. Let d(oi, oj) be the distance between the center of mass of the two objects, maxa(oi) and mina(oi) denote the maximal (or minimal) pixel locations covered by object i in axis a ∈ {x, y, z}.
+
+rC(i,j)(s, a) =
+
+1 0
+
+iff d(oi, oj) ≤ 10cm else,
+
+(14)
+
+rA(i,j)(s, a) =
+
+1 0
+
+iff maxz(oj) − minz(oi) ≤ 0 else,
+
+(15)
+
+rAC(i,j)(s, a) = rA(i,j)(s, a) ∗ rC(i,j)(s, a)
+
+(16)
+
+rL(i,j)(s, a) =
+
+1 0
+
+iff maxx(oj) − minx(oi) ≤ 0 else,
+
+(17)
+
+rLC(i,j)(s, a) = rL(i,j)(s, a) ∗ rC(i,j)(s, a)
+
+(18)
+
+rB(i,j)(s, a) = rA(j,i)(s, a)
+
+(19)
+
+rR(i,j)(s, a) = rL(j,i)(s, a)
+
+(20)
+
+rBC(i,j)(s, a) = rAC(j,i)(s, a)
+
+(21)
+
+rRC(i,j)(s, a) = rLC(j,i)(s, a)
+
+(22)
+
+(23)
+
+rT (i)(s, a) =
+
+| 1
+
+i∈1,2,3 fi|
+
+iff | else,
+
+i∈1,2,3 fi| ≤ 1N
+
+(25)
+
+rNT (i,j)(s, a) =
+
+1 0
+
+iff rT (i)(s, a) ≤ 0.1 else,
+
+(26)
+
+Two objects were used in the experiments, yielding a set of 13 general auxiliary rewards that are used in all simulation experiments.
+
+A.1.2. EXTERNAL TASK REWARDS
+For the extrinsic or task rewards we use the notion of STACK(i), for a sparse reward signal that describes the property of an object to be stacked. As a proxy in simulation we use the collision points of different objects in the scene to determine this reward. where col(oi, oj) = 1 if object i and j in simulation do have a collision – 0 otherwise. We can derive a simple sparse reward from these signals as
+
+1    
+rST ACK(i)(s, a) =
+   0
+
+iff (1 − col(GROU N D, oi)) ∗(1 − col(ROBOT, oi)) ∗col(oj, oi) = 0 else.
+(27)
+
+For the cleanup experiments we use an additional auxiliary reward for each object, ABOVE CLOSE BOX (ACB), that accounts for the relation between the object and the box:
+
+rACB(i)(s, a) = rAC(i,BOX)(s, a).
+
+(28)
+
+As additional extrinsic reward, we use a sparse INBOX(i) reward signal, that gives a reward of one if the object i is in the box; INBOXALL, that gives a signal of 1 only if all objects are in the box; and a OPENBOX, which yields a sparse reward signal when the lid of the box is lifted higher then a certain threshold,
+
+rINBOX(i)(s, a) =
+
+1 0
+
+iff oi is in box else,
+
+(29)
+
+In addition to these ’object centric’ rewards, we deﬁne MOVE, TOUCH and NOTOUCH as:
+
+1 iff all objects in box
+
+rINBOXALL(s, a) = 0 else,
+
+(30)
+
+rMOV E(i)(s, a) =
+
+|v(oi)|
+
+iff
+
+|v(oi)|
+
+≥
+
+3
+
+mm s
+
+0
+
+else,
+
+(24)
+
+rOP ENBOX (s, a) =
+
+1 0
+
+iff θlid ≥ 1.5 else,
+
+(31)
+
+Learning by Playing
+
+This gives 15 auxiliary reward signals and 4 extrinsic reward above it. For this, we added several more rewards based on
+
+signals for the cleanup experiment.
+
+a ﬁxed target site.
+
+A.2. Real Robot
+On the real robot we use a slightly altered set of auxiliary rewards to account for the fact that the robot does not possess touch sensors (so TOUCH and NOTOUCH cannot be used), and to reduce the amount of training time needed (a distance based reward for reaching is added for this reason). For the pick up experiment we used the following rewards: OPENED, CLOSED, LIFTED(block) and AT(hand,block), deﬁned as:
+
+• CLOSE(i, j), AT(i, j): maximal if the center of object i is within 10cm respectively 1.5cm of the target j. (equivalent to CLOSE10cm(i,j) and CLOSE1.5cm(i,j) in Eq. 35)
+• ABOVE CLOSE(i, j), ABOVE AT(i, j): maximal if the center of object i is within 10cm respectively 2cm of a site 6cm above the target j. (equivalent to CLOSE10cm(i,j+6cm) and CLOSE2cm(i,j+6cm) in Eq. 35)
+
+• OPENED, CLOSED: maximal if the angle of the ﬁnger motors, θfingers ∈ [0.0, 0.8], is close to its minimum respectively maximum value. (see Eq. 32 and 33)
+• LIFTED(i): maximal if the lowest point of object i is at a height of 7.5cm above the table, with a linear shaping term below this height. (see Eq. 34)
+• AT(i, j): similar to CLOSE(i,j) in simulation but requiring objects to be closer; maximal if the centers of i and j are within 2cm of each other; additionally uses a nonlinear shaping term when further apart. (equivalent to CLOSE1cm(i,j) in Eq. 35)
+The rewards are deﬁned as followed:
+
+rOP ENED(s, a) =
+
+1 0
+
+iff θfingers ≤ 0.1 else,
+
+(32)
+
+rCLOSED(s, a) =
+
+1 0
+
+iff θfingers ≥ 0.7 else,
+
+(33)
+
+ 1.5 
+
+rLIF T ED(i)(s, a) = 0.
+
+ 
+
+minz
+
+(i)
+
+7.5
+
+iff minz(i) > 7.5cm iff minz(i) < 0.5cm else,
+(34)
+
+For all other rewards based on the relation between two entities i and j, we use a shaped variant of CLOSE that is parametrized by a desired distance . Let d(i, j) be the distance between the center i and some target site j.
+
+rCLOSEx(i,j)(s, a) =
+
+1.5
+
+1
+
+−
+
+tanh2(
+
+d(i,j) 10
+
+)
+
+iff d(i, j) < else,
+(35)
+
+In an extended experiment, the agent is trained to bring the object to a speciﬁed target position, as well as to hover it
+
+B. Additional model details
+For the SAC-X experiments we use a shared network architecture to instantiate the policy for the different intentions. The same basic architecture is also used for the critic Q value function. Formally, θ and φ in the main paper thus consist of the parameters of these two neural networks (and gradients for individual intentions wrt. these model parameters are averaged).
+In detail: the stochastic policy consists of a layer of 200 hidden units with ELU units (Clevert et al., 2015), that is shared across all intentions. After this ﬁrst layer a LayerNorm (Ba et al., 2016) is placed to normalize activations (we found this to generally be beneﬁcial when switching between different environments that have differently scaled observations). The LayerNorm output is fed to a second shared layer with 200 ELU units. The output of this shared stack is routed to blocks of 100 and 18 ELU units followed by a ﬁnal tanh activation. This output determines the parameters for a normal distributed policy with 9 outputs (whose variance we allow to vary between 0.3 and 1 by transforming the corresponding tanh output accordingly). For the critic we use the same architecture, but with 400 units per layer in the shared part and a 200-1 head for each intention. Figure 11 shows a depiction of this model architecture. For the pixel based experiments a CNN stack consisting of two convolutional layers (16 feature maps each, with a kernel size of 3 and stride 2) processes two, stacked, input images of 48 x 48 pixels. The output of this stack is fed to a 200 dimensional linear layer (again with ELU activations) and concatenated to the output of the ﬁrst layer in the above described architecture (which now only processes proprioceptive information).
+The intentions are 1 hot encoded and select which head of the network is active for the policy and the value function. Other network structures (such as feeding the selected intention into the network directly) worked in general, but the gating architecture described here gave the best results – with respect to ﬁnal task performance – in preliminary experiments.
+
+Learning by Playing
+
+Training of both policy and Q-functions was performed via ADAM (Kingma & Ba, 2015) using a learning rate of 2 · 10−4 (and default parameters otherwise). See also the next section for details on the algorithm.
+
+taskID
+
+observation
+
+intention 0
+...
+intention n
+
+200 layer norm
+200
+
+100 18 tanh + scale
+
+100 18 tanh + scale
+
+taskID
+
+selection norm distr
+policy
+
+action
+
+observation
+
+400 layer norm
+400
+
+200
+
+200
+
+intention 0
+...
+intention n
+
+1
+
+1
+
+selection
+Q-function
+Figure 11. Schematics of the fully connected networks used to parameterize policy distribution and Q-functions for each intention.
+
+B.1. Stochastic Value Gradient for Learned Intentions
+The following presents a detailed derivation of the stochastic value gradient – Equation (9) in the main paper – for learning the individual intention policies. Without loss of generality, we assume Gaussian policies for all intentions (as used in all our experiments). We can then ﬁrst reparaemeterize the sampling process for policy at ∼ πθ(a|st, T ) as gθ(st, a), where a is a random variable drawn from an appropriately chosen base distribution. That is, for a Gaussian policy we can use a normal distribution (Kingma & Welling, 2014; Rezende et al., 2014) a ∼ N (0, I), with I denoting the identity matrix. More precisely, let ∼ πθ(a|st, T ) = N (µθ(st), σθ2(st)), then gθ(st, a) = µθ(st) + σθ(st) ∗ a.
+
+With this deﬁnition in place we can re-write the gradient as
+
+∇θ L(θ)
+
+≈
+
+∇θE QˆTπ (st, a; φ) + α log πθ(a|st, T ) ,
+
+T ∈T τ ∼B
+
+πθ
+
+(·|st ,T st ∈τ
+
+)
+
+=
+
+E
+
+∇gQˆπT (st, gθ(st, a); φ)∇θgθ(st, a)
+
+T ∈T τ ∼B
+
+a∼N (0,I) st ∈τ
+
++ α∇g log πθ(g(st, a)|st, T )∇θgθ(st, a) . (36)
+
+C. SAC-Q algorithm
+To allow for fast experimentation we implement our algorithm in a distributed manner, similar to recent distributed off-policy implementations from the literature (Gu et al., 2017; Horgan et al., 2018). In particular, we perform asynchronous learning and data acquisition in the following way: Except for the real world experiment, in which only a single robot – one actor connected to 10 learners – is used, we launch 36 actor processes that gather experience. These actors are connected to 36 learners (we used a simple 1to-1 mapping) and send experience over at the end of each episode. To allow for fast learning of the scheduling choices each actor also performs Monte Carlo estimation of the Scheduling rollouts (i.e. it keeps its own up-to-date scheduler). The complete procedure executed by each actor is given in Algorithm 3.
+The learners then aggregate all collected experience inside a replay buffer and calculate gradients for the policy and Q-function networks, as described in Algorithm 2.
+Each learner then ﬁnally sends gradients to a central parameter server, that collects G = 36 gradients, updates the parameters and makes them available for both learners and actors; see the algorithm listing in Algorithm 1.
+Note that this setup also makes experimentation on a real robot easy, as learning and acting (the part of the procedure that needs to be executed on the real robot) are cleanly separated.
+
+Learning by Playing
+
+Algorithm 1 SAC-Q (parameter server)
+
+Input: G number of gradients to average
+
+Initialize parameters θ, φ
+
+while True do
+
+initialize N = 0
+
+initialize gradient storage dθ = {}, dφ = {} while N < G do
+
+receive next gradients from learner i dTφ = dφT ∪ {δφi} dθ = dθ ∪ {δθi}
+end while
+
+update parameters with averages from gradient store:
+
+φ
+
+=
+
+ADAM
+
+update(φ,
+
+1 |dφ |
+
+δφ∈dφ δφ)
+
+θ
+
+=
+
+ADAM
+
+update(θ,
+
+1 |dθ |
+
+δθ∈dθ δθ)
+
+send new parameters to workers
+
+end while
+
+Algorithm 2 SAC-Q (learner)
+
+Input: Nlearn number of learning iterations, α entropy regularization parameter Fetch initial parameters θ, φ
+
+while N < Nlearn do update replay buffer B with received trajectories
+
+for k=0,1000 do
+
+sample a trajectory τ from B
+
+// compute gradients for policy and Q
+
+δφ
+
+=
+
+1 |T|
+
+T ∈T ∇φL(φ)
+
+δθ = ∇θL(θ)
+
+send (δθ, δφ) to parameter server
+
+wait for parameter updates
+
+fetch new parameters φ, θ
+
+end for
+
+// update target networks
+
+φ = φ, θ = θ
+
+N =N +1
+
+end while
+
+Algorithm 3 SAC-Q (actor)
+
+Input: Ntrajectories number of total trajectories requested, T steps per episode, ξ scheduler period
+
+// Initialize Q-table
+
+∀Th, T0:h−1 : Q(T0:h−1, Th) = 0, MTh = 0 while N < Ntrajectories do
+fetch parameters θ
+
+// collect new trajectory from environment
+
+τ = {}, h = 0
+
+for t=0,T do
+
+if t (mod ξ) ≡ 0 then
+
+Th ∼ PS (T |T0:h−1) h=h+1
+
+end if
+
+at ∼ πθ(a0|st, Th) // execute action and collect all rewards
+
+r¯ = [rA1 (st, at), . . . , r|A|(st, at), rM(st, at)] τ ← τ ∪ {(st, at, r¯, πθ(a0|st, Th))} end for
+
+send τ and schedule decisions T0:H to learner // update Monte Carlo Q for schedulerPS for h=0:H do
+
+MTh = MTh + 1 Q(T0:h−1, Th) +=
+
+RM τ (Th:H )−Q(T0:h−1,Th) M
+
+end for
+
+N =N +1
+
+end while
+
+Learning by Playing
+
+D. Additional Experiment Results
+D.0.1. A DETAILED LOOK AT THE SAC-Q LEARNING
+PROCESS
+In Figure 12 we show the reward statistics over the full set of auxiliary and extrinsic tasks for both SAC-U (left) and SAC-Q (right) when learning the stacking task. While our main goal is to learn the extrinsic stacking task, we can observe that the SAC-X agents are able to learn all auxiliary intentions in parallel. In this example we use a set of 13 auxiliary intentions which are deﬁned on the state of the robot and the two blocks in the scene as in Section A.1.1. These are TOUCH, NOTOUCH, MOVE(1), MOVE(2), CLOSE(1,2), ABOVE(1,2), BELOW(1,2), LEFT(1,2), RIGHT(1,2), ABOVECLOSE(1,2), BELOWCLOSE(1,2), LEFTCLOSE(1,2), RIGHTCLOSE(1,2). In addition we have the extrinsic reward, which is deﬁned as STACK(1) in this case. SAC-U (shown in the top part of the ﬁgure) will execute all intentions in a uniform order. Some of the intention goals (such as for NOTOUCH, WEST, EAST) can be valid starting states of an episode and will see their reward signals very early in the learning process. Other reward signals, such as MOVE and TOUCH, are more difﬁcult to learn and will lead to rich interaction with the environment which are, in turn, a requirement for learning even more difﬁcult intentions. In this example, after NORTH and NORTHCLOSE are learned, PILE(1) can be learned reliably as well.
+
+The learned distribution of Q values at the end of training can also be seen in Figure 13 (plotted for pairs of executed intentions). We can observe that executing the sequence (STACK(1), STACK(1)), gives the highest value, as expected. But SAC-Q also found other sequences of intentions that will help to collect reward signals for STACK(1).
+TOUCH NOTOUCH
+MOVE(1) MOVE(2) CLOSE(1, 2) ABOVE(1, 2) BELOW(1, 2) LEFT(1, 2) RIGHT(1, 2) ABOVECLOSE(1, 2) BELOWCLOSE(1, 2) LEFTCLOSE(1, 2) RIGHTCLOSE(1, 2) STACK(1)
+
+TOUCH NOTOUCH
+MOVE(1) MOVE(2) CLOSE(1, 2) ABOVE(1, 2) BELOW(1, 2) LEFT(1, 2) RIGHT(1, 2) ABOVECLOSE(1, 2) BELOWCLOSE(1, 2) LEFTCLOSE(1, 2) RIGHTCLOSE(1, 2) STACK(1)
+
+0 BAREBILLGOEOHVFWETTBACCCCCREBNLLLLLILLSGOOOOOOMMOEOTHVSSSSSTTFOOAWEEEEEETTOOCVV(((((((((UUKEE111111111CC(((,,,,,,,,,221222222221HH))))))))))))
+0 BAREBILLGOEOHVFWETTBACCCCCREBNLLLLLILLSGOOOOOOMMOEOTHVSSSSSTTFOOAWEEEEEETTOOCVV(((((((((UUKEE111111111CC(((,,,,,,,,,222122222221HH))))))))))))
+
+1000 2000 3000 4000 5000 6000 7000 8000 1000 2000 3000 4000 5000 6000 7000 8000
+
+Figure 12. Comparison of full auxiliary and extrinsic set of intentions learned of SAC-U (top) and SAC-Q (bottom) over the training process. The x axis is episodes per actor and the color intensity encodes the obtained reward for each depicted intention.
+
+Figure 13. SAC-Q learned Q value distribution for the scheduler. We plot the Q-values after training for pairs of executed intentions. That is, the Q value after ﬁrst executing the intention denoted by the row names and then executing the intention denoted by the column name. Lighter colors here indicate a higher extrinsic stacking reward.
+A full set of plots for the clean-up tasks is also shown in Figures 14 to 17, comparing the SAC-U and SAC-Q results over all auxiliaries and extrinsic tasks. While SAC-Q and SAC-U both learn all tasks, only SAC-Q manages to learn the most difﬁcult sparse clean-up task. As shown in the plots, the learned scheduler is more efﬁcient in learning the auxiliaries, as well as the extrinsic tasks, at least in the beginning of the learning process. In later stages, SAC-Q will try to concentrate on intentions that will help it solve the extrinsic tasks, and therefore may disregard some of the less important auxiliaries (e.g. CLOSE(1,2)).
+
+The SAC-Q agent in contrast tries to select only auxiliary tasks that will help to collect reward signals for the extrinsic intentions. In the bottom plot in Figure 12, we can see that by ignoring the auxiliaries MOVE(2), SOUTH and SOUTHCLOSE, SAC-Q manages to learn the extrinsic task faster.
+
+Learning by Playing
+
+cum. touch
+
+120
+
+SAC-Q
+
+100
+
+SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8
+
+episodes/actor
+
+1e4
+
+cum. below(1,2)
+
+140
+
+SAC-Q
+
+120
+
+SAC-U
+
+100
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8
+
+episodes/actor
+
+1e4
+
+cum. no touch
+
+cum. no move 1
+
+cum. no move 2
+
+150
+
+100
+
+50
+
+SAC-Q
+
+0
+
+SAC-U
+
+0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8
+
+episodes/actor
+
+1e4
+
+80
+
+SAC-Q
+
+60
+
+SAC-U
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+70 60 50
+
+SAC-Q SAC-U
+
+40
+
+30
+
+20
+
+10
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+150
+
+SAC-Q SAC-U
+
+100
+
+50
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+150
+
+SAC-Q
+
+SAC-U
+
+100
+
+50
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+cum. left close(1,2)
+
+cum. below close(1,2)
+
+cum. above close(1,2)
+
+cum. right(1,2)
+
+cum. left(1,2)
+
+150
+
+100
+
+50
+
+SAC-Q
+
+0
+
+SAC-U
+
+0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8
+
+episodes/actor
+
+1e4
+
+150
+
+100
+
+50
+
+SAC-Q
+
+0
+
+SAC-U
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+140
+
+SAC-Q
+
+120
+
+SAC-U
+
+100
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+140
+
+SAC-Q
+
+120
+
+SAC-U
+
+100
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+140
+
+SAC-Q
+
+120
+
+SAC-U
+
+100
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+cum. close(1,2)
+
+cum. above(1,2)
+
+Figure 14. Cleanup experiment, SAC-Q learns all six extrinsic tasks reliably. In addition it reliably learns also to solve the 15 auxiliary tasks in parallel. Part 1: auxiliaries 1-6.
+
+Figure 15. Cleanup experiment, SAC-Q learns all six extrinsic tasks reliably. In addition it reliably learns also to solve the 15 auxiliary tasks in parallel. Part 2: auxiliaries 7-12.
+
+Learning by Playing
+
+cum. right close(1,2)
+
+cum. above box c(1)
+
+140 120 100
+
+SAC-Q SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+140
+
+SAC-Q
+
+120
+
+SAC-U
+
+100
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+140 120 100
+
+SAC-Q SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8
+
+episodes/actor
+
+1e4
+
+cum. above box c(2)
+
+Figure 16. Cleanup experiment, SAC-Q learns all six extrinsic tasks reliably. In addition it reliably learns also to solve the 15 auxiliary tasks in parallel. Part 3: auxiliaries 13-15.
+
+cum. inbox all
+
+cum. stack(2)
+
+cum. stack(1)
+
+cum. inbox(2)
+
+cum. inbox(1)
+
+cum. open box
+
+150
+
+100
+
+50
+
+SAC-Q
+
+0
+
+SAC-U
+
+0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8
+
+episodes/actor
+
+1e4
+
+140 120 100
+
+SAC-Q SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8
+
+episodes/actor
+
+1e4
+
+140 120 100
+
+SAC-Q SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+140 120 100
+
+SAC-Q SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+140 120 100
+
+SAC-Q SAC-U
+
+80
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+100
+
+SAC-Q
+
+80
+
+SAC-U
+
+60
+
+40
+
+20
+
+0
+
+0.0
+
+0.2
+
+0.4
+
+0.6 0.8 1.0 1.2 episodes/actor
+
+1.4
+
+1.6 1e14.8
+
+Figure 17. Cleanup experiment, SAC-Q learns all six extrinsic tasks reliably. In addition it reliably learns also to solve the 15 auxiliary tasks in parallel. Part 4: extrinsic tasks.
+

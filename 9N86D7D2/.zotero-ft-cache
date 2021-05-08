@@ -1,0 +1,758 @@
+Value-Diﬀerence based Exploration: Adaptive Control between epsilon-Greedy and Softmax
+Michel Tokic1,2 and Gu¨nther Palm1
+1 Institute of Neural Information Processing, University of Ulm, 89069 Ulm, Germany 2 Institute of Applied Research, University of Applied Sciences Ravensburg-Weingarten, 88241 Weingarten, Germany
+Abstract. This paper proposes “Value-Diﬀerence Based Exploration combined with Softmax action selection” (VDBE-Softmax) as an adaptive exploration/exploitation policy for temporal-diﬀerence learning. The advantage of the proposed approach is that exploration actions are only selected in situations when the knowledge about the environment is uncertain, which is indicated by ﬂuctuating values during learning. The method is evaluated in experiments having deterministic rewards and a mixture of both deterministic and stochastic rewards. The results show that a VDBE-Softmax policy can outperform ε-greedy, Softmax and VDBE policies in combination with on- and oﬀ-policy learning algorithms such as Q-learning and Sarsa. Furthermore, it is also shown that VDBE-Softmax is more reliable in case of value-function oscillations.
+1 Introduction
+Balancing the ratio between exploration and exploitation is one of the most challenging tasks in reinforcement learning with great impact on the agent’s learning performance. On the one hand, too much exploration prevents the agent from maximizing short-term reward because selected exploration actions may yield negative reward from the environment. On the other hand, exploiting uncertain environment knowledge prevents from maximizing long-term reward since selected actions may remain suboptimal. This problem is well known as the dilemma of exploration and exploitation [1].
+A straightforward—and often very successful—approach is to balance exploration/exploitation by the ε-greedy method [2]. With this method, the amount of exploration is globally controlled by a parameter, ε, that determines the randomness in action selections. In contrast to others, one advantage of ε-greedy is the fact that no memorization of exploration speciﬁc data is required, such as counters [3] or conﬁdence bounds [4, 5], which makes the method particularly interesting for very large or even continuous state-spaces. Compared to other more complex methods, ε-greedy is often hard to beat [6] and reported to be often the method of ﬁrst choice as stated by Sutton [7]. In practice, however, a drawback of ε-greedy is that it is unclear which setting of ε leads to good results for a given learning problem. For this reason, the experimenter has to rigorously
+
+hand tune ε for obtaining good results, which can be a very time-consuming task in practice depending on the complexity of the target application.
+One method that aims at overcoming the above mentioned limitation of εgreedy is “Value-Diﬀerence Based Exploration” (VDBE) [8]. In contrast to pure ε-greedy, VDBE adapts a state-dependent exploration-probability, ε(s), based on ﬂuctuations in the temporal-diﬀerence error instead of requiring to tune a global parameter by hand. However, since the original article on VDBE demonstrated the method on a multi-armed bandit task [9], results from applying the method in multi-state MDPs are still due. For this reason, open questions are: (1) is the method also able to outperform other basic exploration strategies in multistate MDPs and (2) how do on- and oﬀ-policy learning methods aﬀect learning performance?
+This paper gives answers to these questions: Results are reported on evaluating ε-greedy, Softmax and VDBE policies on two diﬀerent examples. In this context, it is shown that value-function oscillations (e.g. caused by function approximation or by learning algorithms such as Sarsa) can lead to a constant level of exploration when using VDBE and thus to bad learning performance. For this reason, an extension of VDBE to the so-called VDBE-Softmax method is propsed that extends Wierings’ Max-Boltzmann Exploration rule [10] in an adaptive manner. In Section 4, all four policies (ε-greedy, Softmax, VDBE and VDBE-Softmax) are evaluated on the cliﬀ-walking problem [1] using determinstic rewards. In Section 5, all four policies are evaluated in the here presented bandit-world task having both determinstic and stochastic rewards. The results show that VDBE and VDBE-Softmax policies are able to outperform ε-greedyand Softmax policies under the condition of using Q-learning and constant values for the exploration parameter. Finally, we show that VDBE diverges in case of oscillations in the value function, but in turn converges to near optimal results when the proposed VDBE-Softmax method is used.
+
+2 Methodology
+
+The reinforcement learning (RL) framework is considered where an agent interacts with a Markovian decision process (MDP) [1]. At each discrete time step t ∈ {0, 1, 2, ...} the agent is in a certain state st ∈ S. After the selection of an action, at ∈ A(st), the agent receives a reward signal from the environment, rt+1 ∈ R, and passes into a successor state s . The decision which action is chosen in a certain state is characterized by a policy π(s) = a, which could also be stochastic π(a|s) = P r{at = a|st = s}. A policy that maximizes the cumulative reward is denoted as π∗.
+In reinforcement learning, one way of learning policies is learning a valuefunction that denotes how “valuable” it is to select action a in state s. Here, a state-action value, Q(s, a), denotes the expected discounted reward for following π when starting in state s and selecting action a:
+
+∞
+
+Qπ(s, a) = Eπ
+
+γkrt+k+1|st = s, at = a ,
+
+(1)
+
+k=0
+
+where γ is a discount factor such that 0 < γ ≤ 1 for episodic learning tasks and 0 < γ < 1 for continuous learning tasks.
+
+2.1 Learning the Q function by on- and oﬀ -policy methods
+
+Value functions are learned by sampling observations of the interaction between the agent and its environment. For this, the branch of temporal-diﬀerence learning oﬀers two commonly used algorithms which are namely Sarsa for on-policy control [11]:
+
+∆Sarsa ← [rt+1 + γQ (st+1, at+1) − Q (st, at)]
+
+Q(st, at) ← Q(st, at) + α∆Sarsa ,
+
+(2)
+
+and Q-learning for oﬀ-policy control [2]:
+
+b∗ ← argmaxb∈A(st+1)Q(st+1, b) ∆Qlearning ← [rt+1 + γQ (st+1, b∗) − Q (st, at)]
+
+Q(st, at) ← Q(st, at) + α∆Qlearning ,
+
+(3)
+
+where α is a stepsize parameter [12]. The only technical diﬀerence between both algorithms is the inclusion of successor-state information used for the evaluation of action at taken in state st while learning the value function. Sarsa includes the discounted value of the selected action in the successor state, Q(st+1, at+1), for which reason it is called to be an on-policy method. In contrast, Q-learning includes the discounted value of the optimal action in the successor state, Q(st+1, b∗), for which reason it is called to be an oﬀ-policy method.
+Although the convergence of Sarsa depends on the stochasticity in action selections, it is well known that the algorithm outperforms Q-learning in many cases even though no convergence proof exists for Sarsa. However, if the stochasticity in action selections becomes zero (i.e. greedy), Sarsa technically becomes the same as Q-learning, and thus also convergent under several conditions [13].
+
+2.2 Basic exploration/exploitation strategies
+
+Two widely used methods for balancing exploration/exploitation are ε-greedy and Softmax [1]. With ε-greedy, at each time step, the agent selects a random action with a ﬁxed probability, 0 ≤ ε ≤ 1, instead of selecting greedily one of the learned optimal actions with respect to the Q-function:
+
+random action from A(s) if ξ < ε
+
+π(s) =
+
+argmaxa∈A(s) Q(s, a) otherwise,
+
+(4)
+
+where 0 ≤ ξ ≤ 1 is a uniform random number drawn at each time step. In contrast, Softmax utilizes action-selection probabilities which are determined by ranking the value-function estimates using a Boltzmann distribution:
+
+Q(s,a)
+
+eτ
+
+π(a|s) = P r{at = a|st = s} =
+
+,
+Q(s,b)
+
+(5)
+
+be τ
+
+where τ is a positive parameter called temperature. High temperatures cause all actions to be nearly equiprobable, whereas low temperatures cause greedy action selections.
+In practice, both methods have advantages and disadvantages as described in [1]. In the literature, both policies have been reported as methods for describing the action-selection process in the human brain, where Softmax seems to be the better ﬁt of both [14].
+
+2.3 Value-diﬀerence based exploration
+
+In order to control the agent’s action-selection policy, the basic idea of “ValueDiﬀerence Based Exploration” (VDBE) is to extend the ε-greedy method by introducing a state-dependent exploration probability, ε(s), instead of handtuning a global parameter [8]. The desired behavior is to have the agent being more explorative in situations when the knowledge about the environment is uncertain, e.g. at the beginning of the learning process, which is indicated by ﬂuctuating values during learning. On the other hand, the amount of exploration should be reduced as far as the agent’s knowledge becomes certain, which is indicated by very small or no value diﬀerences. Such an adaptive behavior is obtained by computing after each learning step a state-dependent exploration probability, ε(s), according to the diﬀerence in a Boltzmann distribution of the value before and after learning:
+
+f (s, a, σ) =
+
+e Qt(s,a) σ
+
+e + e Qt(s,a) σ
+
+Qt+1 (s,a) σ
+
+Qt+1 (s,a)
+
+eσ
+
+−
+
+e + e Qt(s,a) σ
+
+Qt+1 (s,a) σ
+
+−|Qt+1 (s,a)−Qt (s,a)|
+
+1−e
+
+σ
+
+= −|Qt+1(s,a)−Qt(s,a)| 1+e σ
+
+−|α·∆|
+
+1−e σ
+
+=
+
+−|α·∆|
+
+1+e σ
+
+(6)
+
+εt+1(s) = δ · f (st, at, σ) + (1 − δ) · εt(s) ,
+
+(7)
+
+where σ is a positive constant called inverse sensitivity and δ ∈ [0, 1) a pa-
+
+rameter determining the inﬂuence of the selected action on the state-dependent
+
+exploration probability. A reasonable setting for δ is the inverse of the number
+
+of
+
+actions
+
+in
+
+the
+
+current
+
+state,
+
+δ(s)
+
+=
+
+1 |A(s)|
+
+,
+
+since
+
+all
+
+actions
+
+should
+
+contribute
+
+equally to ε(s), and which always led to good results in our experiments. At
+
+the beginning of the learning process, all exploration probabilities are initialized
+
+arbitrary, e.g. εt=0(s) = 1 for all states. The parameter σ inﬂuences ε(s) in a way
+
+that low values cause full exploration at small value changes. On the other hand,
+
+high values of σ cause a high level of exploration only at large value changes.
+
+Finally, the exploration probability approaches zero as far as the Q-function
+
+converges which results to pure greedy action selections.
+
+3 VDBE-Softmax
+Although VDBE has successfully been applied in solving bandit problems with stationary reward distributions [8], one drawback of VDBE (in particular of ε-
+
+greedy) is that exploration actions are chosen uniformly distributed among all possible actions in the current state. Such exploration behavior can lead to bad performance when many actions in the current state yield to relatively high negative reward, even if this knowledge is present through already learned Q values. Furthermore, Q-function oscillations cause a non-zero level of ε(s), e.g. caused by stochastic rewards or by function approximators for the Q-function. In turn, this causes excessive selections of bad actions in cases when only a few actions lead to positive reward.
+A way of relaxing the above drawback is by combining an ε-greedy policy with Softmax (Equation 5) as proposed by Wiering as the Max-Boltzmann Exploration method (MBE) [10]. MBE behaves the same as ε-greedy except that exploration actions are selected according to the Softmax rule:
+
+Softmax action according to Equation 5 if ξ < ε
+
+π(s) =
+
+argmaxa∈A(s) Q(s, a) otherwise,
+
+(8)
+
+where ξ is a uniform random number from the interval [0, 1]. Although MaxBoltzmann Exploration requires two parameters to be set (τ and ε), advantages of both methods are combined into one method [10].
+The idea of combining both methods is now used for extending VDBE to the so-called VDBE-Softmax method. In contrast to MBE, VDBE-Softmax adapts the state-dependent exploration rate ε(s) according to VDBE but selects random actions according to Softmax in case of ξ < ε(s). Furthermore, in order to ease the search for reasonable parameters for Softmax, we propose using a normalization of the Q values into the interval [VnormMin, VnormMax], e.g. [−1, 1], and having the temperature parameter of Softmax set constantly to the value of τ = 1. With this, a mean independency of the distribution of Q values in state s is achieved that enables the selection of τ more intuitively. In our experiments, such an approach turned out to be suﬃcient for suppressing the selection of actions yielding to highly negative reward in case of ξ < ε(s). Finally, Algorithm 1 depicts the interaction between Q-learning and VDBE-Softmax, where SARSA is combined analogously when replacing lines 13-15 of Algorithm 1 according to Equation 2.
+
+4 Experiments in the cliﬀ-walking task
+The proposed method has been evaluated on the cliﬀ-walking task presented by Sutton and Barto [1]. As shown in Figure 1, the goal of the agent is to learn a path from the start state, S, to the goal state, G. For each step, the agent receives a reward of r = −1 except for falling oﬀ the cliﬀ which is rewarded by r = −100, and where the agent is instantly sent back to S.
+In the cliﬀ-walking task, Sutton and Barto demonstrated the diﬀerent learning behaviors of on- and oﬀ -policy methods when using stochastic policies3. As a result, the agent learns the safe path when using Sarsa, but the optimal path
+3 In particular, Sutton and Barto used ε-greedy having ε = 0.1.
+
+Algorithm 1 Q-learning with VDBE-Softmax
+
+1: Initialize Q(s, a) arbitrarily, e.g. Q(s, a) = 0 for all s, a 2: Initialize ε(s) arbitrarily, e.g. ε(s) = 1 for all s
+
+3: for each episode do 4: Initialize start state s 5: repeat 6: ξ ← rand(0..1)
+
+7: if ξ < ε(s) then
+
+8:
+
+a ← SOFTMAX(A(s))
+
+9: else
+
+10:
+
+a ← argmaxb∈A(s)Q(s, b)
+
+11: end if
+
+12: take action a, observe reward r and successor state s
+
+13:
+
+b∗ ← argmaxb∈A(s )Q(s , b)
+
+14:
+
+∆ ← r + γQ(s , b∗) − Q(s, a)
+
+15: Q(s, a) ← Q(s, a) + α∆
+
+−|α·∆|
+
+16:
+
+ε(s)
+
+←
+
+δ
+
+·
+
+1−e σ
+−|α·∆|
+
++ (1 − δ) · ε(s)
+
+1+e σ
+
+17:
+
+s←s
+
+18: until s is terminal state
+
+19: end for
+
+when using Q-learning. The optimal (shortest) path, however, is a bad choice in this example since the agent will travel right along the edge of the cliﬀ and which occasionally results in falling oﬀ.
+
+4.1 Experiment setup
+
+The cliﬀ-walking experiment has been setup as follows and having the results
+
+averaged over 1000 experiments each having 400 episodes. An episode begins in
+
+the start state, S, and terminates when: (1) the agent has walked a maximum of
+
+100 steps, or (2) the agent arrived at the goal state, G. Throughout the experi-
+
+ment, the step-size parameter α has been constantly set to the value of α = 0.8.
+
+Since the learning problem is an episodic task, no discounting (γ = 1) has been
+
+used. In this experimental setting, Q-learning and Sarsa have been investigated
+
+with ε-greedy, Softmax and VDBE policies using constant parameter settings,
+
+and using a tabular approximation of the value function. In experiments with
+
+VDBE and VDBE-Softmax, all exploration probabilities have been initialized
+
+with
+
+ε(s)
+
+=
+
+1,
+
+as
+
+well
+
+all
+
+δ’s
+
+been
+
+conﬁgured
+
+with
+
+δ(s)
+
+=
+
+1 |A(s)|
+
+.
+
+For
+
+VDBE-
+
+Softmax, the normalization interval has been set to [−1, 1] using τ = 1 for the
+
+Fig. 1. The cliﬀ-walking task as presented by Sutton and Barto [1].
+Softmax method. At the beginning of each experiment, all state-action values have been optimistically initialized with Qt=0(s, a) = 0, thus causing additional exploration in the ﬁrst phase of learning.
+4.2 Results
+The experimental results of the cliﬀ-walking study are shown in Figure 2. It is observable that all four exploration methods perform optimal when having (almost) a greedy exploration parameter conﬁgured, i.e. ε = 0 for ε-greedy, τ = 0.04 for Softmax, or σ = 100 for VDBE and VDBE-Softmax. In case of stochastic policies, it can be observed that Sarsa outperforms Q-learning when using ε-greedy or Softmax policies, which conﬁrms the results of Sutton and Barto. Interestingly, the performance of Q-learning in conjunction with ε-greedy is sometimes even better in the ﬁrst episodes compared to the converged performance in the last episodes, e.g. when ε is set to 0.5. The eﬀect of unlearning such an apparently better behavior is caused by greedy action selections in the ﬁrst phase of learning, and also led back to the insecureness of the value-function estimates. Due to this, the agent walks more often away from the cliﬀ during the ﬁrst episodes, but travels right along the edge once the value function converges to the true values. In terms of learning speed, no remarkable changes other than the speed of learning were observable for diﬀerent settings of α when using ε-greedy or Softmax.
+In contrast, a diﬀerent behavior is observable for VDBE as shown in Figure 2(c). Due to the nature of pursuing to greedy, VDBE in conjunction with Q-learning always converged to the optimal results under any settings of σ. On the contrary, VDBE in combination with Sarsa shows to converge to the optimal results only for high inverse sensitivities (σ 10), but diverges for values of σ < 10. The reason for this behavior is that Sarsa has no convergence guarantee, and oscillations in the value function are caused when the policy is stochastic. Furthermore, these oscillations cause VDBE to increase the exploration probability, thus causing the agent to explore its environment constantly. In evaluations for other values of α, the σ parameter could be more reduced the more α is reduced at the same time. The advantage of additionally combining Softmax to the VDBE-Softmax method is shown in Figure 2(d). In contrast to VDBE, the results of Sarsa in conjunction with VDBE-Softmax also converge to near optimal results independently of σ, which only had inﬂuence on the speed of convergence.
+
+Reward
+
+Reward
+
+Q-learning - ε-Greedy - α=0.8
+0
+
+Sarsa - ε-Greedy - α=0.8
+0
+
+-100 -200 -300 -400
+
+ε=0.00 ε=0.01 ε=0.10 ε=0.20 ε=0.50 ε=1.00
+
+Reward
+
+-100 -200 -300 -400
+
+ε=0.00 ε=0.01 ε=0.10 ε=0.20 ε=0.50 ε=1.00
+
+-500 0
+0
+
+50 100 150 200 250 300 350 400 Episode
+
+-500 0
+
+(a)
+
+Q-learning - Softmax - α=0.8
+0
+
+50 100 150 200 250 300 350 400 Episode
+Sarsa - Softmax - α=0.8
+
+-100
+
+-100
+
+-200
+
+-200
+
+Reward
+
+-300 -400 -500
+0
+0
+
+τ=0.04 τ=0.10 τ=1.00 τ=10.0 τ=25.0 τ=100.0
+50 100 150 200 250 300 350 400 Episode
+
+-300 -400 -500
+0
+
+(b)
+
+Q-learning - VDBE - α=0.8
+0
+
+τ=0.04 τ=0.10 τ=1.00 τ=10.0 τ=25.0 τ=100.0 50 100 150 200 250 300 350 400 Episode
+Sarsa - VDBE - α=0.8
+
+-100 -200 -300
+
+σ=0.04 σ=0.10 σ=1.00 σ=10.0 σ=25.0 σ=100.0
+
+Reward
+
+-100 -200 -300
+
+σ=0.04 σ=0.10 σ=1.00 σ=10.0 σ=25.0 σ=100.0
+
+-400
+
+-400
+
+-500 0 0
+
+50 100 150 200 250 300 350 400 Episode
+
+-500 0
+
+(c)
+
+Q-learning - VDBE-Softmax - α=0.8
+0
+
+50 100 150 200 250 300 350 400 Episode
+Sarsa - VDBE-Softmax - α=0.8
+
+-100 -200 -300
+
+σ=0.04 σ=0.10 σ=1.00 σ=10.0 σ=25.0 σ=100.0
+
+Reward
+
+-100 -200 -300
+
+σ=0.04 σ=0.10 σ=1.00 σ=10.0 σ=25.0 σ=100.0
+
+-400
+
+-400
+
+-500 0
+
+50 100 150 200 250 300 350 400 Episode
+
+-500 0
+
+(d)
+
+50 100 150 200 250 300 350 400 Episode
+
+Reward
+
+Reward
+
+Fig. 2. Comparison of the cumulative reward per episode on the cliﬀ-walking task using Sarsa and Q-learning in conjunction with: (a) ε-greedy, (b) Softmax, (c) VDBE and (d) VDBE-Softmax. Results are averaged over 1000 experiments.
+
+5 Experiments in the bandit-world task
+The second experiment has been conducted in an extension of the multi-armed bandit problem proposed here as the “Bandit-World” problem. In addition to the original multi-armed bandit problem [9], the environment in the bandit world consists of multiple states and diverse bandits (in this example states B1 and B2). The reward distributions of bandit states are unequal and the agent has to decide whether it sticks with the ﬁrst bandit it reaches or whether it travels around in hope to ﬁnd another (maybe better) bandit. Traveling around is expensive since each transition to another state is rewarded negatively by the value of r = −1. On the contrary, the reward for choosing a bandit lever in states B1 and B2 is drawn randomly according to a normal distribution N (Q∗(B, alever), 1).
+
+B1
+
+S
+
+B2
+
+Fig. 3. The bandit-world task. S indicates the start state; B1 and B2 indicate two diﬀerent bandits.
+
+5.1 Experiment setup
+
+The bandit world has been evaluated as follows. Since the environment is an
+
+episodic multi-state MDP having the rewards be a mixture of both determinis-
+
+tic and stochastic scalars, we evaluated low values for the step-size parameter α.
+
+Each bandit consists of three levers with mean values Q∗(B1) = {−1.0, 0.0, 1.0} and Q∗(B2) = {2.0, 3.0, 4.0}. In bandit states, a fourth possible action is allowed
+(aleft or aright) that leaves the bandit and which is rewarded by r = −1 (which
+
+also applies for every other transition in non-bandit states). Results are averaged
+
+over 500 experiments each running over 400 episodes. An episode begins in the
+
+start state S and terminates after T = 100 steps. In this experimental setting,
+
+Q-learning and Sarsa have been investigated with ε-greedy, Softmax and VDBE
+
+policies using constant parameter settings, and using a tabular approximation
+
+of the value function. In experiments with VDBE and VDBE-Softmax, all ex-
+
+ploration probabilities have been initialized with ε(s) = 1, as well all δ’s been
+
+conﬁgured
+
+with
+
+δ(s)
+
+=
+
+1 |A(s)|
+
+.
+
+All
+
+state-action
+
+values
+
+have
+
+been
+
+optimistically
+
+initialized with Qt=0(s, a) = 0, thus causing additional exploration in the ﬁrst
+
+phase of learning. Furthermore, the Softmax method used by VDBE-Softmax has
+
+been conﬁgured with temperature τ = 1 and normalization boundaries [−1, 1].
+
+Finally, we evaluated discounting in the bandit-world task with γ = 0.9.
+
+5.2 Results
+Figure 4 shows the results of the bandit-world experiments. For ε-greedy and Softmax policies, almost no performance diﬀerence is observable when using Qlearning and Sarsa. For both policies, the worst-case reward/episode is about
+
+Reward
+
+Reward
+
+Q-learning - ε-Greedy - α=0.1
+400
+
+Sarsa - ε-Greedy - α=0.1
+400
+
+300
+
+300
+
+200
+
+200
+
+Reward
+
+ε=0.00
+
+ε=0.00
+
+100
+
+ε=0.01 ε=0.10
+
+100
+
+ε=0.01 ε=0.10
+
+ε=0.20
+
+ε=0.20
+
+ε=0.50
+
+ε=0.50
+
+0
+
+ε=1.00
+
+0
+
+ε=1.00
+
+-100 0
+400
+
+50 100 150 200 250 300 350 400 Episode
+
+-100 0
+
+(a)
+
+Q-learning - Softmax - α=0.1
+400
+
+50 100 150 200 250 300 350 400 Episode
+Sarsa - Softmax - α=0.1
+
+300
+
+τ=0.04
+
+300
+
+τ=0.04
+
+τ=0.10
+
+τ=0.10
+
+τ=1.00
+
+τ=1.00
+
+200
+
+τ=10.0 τ=25.0
+
+200
+
+τ=10.0 τ=25.0
+
+τ=100.0
+
+τ=100.0
+
+Reward
+
+100
+
+100
+
+0
+
+0
+
+-100 0
+400
+
+50 100 150 200 250 300 350 400 Episode
+
+-100 0
+
+(b)
+
+Q-learning - VDBE - α=0.1
+400
+
+50 100 150 200 250 300 350 400 Episode
+Sarsa - VDBE - α=0.1
+
+300
+
+300
+
+σ=0.04
+
+σ=0.10
+
+σ=1.00
+
+200
+
+200
+
+σ=10.0
+
+Reward
+
+σ=0.04
+
+σ=25.0
+
+σ=0.10
+
+σ=100.0
+
+100
+
+σ=1.00 σ=10.0
+
+100
+
+σ=25.0
+
+σ=100.0
+
+0
+
+0
+
+-100 0 400
+
+50 100 150 200 250 300 350 400 Episode
+
+-100 0
+
+(c)
+
+Q-learning - VDBE-Softmax - α=0.1
+400
+
+50 100 150 200 250 300 350 400 Episode
+Sarsa - VDBE-Softmax - α=0.1
+
+300
+
+300
+
+Reward
+
+200
+
+σ=0.04
+
+200
+
+σ=0.04
+
+σ=0.10
+
+σ=0.10
+
+σ=1.00
+
+σ=1.00
+
+100
+
+σ=10.0
+
+100
+
+σ=10.0
+
+σ=25.0
+
+σ=25.0
+
+σ=100.0
+
+σ=100.0
+
+0
+
+0
+
+-100 0
+
+50 100 150 200 250 300 350 400 Episode
+
+-100 0
+
+(d)
+
+50 100 150 200 250 300 350 400 Episode
+
+Reward
+
+Reward
+
+Fig. 4. Comparison of the cumulative reward per episode on the bandit-world task using Sarsa and Q-learning in conjunction with: (a) ε-greedy, (b) Softmax, (c) VDBE and (d) VDBE-Softmax. Results are averaged over 500 experiments.
+
+−50 in case the action-selection policy is pure random (ε = 1.0 and τ ≥ 100.0). In contrast, VDBE in combination with Q-learning converged to a worst-case reward/episode of about 200, and to 300 for VDBE-Softmax respectively. In combination with Sarsa, VDBE shows (again) to diverge when using low values for σ, since Sarsa causes value-function oscillations in case of stochastic policies. In turn, VDBE converged to near optimal results for settings of σ ≥ 1. Finally, the results show that the worst-case reward/episode is much higher for VDBESoftmax compared to the other three methods. Interestingly, VDBE, VDBESoftmax and Softmax policies turned out to maximize the cumulative reward when setting the exploration parameter (σ or τ ) to the value of 1.
+6 Discussions and Conclusions
+This paper showed that VDBE can successfully be applied to balance exploration/exploitation also in multi-state MDPs, which answers the ﬁrst open question mentioned above. The obtained results lead to the conclusion that VDBE in conjunction with Q-learning is able to outperform other basic exploration methods, since the information is not only based on current information of the value function, but also biased on the progress of learning the function. The results highlight the importance of using learning algorithms that are proven to converge. As a counterexample, the experiment with Sarsa in conjunction with VDBE revealed that oscillations in the value function can lead to a constant level of exploration, thus to full exploration in the worst-case. Such behavior can sometimes successfully be handled by: (1) a ﬁne-tuning of the inverse sensitivity σ, (2) a ﬁne-tuning of the step-size parameter α or (3) by using the proposed VDBE-Softmax method. Finally, this fact answers the second open question because convergence proofs exist for Q-learning (oﬀ-policy control) rather than for Sarsa (on-policy control).
+Although results were optimal using a pure greedy policy in the cliﬀ-walking task, this setting does not apply for every learning problem as well, and most often a bit of exploration improves learning performance as shown in the banditworld example. In fact, a pure greedy policy is most often sub-optimal, and less examples such as the cliﬀ-walking problem exist that show the contrary. Only in the limit, the policy should converge to greedy as far as enough information about the environment has been sampled, and which has also been shown in a preceding study of VDBE on the multi-armed bandit problem [8]. Finally, the results also show that extending VDBE with the Softmax method converged much more reliable to near optimal results under a wide range of parameter conﬁgurations.
+To sum up, the presented results suggest that balancing exploration and exploitation on basis of ﬂuctuations in the value function is a reasonable technique for supporting the decision-making process in reinforcement learning.
+Acknowledgements. The authors like to thank F. Schwenker1, W. Ertel2, P. Ertle2 and R. Cubek2 for valuable comments and discussions.
+
+References
+[1] Sutton, R.S., Barto, A.G.: Reinforcement Learning: An Introduction. MIT Press, Cambridge, MA (1998)
+[2] Watkins, C.: Learning from Delayed Rewards. PhD thesis, University of Cambridge, Cambridge, England (1989)
+[3] Thrun, S.B.: Eﬃcient exploration in reinforcement learning. Technical Report CMU-CS-92-102, Carnegie Mellon University, Pittsburgh, PA, USA (1992)
+[4] Kaelbling, L.P.: Learning in embedded systems. MIT Press (1993) [5] Jaksch, T., Ortner, R., Auer, P.: Near-optimal regret bounds for reinforcement
+learning. The Journal of Machine Learning Research 99 (August 2010) 1563–1600 [6] Vermorel, J., Mohri, M.: Multi-armed bandit algorithms and empirical evaluation.
+In Gama, J., Camacho, R., Brazdil, P., Jorge, A., Torgo, L., eds.: ECML. Volume 3720 of Lecture Notes in Computer Science., Springer (2005) 437–448 [7] Heidrich-Meisner, V.: Interview with Richard S. Sutton. Ku¨nstliche Intelligenz 3 (2009) 41–43 [8] Tokic, M.: Adaptive ε-greedy exploration in reinforcement learning based on value diﬀerences. In Dillmann, R., Beyerer, J., Hanebeck, U., Schultz, T., eds.: KI 2010: Advances in Artiﬁcial Intelligence. Volume 6359 of Lecture Notes in Artiﬁcial Intelligence. Springer Berlin / Heidelberg (2010) 203–210 [9] Robbins, H.: Some aspects of the sequential design of experiments. Bulletin of the American Mathematical Society 58 (1952) 527–535 [10] Wiering, M.: Explorations in Eﬃcient Reinforcement Learning. PhD thesis, University of Amserdam, Amsterdam (1999) [11] Rummery, G.A., Niranjan, M.: On-line Q-learning using connectionist systems. Technical Report CUED/F-INFENG/TR 166, Cambridge University (1994) [12] George, A.P., Powell, W.B.: Adaptive stepsizes for recursive estimation with applications in approximate dynamic programming. Machine Learning 65(1) (2006) 167–198 [13] Watkins, C., Dayan, P.: Technical note: Q-learning. Machine Learning 8(3) (1992) 279–292 [14] Daw, N.D., O’Doherty, J.P., Dayan, P., Seymour, B., Dolan, R.J.: Cortical substrates for exploratory decisions in humans. Nature 441 (2006) 876–879
+

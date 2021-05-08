@@ -1,0 +1,2412 @@
+Active and Adaptive Sequential learning
+
+arXiv:1805.11710v1 [cs.LG] 29 May 2018
+
+Yuheng Bu ∗†
+
+Jiaxun Lu ∗‡
+
+Venugopal V. Veeravalli †
+
+Abstract
+A framework is introduced for actively and adaptively solving a sequence of machine learning problems, which are changing in bounded manner from one time step to the next. An algorithm is developed that actively queries the labels of the most informative samples from an unlabeled data pool, and that adapts to the change by utilizing the information acquired in the previous steps. Our analysis shows that the proposed active learning algorithm based on stochastic gradient descent achieves a near-optimal excess risk performance for maximum likelihood estimation. Furthermore, an estimator of the change in the learning problems using the active learning samples is constructed, which provides an adaptive sample size selection rule that guarantees the excess risk is bounded for sufﬁciently large number of time steps. Experiments with synthetic and real data are presented to validate our algorithm and theoretical results.
+
+1 Introduction
+
+Machine learning problems that vary in a bounded manner over time naturally arise in many applications. For example, in personalized recommendation systems [9, 15], the preferences of users might change with fashion trends. Since acquiring new training samples from users can be expensive in practice, a recommendation system needs to update the machine learning model and adapt to this change using as few new samples as possible.
+
+In such problems, we are given a large set of unlabeled samples, and the learning tasks are solved by minimizing the expected value of an appropriate loss function on this unlabeled data pool at each time t. To capture the idea that the sequence of learning problems is changing in a bounded manner, we assume the following bound holds
+
+θt∗ − θt∗−1 2 ≤ ρ, ∀t ≥ 2,
+
+(1)
+
+where θt∗ is the true minimizer of the loss functions at time t, and ρ is a ﬁnite upper bound on the change of minimizers, which needs to be estimated in practice.
+
+To tackle this sequential learning problem, we propose an active and adaptive algorithm to learn the approximate minimizers θˆt of the loss function. At each time t, our algorithm actively queries the labels of Kt samples from the unlabeled data pool, with a well-designed active sampling distribution, which is adaptive to the change in the minimizers by utilizing the information acquired in the previous steps. In particular, we adaptively select Kt and construct θˆt such that the excess risk [13] is bounded at each time t.
+
+The challenges of this active and adaptive sequential learning problem arise in three aspects: 1) we need to determine which samples are more informative for solving the task at the current time step based on the information acquired in the previous time steps to conduct active learning; 2) to
+
+∗Equal contribution †ECE Department and the Coordinated Science Laboratory, University of Illinois at Urbana-Champaign,
+Urbana, IL, USA. Email: {bu3, vvv}@illinois.edu ‡EE Department, Tsinghua University, Beijing, China. Email: lujx14@mails.tsinghua.edu.cn
+
+Preprint. Work in progress.
+
+achieve a desired bounded excess risk with as few new samples as possible, we need to understand the tradeoff between the solution accuracy and the adaptively determined sample complexity Kt; 3) the change in the minimizers ρ is unknown and we need to estimate it.
+Our contributions in this paper can be summarized as follows. We propose an active and adaptive learning framework with theoretical guarantees to solve a sequence of learning problems, which ensures a bounded excess risk for each individual learning task when t is sufﬁciently large. We construct a new estimator of the change in the minimizers ρˆt with active learning samples and show that this estimate upper bounds the true parameter ρ almost surely. We test our approaches on a synthetic regression problem, and further apply it to a recommendation system that tracks changes in preferences of customers. Our experiments demonstrate that our algorithm achieves a better performance compared to the other baseline algorithms in these scenarios.
+1.1 Related Work
+Our active and adaptive learning problem has relations with multi-task learning (MTL) and transfer learning. In multi-task learning, the goal is to learn several tasks simultaneously as in [2, 10, 21] by exploiting the similarities between the tasks. In transfer learning, prior knowledge from one source task is transferred to another target task either with or without additional training data [14]. Multi-task learning could be applied to solve our problem by running a MTL algorithm at each time, while remembering all prior tasks. However, this approach incurs a heavy memory and computational burden. Transfer learning lacks the sequential nature of our problem, and there is no active learning component in both works. For multi-task and transfer learning, there are theoretical guarantees on regret for some algorithms [1], while we provide an excess risk guarantee for each individual task.
+In concept drift problem, stream of incoming data that changes over time is observed, and we try to predict some properties of each piece of data as it arrives. After prediction, a loss is revealed as the feedback in [17]. Some approaches for concept drift use iterative algorithms such as stochastic gradient descent, but without speciﬁc models on how the data changes, there is no theoretical guarantees for these algorithms.
+Our work is of course related to active learning [8, 4], in which a learning algorithm is able to interactively query the labels of samples from an unlabeled data pool to achieve better performance. A standard approach to active learning is to select the unlabeled samples by optimizing speciﬁc statistics of these samples [7]. For example, with the goal of minimizing the expected excess risk in maximum likelihood estimation, the authors of [6, 16] propose a two-stage algorithm based on Fisher information ratio to select the most informative samples, and show that it is optimal in terms of the convergence rate. We apply similar algorithms in our problem, but the ﬁrst stage of estimating the Fisher information using labeled samples to conduct active learning can be skipped by exploiting the bounded nature of the change, and utilizing information obtained in previous time steps.
+Our approach is closely related to prior work on adaptive sequential learning [20, 19], where the training samples are drawn passively and the adaptation is only in the selection of the number of training samples Kt at each time step.
+The rest of the paper is organized as follows. In Section 2, we describe the problem setting considered. In Section 3, we present our active and adaptive learning algorithm. In Section 4, we provide the theoretical analysis which motivates the proposed algorithm. In Section 5, we test our algorithm on synthetic and real data. Finally, in Section 6, we provide some concluding remarks.
+2 Problem Setting
+Throughout this paper, we use lower case letters to denote scalars and vectors, and use upper case letters to denote random variables and matrices. All logarithms are the natural ones. We use I to denote an identity matrix of appropriate size. We use the superscript (·) to denote the transpose√of a vector or a matrix, and use Tr(A) to denote the trace of a square matrix A. We denote x A = x Ax for a vector x and a matrix A of appropriate dimensions.
+We consider the active and adaptive sequential learning problem in the maximum likelihood estimation (MLE) setting. At each time t, we are given a pool St = {x1,t, · · · , xN,t} of Nt unlabeled samples drawn from some instance space X . We have the ability to interactively query the labels of Kt of these
+2
+
+samples from a label space Y. In addition, we are given a parameterized family of distribution models M = {p(y|x, θt), θt ∈ Θ}, where Θ ⊆ Rd. We assume that there exists an unknown parameter θt∗ ∈ Θ such that the label yt of xt ∈ St is actually generated from the distribution p(yt|xt, θt∗).
+
+For any x ∈ X , y ∈ Y and θ ∈ Θ, we let the loss function be the negative log-likelihood with parameter θ, i.e.,
+
+(y|x, θ) − log p(y|x, θ), p(y|x, θ) ∈ M.
+
+(2)
+
+Then, the expected loss function over the uniform distribution on the data pool St can be written as
+
+LUt (θ) EX∼Ut,Y ∼p(Y |X,θt∗)[ (Y |X, θ)],
+
+(3)
+
+where we use Ut to denote the uniform distribution over the samples in St. It can be seen that the minimizer of LUt (θ) is the true parameter θt∗. As mentioned in (1), we assume that θt∗ is changing at a bounded but unknown rate, i.e., θt∗ − θt∗−1 2 ≤ ρ, for t ≥ 2.
+
+The quality of our approximate minimizers θˆt are evaluated through a mean tracking criterion, which means that the excess risk of θˆt is bounded at each time step t, i.e.,
+
+E[LUt (θˆt) − LUt (θt∗)] ≤ ε.
+
+(4)
+
+Thus, our goal is to actively and adaptively select the smallest number of samples Kt in St to query labels, and sequentially construct an estimate of θˆt satisfying the above mean tracking criterion for
+each time step t. Note that it is allowed to query the label of the same sample multiple times.
+
+Let Γt be an arbitrary sampling distribution on St. Then, the following MLE using Γt
+
+θˆΓt
+
+1 Kt
+
+argmin θ∈Θ Kt k=1
+
+(Yk,t|Xk,t, θ),
+
+(5)
+
+can be viewed as an empirical risk minimizer (ERM) of (3), where Xk,t ∼ Γt, Yk,t ∼ p(Y |Xk,t, θt∗).
+
+To ensure that our algorithm works correctly, we require the following assumption on the Hessian matrix of (y|x, θ), which determines the Fisher information matrix.
+
+Assumption 1. For any x ∈ X , y ∈ Y, θ ∈ Θ, H(x, θ)
+
+∂2
+
+(y|x,θ) ∂θ2
+
+is
+
+a
+
+function
+
+of
+
+only
+
+x
+
+and
+
+θ
+
+and does not depend on y.
+
+Assumption 1 holds for many practical models, such as generalized linear model, logistic regression
+and conditional random ﬁelds [6]. Moreover, for θ ∈ Θ, we denote IΓt (θ) EX∼Γt [H(X, θ)] as the Fisher information matrix under sampling distribution Γt.
+
+3 Algorithm
+The main idea of our algorithm is to adaptively choose the number of samples Kt based on the estimated change in the minimizers ρˆt−1 such that the mean tracking criterion in (4) is satisﬁed, then actively query the labels of these Kt samples with a well-designed sampling distribution Γt, and ﬁnally perform MLE in (5) using a stochastic gradient descent (SGD) algorithm over the labeled samples. By executing this algorithm iteratively, we can sequentially learn θˆt over all the considered time steps. The algorithm is formally presented in Algorithm 1.
+To ensure a good performance with limited querying samples, it is essential to construct Γt carefully. Motivated by Lemma 1 in Section 4.2, the convergence rate of the excess risk for ERM using Kt samples from Γt is Tr(IΓ−t1(θt∗)IUt (θt∗))/Kt. Thus, the optimal sampling distribution Γt∗ should be the one that minimizes Tr(IΓ−t1(θt∗)IUt (θt∗)), which relies on the unknown parameter θt∗. Based on the bounded nature of the change in (1), we solve this problem by approximating θt∗ with θˆt−1 and generate the sampling distribution Γˆt∗ by minimizing Tr(IΓ−t1(θˆt−1)IUt (θˆt−1)) (Step 1). Then, as shown in Section 4.3, we use the minimum number of samples Kt∗ such that the mean tracking criterion is satisﬁed, and actively draw samples from Γ¯t to estimate θˆt (Steps 2-4). Note that the distribution Γˆ∗t is modiﬁed slightly to Γ¯t in Step 3 to ensure it still has the full support of St.
+
+3
+
+Algorithm 1 Active and Adaptive Sequential Learning
+Input: Sample pool St = {x1,t, · · · , xN,t}, the previous estimation θˆt−1, ρˆt−1 and the desired mean tracking accuracy ε. 1: Solve the following semideﬁnite programming problem (see Section 4.2)
+
+Γˆ∗t = argmin
+Γt ∈RNt
+
+Tr[IΓ−t1(θˆt−1)IUt (θˆt−1)]
+
+s.t.
+
+IΓt (θˆt−1) =
+
+Nt i=1
+
+Γi,tH
+
+(xi,t,
+
+θˆt−1),
+
+Nt i=1
+
+Γi,t
+
+=
+
+1,
+
+Γi,t
+
+∈
+
+[0, 1].
+
+2: Choose Kt∗ based on ρˆt−1 such that it is the minimum number of samples required to meet the mean tracking criterion (see Section 4.3).
+3: Generate Kt∗ samples using the distribution Γ¯t = αtΓˆt∗ + (1 − αt)Ut on unlabeled data pool St, where αt ∈ (0, 1). Query their labels and get the labeled set St = {(xk,t, yk,t)}Kk=t∗1. 4: Solve the MLE using labeled set St with a SGD algorithm initialized at θˆt−1,
+
+θˆt = argmin
+
+(yk,t|xk,t, θt).
+
+θt∈Θ (xk,t,yk,t)∈St
+
+5: Update the estimate of ρˆt using estimator deﬁned in Section 4.4 for ∀t ≥ 2. Output: θˆt, ρˆt.
+
+Finally, based on the current and previous estimation θˆt and θˆt−1, we update the estimate of the bounded change rate ρˆt by the estimator proposed in Section 4.4.
+It is easy to see that the active nature of Algorithm 1 comes from the active sampling distribution, which is constructed by minimizing the Fisher information ratio as in Step 1. But the adaptivity of Algorithm 1 is more complex and results from the following three aspects: 1) The sampling distribution is adaptive to the bounded change through the replacement of θt∗ with θˆt−1 in Step 1; 2) The sample size selection rule is adaptive through the selection of the minimum number of samples required in Step 2; 3) The SGD is adaptive through the initialization by θˆt−1 in Step 4.
+
+4 Theoretical Performance Guarantees
+
+In this section, we present the theoretical analysis of Algorithm 1. We ﬁrst introduce the assumptions needed. Then, in Section 4.2, we provide the analysis of the active sampling distribution. In Section 4.3, we present theoretical guarantees on the sample size selection rules which meet the mean tracking criterion in (4). In Section 4.4, we describe the proposed estimator ρˆt. The proofs of the theorems and all the supporting lemmas will be presented in the Appendices.
+
+4.1 Assumptions
+
+For the purpose of analysis, the following regularity assumption on the log-likelihood function is required to establish the standard Local Asymptotic Normality of the MLE [18].
+Assumption 2 (Regularity conditions).
+
+1. Regularity conditions for MLE:
+
+(a) Compactness: Θ is compact and θt∗ is an interior point of Θ for each t. (b) Smoothness: (y|x, θ) is smooth in the following sense: the ﬁrst, second and third
+derivatives of θ exist at all interior points of Θ.
+
+(c) Strong Convexity: For each t and θ ∈ Θ, IUt (θ) mI with m > 0, and hence IUt (θ) is positive deﬁnite and invertible.
+
+(d) Boundedness: For all θ ∈ Θ, the largest eigenvalue of IUt (θ) is upper bounded by Lb.
+
+2. Concentration at θt∗: For all t, and any xt ∈ St, yt ∈ Y,
+
+∇
+
+(yt|xt, θt∗)
+
+≤ L1
+IUt (θt∗)−1
+
+and
+
+IUt (θt∗)−1/2H(x, θt∗)IUt (θt∗)−1/2 ≤ L2 (6)
+
+4
+
+holds with probability one.
+
+3. Lipschitz continuity: For all t, there exists a neighborhood Bt of θt∗ and a constant L3, such that for all xt ∈ St, H(xt, θ) are L3-Lipschitz in this neighborhood, namely,
+
+IUt (θt∗)−1/2 H(xt, θ) − H(xt, θ ) IUt (θt∗)−1/2 ≤ L3 θ − θ IUt (θt∗)
+
+(7)
+
+holds for θ, θ ∈ Bt.
+
+In addition, we need the following assumption to prove that replacing θt∗ with θˆt−1 in Algorithm 1 does not change the performance of the active learning algorithm in terms of the convergence rate.
+This assumption is satisﬁed by many classes of models, including the generalized linear model [6].
+
+Assumption 3 (Point-wise self-concordance). For all t, there exists a constant L4, such that
+
+−L4 θt − θt∗ 2H(x, θt∗) H(x, θt) − H(x, θt∗) L4 θt − θt∗ 2H(x, θt∗).
+
+(8)
+
+4.2 Optimal Active Learning Sampling Distribution
+
+In this subsection, we provide the intuition and analysis of Step 1 in Algorithm 1. The construction
+of the active sampling distribution Γt is motivated by the following lemma, which characterizes the convergence rate of the ERM solution θˆΓt deﬁned in (5) when ρ and θt∗−1 are known.
+
+Lemma 1. Suppose Assumptions 1 and 2 hold, and let Θt {θt| θt − θt∗−1 ≤ ρ}. For any
+
+sampling Then, for
+
+distribution Γt on St, suppose that sufﬁciently large Kt, such that γt
+
+IΓt O
+
+(θt∗) CIUt
+
+1 C2
+
+(L1L3
+
++
+
+√(θt∗) L2
+
+holds for some constant C
+
+)
+
+log dKt Kt
+
+< 1, the excess
+
+< 1. risk
+
+of θˆΓt can be bounded as
+
+(1
+
+−
+
+γt
+
+)
+
+τt2 Kt
+
+−
+
+L21 C Kt2
+
+≤
+
+E[LUt
+
+(θˆΓt
+
+)
+
+−
+
+LUt
+
+(θt∗)]
+
+≤
+
+(1
+
++
+
+γt)
+
+τt2 Kt
+
++
+
+2Lbρ2 Kt2
+
+(9)
+
+for all t, where τt2
+
+1 2
+
+Tr
+
+IΓ−t1(θt∗)IUt (θt∗)
+
+.
+
+In practice, the parameter space Θt = {θt| θt − θt∗−1 ≤ ρ} is unknown and the ERM solution of (5) cannot be obtained directly due to the computational issue. To solve these problems, we can apply
+optimization algorithm such as SGD to ﬁnd approximate minimizers in the original parameter space Θ with initialization at θˆt−1. Thus, we further build Algorithm 1 and our theoretical results with the SGD algorithm (which incidentally achieves the optimal convergence rate for ERM). We need the
+following assumptions on the optimization algorithm to solve (5):
+
+Assumption 4. Given an optimization algorithm that generates an approximate loss minimizer
+
+θˆt A θˆt−1, {∇θ (yk,t|xk,t, θ)}Kk=t 1 using Kt stochastic gradients {∇θ (yi,t|xi,t, θ)}kK=t 1 with
+
+initialization at θˆt−1, if E
+
+θˆt−1 − θt∗
+
+2 2
+
+≤
+
+∆2t ,
+
+there
+
+exists
+
+a
+
+function
+
+b(τt2,
+
+∆t,
+
+Kt)
+
+such
+
+that
+
+E[LUt (θˆt)] − LUt (θt∗) ≤ b(τt2, ∆t, Kt),
+
+(10)
+
+where b(τt2, ∆t, Kt) monotonically increases with respect to τt2, ∆t and 1/Kt.
+
+The bound b(τt2, ∆t, Kt) depends on the converge rate τt2 and the expectation of the difference between the initialization and the true minimizer ∆t, which correspond to the ﬁrst and the second term in the upper bound of Lemma 1, respectively. As an example for this type of bound, for the
+Streaming Stochastic Variance Reduced Gradient (Streaming SVRG) algorithm in [11], it holds that
+
+b(τt2, ∆t, Kt)
+
+=
+
+C1
+
+τt2 Kt
+
++
+
+C2
+
+∆t Kt
+
+2
+
+(11)
+
+with constant C1 and C2. In addition, the paper [20] contains several examples of the bound b(τt2, ∆t, Kt) with other variations of SGD algorithm.
+Then, the following theorem characterizes the convergence rate of the active sampling distribution used in Algorithm 1 in the order sense.
+
+5
+
+Theorem 1. Suppose Assumptions 1-4 hold, and let βt
+
+L4(ρ
+
++
+
+1 δ
+
+2ε m
+
+)
+
+<
+
+1.
+
+Then,
+
+the
+
+excess
+
+risk
+
+of θˆt in Algorithm 1 is upper-bounded by
+
+E[LUt (θˆt) − LUt (θt∗)] ≤ b(τ´t2, ∆t, Kt),
+
+(12)
+
+with probability 1-δ, where
+
+τ´t2 =
+
+1 + βt 2 Tr IΓ−∗t1(θt∗)IUt (θt∗) ,
+
+1 − βt
+
+2αt
+
+2ε
+
+∆t =
+
++ ρ, m
+
+(13)
+
+δ ∈ (0, 1) and Γt∗ is the optimal sampling distribution minimizing Tr IΓ−∗t1(θt∗)IUt (θt∗) .
+
+Remark 1. A comparison between Theorem 1 and Lemma 1 shows that the convergence rate of
+
+Algorithm 1 that approximates θt∗ with θˆt−1 in Step 1 is the same as the ERM solution with high
+
+probability, as long as the change in the certain cases such as linear regression
+
+minimizers
+
+ρ
+
+is
+
+small
+
+enough,
+
+i.e.,
+
+L4
+
+(ρ
+
++
+
+1 δ
+
+model, the Hessian matrices are independent
+
+2ε/m) < 1. of θt∗. Thus,
+
+In no
+
+approximation is needed in constructing the sampling distribution, and Algorithm 1 is rate optimal.
+
+4.3 Sample Size Selection Rule
+
+In this subsection, we explain and analyze the sample selection rule of Step 2 in Algorithm 1. The idea starts with the bound b(τt2, ∆t, Kt) from Assumption 4. If we can compute τt2 and ∆t, the sample size Kt can be determined by letting b(τt2, ∆t, Kt) ≤ ε to satisfy the mean tracking criterion.
+
+However, θt∗
+
+in τt2
+
+=
+
+1 2
+
+Tr
+
+IΓ−t1(θt∗)IUt (θt∗)
+
+is unknown in practice. Although we can approximate
+
+θt∗ using θˆt−1 as we did in Step 1, this upper bound only holds with high probability as shown in
+
+Theorem 1, which means the mean tracking criterion will be satisﬁed with high probability. To avoid
+
+this issue, we use the fact that Tr IΓ−∗t1(θt∗)IUt (θt∗) ≤ Tr IU−t1(θt∗)IUt (θt∗) = d (recall d is the
+
+dimension of parameters) to form a conservative bound b(d/2, ∆t, Kt) to choose Kt, which works
+
+for the uniform sampling distribution Ut.
+
+To bound the difference between the initialization and the true minimizer ∆t, we have the inequality
+
+E
+
+θˆt−1 − θt∗
+
+2 2
+
+≤
+
+(
+
+2ε/m + ρ)2 following from the triangle inequality, Jensen’s inequality and the
+
+strong convexity in Assumption 2. This inequality implies that ∆t = 2ε/m + ρ.
+
+Therefore, if ρ is known, we can set Kt∗ = min K ≥ 1 b d/2,
+
+2ε m
+
++
+
+ρ, K
+
+≤ε
+
+for t ≥ 2 to
+
+ensure that E[LUt (θˆt) − LUt (θt∗)] ≤ ε. For t = 1, we could always use diameter(Θ) to bound ∆1 and select K1. In general, if ρ is much smaller than diameter(Θ), then we require signiﬁcantly fewer
+
+samples Kt to meet the mean tracking criterion for t ≥ 2.
+
+For the case where the change of the minimizers ρ is unknown, we could replace ρ with an estimate ρˆt−1 to select the sample size. The following theorem characterizes the convergence guarantee using the sample size selection rule of step 2 in Algorithm 1 and the estimator of ρˆt in Section 4.4.
+Theorem 2. If
+
+Kt ≥ Kt∗
+
+min K ≥ 1 b d/2,
+
+2ε m + ρˆt−1, K ≤ ε ,
+
+(14)
+
+then for all t large enough we have lim supt→∞ E[LUt (θˆt)] − LUt (θt∗) ≤ ε almost surely.
+
+4.4 Estimating the Change in Minimizers
+
+In this subsection, we construct an estimate ρˆt of the change in the minimizers ρ using the active learning samples for step 5 in Algorithm 1.
+
+We ﬁrst construct an estimate ρt for the one-step changes θt∗−1 − θt∗ . As a consequence of strong convexity, the following lemma holds.
+
+Lemma 2. Suppose Assumption 2 holds, then
+
+θt∗−1 − θt∗
+
+2≤
+
+1 m
+
+LUt (θt∗−1) − LUt (θt∗) + LUt−1 (θt∗) − LUt−1 (θt∗−1)
+
+.
+
+(15)
+
+6
+
+Motivated by Lemma 2, we can construct the following one-step estimation of ρ2
+
+ρ2t =
+
+1 m
+
+LˆUt (θˆt−1) − LˆUt (θˆt) + LˆUt−1 (θˆt) − LˆUt−1 (θˆt−1)
+
+,
+
+(16)
+
+where we use
+
+LˆUt (θˆt−1)
+
+1 Kt (Yk,t|Xk,t, θˆt−1) Kt k=1 NtΓ¯t(Xk,t)
+
+(17)
+
+as the empirical estimation of LUt (θt∗−1). Note that we are using the samples generated from the active learning distribution, i.e., Xk,t ∼ Γ¯t and Yk,t ∼ p(Y |Xk,t, θt∗). Thus, based on the idea of importance sampling [5], we need to normalize the estimate with the sampling distribution Γ¯t.
+
+Then, we combine the one-step estimates to construct an overall estimate. The simplest way to
+
+combine the one-step estimates would be to set ρ´2t = max{ρ22, · · · , ρ2t }. However, if we suppose that
+
+each estimate ρ is an independent Gaussian random variable, then this estimate goes to inﬁnity as
+
+t → ∞. To avoid this issue, we use a class of functions hW : RW → R that are non-decreasing in
+
+their arguments and satisfy E[hW (ρj, · · · , ρj−W +1)] ≥ ρ. For example, hW (ρj, · · · , ρj−W +1) =
+
+W +1 W
+
+max{ρj ,
+
+·
+
+·
+
+·
+
+,
+
+ρj−W +1}
+
+satisﬁes
+
+the
+
+requirements.
+
+The
+
+combined
+
+estimate
+
+of
+
+ρ´2t
+
+is
+
+computed
+
+by applying the function hW to a sliding window of one-step estimates of ρ2, i.e.,
+
+ρ´2t
+
+=
+
+t
+
+1 −1
+
+t
+
+h{min[W,j−1]}(ρj2, ρj2−1, · · · , ρ2max[j−W +1,2]).
+
+j=2
+
+(18)
+
+The following theorem characterizes the performance of proposed estimator in (18).
+
+Theorem 3. Suppose Assumptions 1 and 2 hold, and there exists a sequence {rt} 4 satisfying
+
+∞
+exp
+t=1
+
+−
+
+2m2(t − 1)rt2 9Lb2Diameter4(Θ)
+
+<∞
+
+for all t large enough, then ρˆt2 ρ´2t + Dt + rt ≥ ρ2 almost surely with a constant Dt.
+
+5 Experiments
+
+In this section, we present two experiments to validate our algorithm and the related theoretical
+results: one is to track a synthetic regression model and the other is to track the time-varying user
+preferences in a recommendation system. More experiments on binary classiﬁcation are presented
+in the Appendices. We use three baseline algorithms for comparison: passive adaptive algorithm,
+active random algorithm and passive random algorithm. Compared with Algorithm 1, Passive means
+drawing new samples using a uniform distribution Ut in Step 3 and Random means replacing the estimate of θˆt−1 with a random point from Θ in Step 1 and 4. All reported results are averaged over 1000 runs of Monte Carlo trials. The sizes of the sample pools for all the test algorithms are the same
+with Nt = 500, and the number of considered time steps is 25. We construct the active sampling distribution with the exact solution of the SDP problem in Step 1. Note that approximation algorithms for SDP introduced in [16] can be applied to accelerate this process. We set Kt = Kt∗ for all the test algorithms and use the estimator deﬁned in Section 4.4 with window size W = 3 to estimate ρ.
+
+5.1 Synthetic Regression
+
+The model of the synthetic regression problem is yt = θtT xt + wt, where the input variable xt ∼
+
+N (0, 0.1I) is a 5-dimensional Gaussian vector and the noise wt ∼ N (0, 0.5). We consider learning
+
+the parameter θt by minimizing the following negative log-likelihood function (yk,t|xk,t, θt) =
+
+(yk,t − θtT xk,t)2. In the simulations, the change of the true minimizers is ρ = 10, and the target excess
+
+risk is ε = 1. To highlight the time-varying nature of the problem, we implement the “all samples up
+
+front” method by using
+
+25 t=1
+
+Kt∗
+
+samples
+
+at
+
+the
+
+ﬁrst
+
+time
+
+step
+
+and
+
+keep
+
+this
+
+time-invariant
+
+regression
+
+model for the rest of considered time steps.
+
+4Note
+
+that
+
+a
+
+choice
+
+of
+
+rt
+
+that
+
+is
+
+greater
+
+than
+
+√ 1/ t
+
+−
+
+1
+
+in
+
+the
+
+order
+
+sense
+
+works
+
+here.
+
+7
+
+Fig. 1(a) shows that using Kt∗ new samples, the passive adaptive algorithm meets the mean tracking criterion and our proposed active and adaptive learning algorithm outperforms all the other algorithms.
+The “all samples up front” algorithm outperforms the other algorithms initially, but it fails to track
+the time-varying underlying model after only a few time steps. Moreover, the excess risk of active
+random algorithm is almost the same as that of active adaptive algorithm, since the Hessian matrices in the regression task are independent of θt. In this case, no approximation is needed and the change rate ρ in the regression task can be arbitrarily large, as we mentioned in Remark 1. Fig 1(b) shows that ρˆt converges to a conservative estimate of ρ, which veriﬁes Theorem 3. Moreover, the corresponding number of samples determined by Theorem 2 is depicted in Fig. 1(c), which shrinks adaptively as ρˆt converges.
+
+(a)
+
+(b)
+
+(c)
+
+(d)
+
+(e)
+
+(f)
+
+Figure 1: Experiments on synthetic regression: (a) Excess risk. (b) Estimated rate of change of minimizers. (c) Number of samples. Experiments on user preference tracking performance using Yelp data: (d) Excess risk. (e) Estimated rate of change of minimizers. (f) Classiﬁcation error.
+
+5.2 Tracking User Preferences in Recommendation System
+
+We utilize a subset of Yelp 2017 dataset 5 to perform our experiments. We censor the original dataset such that each user has at least 10 ratings. After censoring procedure, our dataset contains ratings of M = 473 users for N = 858 businesses. By converting the original 5-scale ratings to a binary label for all businesses with high ratings (4 and 5) as positive (1) and low ratings (3 and below) as negative (−1), we form the N × M binary rating matrix R, which is very sparse and only 2.6% are observed. We complete the sparse matrix R to make recommendations by using the matrix factorization method [12]. The rating matrix R can be modeled by the following logistic regression model
+
+1
+
+p(Ru,b|φb, φu)
+
+=
+
+, 1 + exp−Ru,bφu φb
+
+(19)
+
+where φu and φb are the d-dimensional latent vectors representing the preferences of user u and properties of business b, respectively. Then, we train φu and φb with dimension d = 5 for each user and business in the dataset using maximum likelihood estimation by SGD. With the learned latent vectors, we can complete the matrix R and make recommendations to customers in a collaborative
+ﬁltering fashion [9, 15].
+
+In practice, the preferences of users φu,t may vary with time t, and hence user features need to be retrained. Considering the fact that acquiring new ratings of users can be expensive, we apply our
+
+5https://www.yelp.com/dataset
+
+8
+
+active and adaptive learning algorithm to further reduce the number of new samples while maintaining the mean tracking accuracy. In the following experiment, we use a random subset of {φb} with size Nt as our unlabeled data pool, while the remaining serve as a test set to evaluate the algorithms. To model the bounded time-varying changes of user preferences φu,t, we start from a randomly chosen user feature and update it by adding a random Normal drift with norm bounded by 0.1 at each time step. Since we are unable to retrieve the actual answer from a real user, we generate the labels with the probabilistic model given by (19) with true parameter φu,t instead. Note that one cannot ask a user the same question twice in a real recommendation system, and therefore we implement without replacement sampling by querying the labels of the samples having the largest Kt∗ values in the active sampling distribution Γ¯t. Fig. 1(e) shows that ρˆt converges to a conservative estimate of ρ, and the corresponding sample size converges to Kt∗ = 13 after two time steps. Fig. 1(d) and Fig. 1(f) show that our algorithm achieves a error rate of 6% with these samples and signiﬁcantly outperforms the other algorithms. This is because the Hessian matrices of logistic regression are functions of θt, and hence the sampling distribution generated by the active and adaptive algorithm selects more informative samples.
+6 Conclusions
+In this paper, we propose an active and adaptive learning framework to solve a sequence of learning problems, which ensures a bounded excess risk for each individual learning task when the number of time steps is sufﬁciently large. We construct an estimator of the change in the minimizers ρˆt using active learning samples and show that this estimate upper bounds the true parameter ρ almost surely. We test our algorithm on a synthetic regression problem, and further apply it to a recommendation system that tracks changes in preferences of customers. Our experiments demonstrate that our algorithm achieves better performance compared to the other baseline algorithms.
+9
+
+References
+[1] A. Agarwal, A. Rakhlin, and P. Bartlett. Matrix regularization techniques for online multitask learning. Technical Report UCB/EECS-2008-138, EECS Department, University of California, Berkeley, 2008.
+[2] A. Agarwal, S. Gerber, and H. Daume. Learning multiple tasks using manifold regularization. In Advances in Neural Information Processing Systems 23, pages 46–54, 2010.
+[3] R G Antonini and Yu V Kozachenko. A note on the asymptotic behavior of sequences of generalized subgaussian random vectors. Random Operators and Stochastic Equations, 13(1):39–52, 2005.
+[4] M.-F. Balcan, A. Beygelzimer, and J. Langford. Agnostic active learning. In Proceedings of the 23rd international conference on Machine learning, pages 65–72. ACM, 2006.
+[5] O. Cappé, R. Douc, A. Guillin, J. Marin, and C. P Robert. Adaptive importance sampling in general mixture classes. Statistics and Computing, 18(4):447–459, 2008.
+[6] K. Chaudhuri, S. M Kakade, P. Netrapalli, and S. Sanghavi. Convergence rates of active learning for maximum likelihood estimation. In Advances in Neural Information Processing Systems 28, pages 1090–1098, 2015.
+[7] J. A Cornell. Experiments with mixtures: designs, models, and the analysis of mixture data. John Wiley & Sons, 2011.
+[8] S. Dasgupta. Coarse sample complexity bounds for active learning. In Advances in Neural Information Processing Systems 18, pages 235–242, 2006.
+[9] M. Elahi, F. Ricci, and N. Rubens. A survey of active learning in collaborative ﬁltering recommender systems. Computer Science Review, 20:29–50, 2016.
+[10] T. Evgeniou and M. Pontil. Regularized multi–task learning. In Proceedings of the 10th ACM SIGKDD international conference on Knowledge discovery and data mining, pages 109–117, 2004.
+[11] R. Frostig, R. Ge, S. M Kakade, and A. Sidford. Competing with the empirical risk minimizer in a single pass. In Conference on Learning Theory, pages 728–763, 2015.
+[12] Y. Koren, R. Bell, and C. Volinsky. Matrix factorization techniques for recommender systems. Computer, 42(8), 2009.
+[13] M. Mohri, A. Rostamizadeh, and A. Talwalkar. Foundations of machine learning. MIT press, 2012.
+[14] S. J Pan and Q. Yang. A survey on transfer learning. IEEE Transactions on Knowledge and Data Engineering, 22(10):1345–1359, 2010.
+[15] N. Rubens, M. Elahi, M. Sugiyama, and D. Kaplan. Active learning in recommender systems. In Recommender Systems Handbook, pages 809–846. Springer, 2015.
+[16] J. Sourati, M. Akcakaya, T. K Leen, D. Erdogmus, and J. G Dy. Asymptotic analysis of objectives based on ﬁsher information in active learning. Journal of Machine Learning Research, 18(34):1–41, 2017.
+[17] Zaid J Towﬁc, Jianshu Chen, and Ali H Sayed. On distributed online classiﬁcation in the midst of concept drifts. Neurocomputing, 112:138–152, 2013.
+[18] A. W Van der Vaart. Asymptotic statistics. Cambridge series in statistical and probabilistic mathematics. Cambridge University Press, 2000.
+[19] C. Wilson and V. V Veeravalli. Adaptive sequential optimization with applications to machine learning. In Proceedings of IEEE International Conference on Acoustics, Speech and Signal Processing, pages 2642–2646, 2016.
+[20] C. Wilson, V. V Veeravalli, and A. Nedich. Adaptive sequential stochastic optimization. IEEE Transactions on Automatic Control, 2018.
+[21] Y. Zhang and D. Yeung. A convex formulation for learning task relationships in multi-task learning. arXiv preprint arXiv:1203.3536, 2012.
+10
+
+A Proof of Lemma 1
+
+To prove Lemma 1, we use the following result from [11]. In particular, the following lemma is a
+
+generalization of Theorem 5.1 in [11], and its proof follows from generalizing the derivation of that
+
+theorem and is omitted here.
+
+Lemma 3. Suppose ψ1(θ), · · · , ψK (θ) : Rd → R are random functions drawn i.i.d. from a distribution, where θ ∈ Θ ⊆ Rd. Denote P (θ) = E[ψ(θ)] and let Q(θ) : Rd → R be another
+
+function. Let
+
+K
+
+θˆ = argmin ψk(θ), and θ∗ = argmin P (θ).
+
+θ∈Θ k=1
+
+θ∈Θ
+
+Assume:
+
+1. Regularity conditions:
+
+(a) Compactness: Θ is compact, and θ∗ is an interior point of Θ.
+(b) Smoothness: ψ(θ) is smooth in the following sense: the ﬁrst, second and third derivatives exist at all interior points of Θ with probability one.
+(c) Convexity: ψ(θ) is convex with probability one, and ∇2P (θ∗) is positive deﬁnite. (d) ∇P (θ∗) = 0 and ∇Q(θ∗) = 0.
+
+2. Concentration at θ∗: Suppose
+
+∇ψ(θ∗) ∇2P (θ∗)−1 ≤ L1 and
+
+∇2P (θ∗) −1/2∇2ψ(θ∗) ∇2P (θ∗) −1/2 ≤ L2
+2
+
+hold with probability one.
+
+3. Lipschitz continuity: There exists a neighborhood B of θ∗ and a constant L3, such that ∇2ψ(θ) and ∇2Q(θ) are L3-Lipschitz in this neighborhood, namely, ∇2P (θ∗) −1/2 ∇2ψ(θ) − ∇2ψ(θ ) ∇2P (θ∗) −1/2 ≤ L3 θ − θ ∇2P (θ∗),
+2
+∇2Q(θ∗) −1/2 ∇2Q(θ) − ∇2Q(θ ) ∇2Q(θ∗) −1/2 ≤ L3 θ − θ ∇2P (θ∗),
+2
+holds with probability one, for θ, θ ∈ B,
+
+Choose p ≥ 2 and deﬁne
+
+p log dK
+
+γ c(L1L3 + L2)
+
+, K
+
+where c is an appropriately chosen constant. Let c be another appropriately chosen constant. If K is
+
+large enough so that
+
+p log dK K
+
+≤c
+
+min
+
+√1 ,
+L2
+
+1 L1 L3
+
+,
+
+diameter(B) L1
+
+, then:
+
+τ2 (1 − γ)
+K
+
+−
+
+L12 K p/2
+
+≤
+
+E
+
+Q(θˆ) − Q(θ∗)
+
+≤
+
+(1
+
+τ2 + γ)
+K
+
++
+
+maxθ∈Θ [Q(θ) Kp
+
+− Q(θ∗)] ,
+
+where
+
+τ2
+
+1 2K2 Tr
+
+E ∇ψi(θ∗)∇ψj (θ∗) ∇2P (θ∗) −1∇2Q(θ∗) ∇2P (θ∗) −1 .
+
+i,j
+
+Then, we proceed to prove Lemma 1.
+
+Proof of Lemma 1. We ﬁrst use Lemma 3 to bound the excess risk, which is similar to the idea of Lemma 1 in [6]. We ﬁrst deﬁne
+
+ψk(θt) = (Yk,t|Xk,t, θt),
+
+(20)
+
+where Xk,t ∼ Γt and Yk,t ∼ p(Yk,t|Xk,t, θt∗) for 1 ≤ k ≤ Kt. Then,
+
+P (θt) = E(ψk(θt)) = LΓt (θt), and ∇2P (θt∗) = IΓt (θt∗).
+
+(21)
+
+11
+
+Further, we choose
+
+Q(θt) = LUt (θt), and ∇2Q(θt∗) = IUt (θt∗).
+
+(22)
+
+As shown in Assumption 2, the assumptions of Lemma 3 are satisﬁed. Moreover, according to the condition that IΓt (θ∗) CIUt (θ∗) holds for some constant C < 1 in Lemma 1, we have
+
+IΓt (θt∗)−1/2 H(x, θt) − H(x, θt) IΓt (θt∗)−1/2 2
+
+1 ≤
+C
+
+IUt (θt∗)−1/2 H(x, θt) − H(x, θt) IUt (θt∗)−1/2
+
+2
+
+≤ L3 C
+
+θ−θ
+
+IUt (θt∗)
+
+≤
+
+L3 C 3/2
+
+θ−θ
+
+IΓt (θt∗)
+
+(23)
+
+and
+
+IUt (θt∗)−1/2 H(x, θt) − H(x, θt) IUt (θt∗)−1/2 2
+
+≤ L3 θ − θ
+
+IUt (θt∗)
+
+≤
+
+√L3 C
+
+θ−θ
+
+. IΓt (θt∗)
+
+(24)
+
+√
+
+√
+
+Hence, L3 = max{L3/C3/2, L3/ C} = L3/C3/2. Similarly, we have L1 = L1/ C and L2 =
+
+L2/C. In summary, the Assumptions 2 and 3 in Lemma 3 are satisﬁed with constants
+
+√
+
+(L1, L2, L3) = (L1/ C, L2/C, L3/C3/2).
+
+(25)
+
+Applying Lemma 3 with p = 2 and considering the fact that Ex∼Γt ∇ (Yi,t|Xi,t, θt∗)∇ (Yi,t|Xi,t, θt∗) = IΓt (θt∗),
+
+(1−γt)
+
+τt2 Kt
+
+−
+
+L12 C Kt2
+
+≤E
+
+LUt (θˆΓt )−LUt (θt∗)
+
+≤
+
+(1+γt
+
+)
+
+τt2 Kt
+
++
+
+maxθ∈Θt
+
+[LUt (θ) Kt2
+
+−
+
+LUt (θt∗)]
+
+(26)
+
+holds, where
+
+γt = O (L1L3 +
+
+L2)
+
+log dKt Kt
+
+1 = O C2 (L1L3 +
+
+L2)
+
+log dKt , Kt
+
+(27)
+
+and
+
+τt2
+
+=
+
+1 2
+
+Tr
+
+IΓt (θt∗) −1IUt (θt∗) .
+
+Note that if we assume the parameter set Θt {θt| θt − θt∗−1 ≤ ρ} is known, then the second term in the right hand side of (26) can be further bounded as
+
+maxθ∈Θt [LUt (θ) − LUt (θt∗)] Kt2
+
+≤
+
+maxθ∈Θt Lb θ − θt∗ 2Kt2
+
+2
+
+≤
+
+LbDiameter(Θt)2 2Kt2
+
+≤
+
+2Lbρ2 Kt2
+
+,
+
+(28)
+
+where the inequalities follow from the boundedness condition in Assumption 2. Combining this
+
+result with the inequality in (26) completes the proof of Lemma 1.
+
+B Proof of Theorem 1
+
+Proof of Theorem 1. The proof starts from the bound b(τ 2, ∆t, Kt) of the SGD algorithm in Assumption 4. To compute the convergence rate τ 2, we need to ﬁrst study the approximation of θt∗ using θˆt−1. The difference between θˆt−1 and θt∗ can be bounded as
+
+θˆt−1 − θt∗ 2 ≤ θt∗−1 − θt∗ 2 + θˆt−1 − θt∗−1 2 ≤ ρ + θˆt−1 − θt∗−1 2.
+
+(29)
+
+To bound the second term, we use the strongly convexity assumption in Assumption 2,
+
+θˆt−1 − θt∗−1
+
+2 2
+
+≤
+
+2 m (LUt−1
+
+θˆt−1) − LUt−1 (θt∗−1)
+
+.
+
+(30)
+
+Suppose the excess risk bound E[LUt−1 (θˆt−1) − LUt−1 (θt∗−1)] ≤ ε holds for t − 1. Then, we have
+
+E( θˆt−1 − θt∗−1 2) ≤
+
+E(
+
+θˆt−1 − θt∗−1
+
+2 2
+
+)
+
+≤
+
+2ε/m.
+
+(31)
+
+12
+
+Then,
+
+θˆt−1 − θt∗−1
+
+2
+
+≤
+
+1 δ
+
+2ε m
+
+holds
+
+with
+
+probability
+
+1−δ
+
+by
+
+Markov’s
+
+inequality,
+
+for
+
+∀δ
+
+∈
+
+(0, 1).
+
+Thus,
+
+θˆt−1 − θt∗
+
+1 2 ≤ρ+ δ
+
+2ε m
+
+(32)
+
+holds with probability 1 − δ. By the self-concordance condition in Assumption 3, we have that
+
+(1 − βt)H(xt, θt∗) H(xt, θˆt−1) (1 + βt)H(xt, θt∗), xt ∈ St,
+
+(33)
+
+holds
+
+with
+
+probability
+
+1
+
+−
+
+δ,
+
+where
+
+βt
+
+=
+
+L4(ρ
+
++
+
+1 δ
+
+2ε m
+
+).
+
+Then,
+
+for
+
+distribution
+
+Γt∗,
+
+Γˆ ∗t
+
+and
+
+Ut,
+
+we
+
+have
+
+(1 − βt)IΓ∗t (θt∗) IΓt∗ (θˆt−1) (1 + βt)IΓ∗t (θt∗),
+
+(34)
+
+(1 − βt)IΓˆt∗ (θt∗) IΓˆ∗t (θˆt−1) (1 + βt)IΓˆ∗t (θt∗),
+
+(35)
+
+(1 − βt)IUt (θt∗) IUt (θˆt−1)
+
+Recall that Γ¯t = αtΓˆt∗ + (1 − αt)Ut. Hence, IΓ¯t (θt∗)
+
+1 αt
+
+IΓˆt (θt∗)−1.
+
+Thus,
+
+(1 + βt)IUt (θt∗).
+
+(36)
+
+αtIΓˆt∗ (θt∗) which implies that IΓ¯t (θt∗)−1
+
+τt2
+
+=
+
+1 Tr
+2
+
+IΓ¯−t1(θt∗)IUt (θt∗)
+
+≤
+
+1 Tr
+2αt
+
+IΓˆ−∗t1(θt∗)IUt (θt∗)
+
+.
+
+(37)
+
+From (35) and (36), (37) can be further upper bounded by
+
+Tr IΓˆ−t∗1(θt∗)IUt (θt∗)
+
+≤
+
+1 + βt Tr 1 − βt
+
+IΓˆ−t∗1(θˆt−1)IUt (θˆt−1)
+
+(a)
+≤
+
+1 + βt Tr 1 − βt
+
+IΓ−t∗1(θˆt−1)IUt (θˆt−1)
+
+(b)
+≤
+
+1 + βt 1 − βt
+
+2
+Tr IΓ−t∗1(θt∗)IUt (θt∗) ,
+
+(38)
+
+where (a) is because that Γˆt∗ is the minimizer of Tr IΓ−t1(θˆt−1)IUt (θˆt−1) and (b) follows from the results in (34) and (36).
+
+To bound the difference between the initialization and the true minimizer, we use triangle inequality and Jensen’s inequality to get
+
+E
+
+θˆt−1 − θt∗
+
+2 2
+
+≤
+
+E
+
+θˆt−1 − θt∗−1
+
+2 2
+
++
+
+θt∗ − θt∗−1
+
+≤
+
+E
+
+θˆt−1 − θt∗−1
+
+2 2
+
++
+
+ρ.
+
+(39)
+
+From (31), we have
+
+E
+
+θˆt−1 − θt∗−1
+
+2 2
+
+≤
+
+2ε ,
+m
+
+(40)
+
+which yields
+
+E
+
+θˆt−1 − θt∗
+
+2 2
+
+≤
+
+2ε +ρ
+m
+
+2
+= ∆t2.
+
+(41)
+
+Thus, combining the above result with the bound in (38), we can conclude that the following upper
+
+bound
+
+E[LUt (θˆt) − LUt (θt∗)] ≤ b(τ´t2, ∆t, Kt),
+
+(42)
+
+holds with probability 1-δ, where
+
+τ´t2 =
+
+1 + βt 2 Tr IΓ−∗t1(θt∗)IUt (θt∗) .
+
+1 − βt
+
+2αt
+
+(43)
+
+This completes the proof of Theorem 1.
+
+13
+
+C Proof of Lemma 2
+
+Proof of Lemma 2. The following inequalities hold from the strong convexity assumption and the fact that ∇LUt (θt∗) = ∇LUt−1 (θt∗−1) = 0:
+
+LUt (θt∗−1)
+
+≥
+
+LUt (θt∗)
+
++
+
+1 m
+2
+
+θt∗ − θt∗−1
+
+2 2
+
+LUt−1 (θt∗)
+
+≥
+
+LUt−1 (θt∗−1)
+
++
+
+1 m
+2
+
+θt∗ − θt∗−1
+
+22.
+
+(44) (45)
+
+Then, adding and rearranging these inequalities yields
+
+1 m
+
+LUt (θt∗−1) − LUt (θt∗) + LUt−1 (θt∗) − LUt−1 (θt∗−1)
+
+≥
+
+θt∗ − θt∗−1
+
+2 2
+
+.
+
+(46)
+
+Moreover, we have the following relation
+
+θt∗ − θt∗−1
+
+2 2
+
+1 ≤
+m
+
+LUt (θt∗−1) − LUt (θt∗) + LUt−1 (θt∗) − LUt−1 (θt∗−1)
+
+1 =
+m
+
+EX ∼Ut
+
+D
+
+p(Y |X, θt∗)
+
+p(Y |X, θt∗−1)
+
++ EX∼Ut−1 D p(Y |X, θt∗−1) p(Y |X, θt∗)
+
+,
+
+(47)
+
+where
+
+p(y)
+
+D(p q)
+
+p(y) log dy
+
+(48)
+
+y∈Y
+
+q(y)
+
+is the KL divergence between distribution p and q.
+
+Thus, an upper bound of ρ can be constructed by estimating the symmetric KL divergence between p(y|x, θt∗) and p(y|x, θt∗−1) using the data pool Ut and Ut−1, respectively.
+
+D Proof of Theorem 3
+
+To analyze the performance of the estimator of ρ, we need to introduce a few results for sub-Gaussian random variables including the following key technical lemma from [3]. This lemma controls the concentration of sums of random variables that are sub-Gaussian conditioned on a particular ﬁltration.
+Lemma 4. Suppose we have a collection of random variables {Vi}ni=1 and a ﬁltration {Fi}ni=0 such that for each random variable Vi it holds that
+
+1.
+
+E[exp{s(Vi
+
+−
+
+E[Vi|Fi−1])}|Fi−1]
+
+≤
+
+e1 2
+
+σi2
+
+s2
+
+with σi2 a constant.
+
+2. Vi is Fi-measurable.
+
+Then for every a ∈ Rn it holds that
+
+n
+
+n
+
+t2
+
+P
+
+aiVi > aiE[Vi|Fi−1] + t ≤ exp 2ν
+
+i=1
+
+i=1
+
+with ν =
+
+n i=1
+
+σi2ai2.
+
+The
+
+other
+
+tail
+
+is
+
+similarly
+
+bounded.
+
+If we can upper bound the conditional expectations E[Vi|Fi−1] ≤ ξi by some constants ξi, then we
+
+have
+
+n
+
+n
+
+t2
+
+P
+
+aiVi >
+
+aiξi + t
+
+≤ exp
+
+. 2ν
+
+(49)
+
+i=1
+
+i=1
+
+For our analysis, we generally cannot compute E[Vi|Fi−1] directly, but we can ﬁnd the upper bound ξi. To compute σi2 for use in Lemma 4, we employ the following conditional version of Hoeffding’s Lemma.
+
+14
+
+Lemma 5. (Conditional Hoeffding’s Lemma): If a random variable V and a sigma algebra F satisfy a ≤ V ≤ b and E[V |F ] = 0, then
+
+E[esV |F ] ≤ exp
+
+1 (b − a)2s2 . 8
+
+Proof of Lemma Theorem 3. To simplify our proof, we look at a special case where θt∗ − θt∗−1 = ρ holds. The proof for the case θt∗ − θt∗−1 ≤ ρ is similar, and more details about the window function hW can be found in [20].
+For the case θt∗ − θt∗−1 = ρ, we use the following estimator to combine the one-step estimator ρt
+
+ρ´t2
+
+=
+
+1 t−1
+
+t
+
+ρi2
+
+=
+
+1 m(t − 1)
+
+t
+
+LˆUi (θˆi−1) − LˆUi (θˆi) + LˆUi−1 (θˆi) − LˆUi−1 (θˆi−1) .
+
+(50)
+
+i=2
+
+i=2
+
+We denote
+
+ρt2
+
+1
+
+t
+
+m(t − 1)
+
+LUi (θi∗−1) − LUi (θi∗) + LUi−1 (θi∗) − LUi−1 (θi∗−1) ≥ ρ2.
+
+i=2
+
+(51)
+
+where the inequality follows from Lemma 2. We want to construct ρˆt, such that ρˆ2t ≥ ρt2 ≥ ρ2 almost surely. Then, we have
+
+ρt2
+
+−
+
+ρ´t2
+
+1 =
+m(t −
+
+1)
+
+t
+
+t
+
+LUi (θi∗−1) − LˆUi (θˆi−1) +
+
+LUi−1 (θi∗) − LˆUi−1 (θˆi)
+
+i=2
+
+i=2
+
+(52)
+
+t−1
++ LˆU1 (θˆ1) − LU1 (θ1∗) + 2 LˆUi (θˆi) − LUi (θi∗) + LˆUt (θˆt) − LUt (θt∗) . (53)
+
+i=2
+
+Deﬁne
+
+Ut
+
+1 (t − 1)
+
+t
+
+1 m
+
+LUi (θi∗−1) − LˆUi (θˆi−1)
+
+,
+
+(54)
+
+i=2
+
+Vt
+
+1 (t − 1)
+
+t
+
+1 m
+
+LUi−1 (θi∗) − LˆUi−1 (θˆi)
+
+,
+
+(55)
+
+i=2
+
+Wt
+
+1 m(t − 1)
+
+t−1
+LˆU1 (θˆ1) − LU1 (θ1∗) + 2
+
+LˆUi (θˆi) − LUi (θi∗)
+
++ LˆUt (θˆt) − LUt (θt∗)
+
+.
+
+i=2
+
+(56)
+
+Then it holds that
+
+ρ2t − ρ´t2 = Ut + Vt + Wt.
+
+(57)
+
+Now, we look at bounding E LUi (θi∗−1) − LˆUi (θˆi−1) , E LUi−1 (θi∗) − LˆUi−1 (θˆi) and E LˆUi (θˆi) − LUi (θi∗) in Ut, Vt and Wt, respectively.
+
+Note that, the samples at time step i − 1 are independent with samples at time i, hence,
+
+Thus,
+
+E LˆUi (θˆi−1)
+
+=E
+
+EXk,i∼Γ¯i,Yk,i∼p(Y |Xk,i,θi∗)
+
+1 Ki Ki i=1
+
+(Yk,i|Xk,i, θˆi−1) Ni Γ¯ i (Xk,i )
+
+= E EXi∼Ui,Yi∼p(Y |Xi,θi∗) (Yt|Xt, θˆi−1)
+
+= E LUi (θˆi−1)].
+
+E LUi (θi∗−1) − LˆUi (θˆi−1) = E LUi (θi∗−1) − LUi (θˆi−1) , E LUi−1 (θi∗) − LˆUi−1 (θˆi) = E LUi−1 (θi∗) − LUi−1 (θˆi) .
+
+(58)
+(59) (60)
+
+15
+
+We use Lemma 3 to construct bounds for these two terms. Let
+
+Q(θ) = LUi (θi∗−1) − LUi (θ) 2, and ψk(θ) = (Yk|Xk, θ), 1 ≤ k ≤ Ki−1,
+
+(61)
+
+where Xk ∼ Γ¯i−1 and Yk ∼ p(Y |Xk, θi∗−1). It can be veriﬁed that
+
+Ki−1
+
+θˆi−1 = argmin ψk(θ), θ∗ = argmin P (θ) = argmin E[ψ(θ)] = θi∗−1,
+
+(62)
+
+θ∈Θ k
+
+θ∈Θ
+
+θ∈Θ
+
+and ∇Q(θi∗−1) = 0. All the conditions in Lemma 3 are satisﬁed. We have
+
+∇2P (θ∗) = IΓ¯i−1 (θi∗−1), ∇2Q(θ∗) = 2IUi (θi∗−1).
+
+(63)
+
+Thus,
+
+E LUi (θi∗−1) − LUi (θˆi−1) 2
+
+≤ E LUi (θi∗−1) − LUi (θˆi−1) 2
+
+Tr ≤ (1 + γi−1)
+
+IΓ¯i−1 (θi∗−1)−1IUi (θi∗−1) Ki−1
+
++ maxθ∈Θ
+
+LUi (θ) − LUi (θi∗−1) 2 Ki2−1
+
+Ai.
+
+(64)
+
+Similarly, we have
+
+E[LUi−1 (θi∗) − LUi−1 (θˆi)] 2
+
+Tr ≤ (1 + γi)
+
+IΓ¯i (θi∗)−1IUi−1 (θi∗) Ki
+
++ maxθ∈Θ
+
+LUi−1 (θ) − LUi−1 (θi∗) 2 Ki2
+
+Bi.
+
+(65)
+
+For the term E LUi (θi∗) − LˆUi (θˆi) in Wt, suppose that the samples used to estimate θˆi and the samples used to compute LˆUi are independent. This can be done by splitting the samples at each time step i. Note that this assumption is just required to proceed with the theoretical analysis; we will use
+all the samples to estimate θˆi in practice.
+
+Then, similar argument holds as in (58), and we have
+
+E LˆUi (θˆi) − LUi (θi∗) = E LUi (θˆi) − LUi (θi∗) ≥ 0.
+
+(66)
+
+where the inequality follows from the fact that θt∗ is the minimizer of LUt (θ). Applying the upper bound in Lemma 1, this term can be bounded as
+
+0 ≤ E LUi (θi∗) − LUi (θˆi)
+
+Tr ≤ (1 + γi)
+
+IΓ¯−i1(θi∗)IUi (θi∗) 2Ki
+
++
+
+maxθ∈Θ [LUi (θ) − LUi (θi∗)] Ki2
+
+Ci.
+
+(67)
+
+The resulting bounds on the expectation of Ut, Vt, and Wt denoted U¯t, V¯t, and W¯ t are as follows:
+
+U¯t
+
+=
+
+1 m(t − 1)
+
+t
+
+Ai,
+
+(68)
+
+i=2
+
+V¯t
+
+=
+
+1 m(t − 1)
+
+t
+
+Bi,
+
+(69)
+
+i=2
+
+W¯ t
+
+=
+
+1 m(t − 1) (C1
+
+t−1
++ 2 Ci
+
++ Ct).
+
+(70)
+
+i=2
+
+Now, we ﬁnd the upper bound ξi to upper bound the expectation as we mentioned in (49). Then it holds that
+
+P ρt2 − ρ´2t > U¯t + V¯t + W¯ t + rt
+
+= P Ut + Vt + Wt > U¯t + V¯t + W¯ t + rt
+
+≤P
+
+Ut
+
+>
+
+U¯t
+
++
+
+1 3 rt
+
++P
+
+Vt
+
+>
+
+V¯t
+
++
+
+1 3 rt
+
++P
+
+Wt
+
+>
+
+W¯ t
+
++
+
+1 3 rt
+
+.
+
+(71)
+
+16
+
+To bound these probabilities with (49), we ﬁrst bound the moment generating functions using Lemma
+
+5,
+
+1 m
+
+|Lˆ Ui
+
+(θˆi
+
+)
+
+−
+
+LUi (θi∗)|
+
+≤
+
+Lb 2m
+
+max
+θ∈Θ
+
+θ − θi∗
+
+2 ≤ Lb Diameter(Θ)2, 2m
+
+(72)
+
+and
+
+1 m
+
+|LUi
+
+(θi∗−1)
+
+−
+
+Lˆ Ui
+
+(θˆi−1)|
+
+≤
+
+1 m
+
+|LUi
+
+(θi∗−1)
+
+−
+
+LUi
+
+(θi∗)|
+
++
+
+1 m
+
+|LUi
+
+(θi∗)
+
+−
+
+Lˆ Ui
+
+(θˆi−1)|
+
+≤ Lb Diameter(Θ)2.
+
+(73)
+
+m
+
+Then,
+
+we
+
+apply
+
+Lemma
+
+4
+
+and
+
+Lemma
+
+5
+
+with
+
+σi2
+
+=
+
+L2b 4m2
+
+Diameter4
+
+(Θ)
+
+for
+
+the
+
+terms
+
+in
+
+Ut
+
+and
+
+Vt,
+
+and
+
+apply
+
+σi2
+
+=
+
+L2b 16m2
+
+Diameter4
+
+(Θ)
+
+for
+
+the
+
+terms
+
+in
+
+Wt,
+
+respectively.
+
+We
+
+have
+
+νU
+
+= νV
+
+=
+
+Lb2 4m2
+
+Diameter(Θ)4
+
+t
+
+1 (t − 1)2
+
+=
+
+4(t
+
+Lb2 − 1)m2
+
+Diameter(Θ)4
+
+,
+
+(74)
+
+i=2
+
+νW
+
+≤
+
+Lb2 16m2
+
+Diameter(Θ)4
+
+t
+
+2 t−1
+
+2=
+
+4(t
+
+L2b − 1)m2
+
+Diameter(Θ)4
+
+.
+
+(75)
+
+i=2
+
+Let Dt U¯t + V¯t + W¯ t. Then we obtain
+
+P ρt2 > ρ´t2 + Dt + rt
+
+≤ 3 exp
+
+−
+
+2m2(t − 1)rt2 9L2b Diameter4(Θ)
+
+.
+
+(76)
+
+Then it follows the assumption in Theorem 3 that
+
+∞
+P ρ´t2 + Dt + rt < ρ2t
+t=2
+
+∞
+≤ 3 exp
+t=2
+
+−
+
+2m2(t − 1)rt2 9L2b Diameter4(Θ)
+
+< ∞.
+
+(77)
+
+Therefore, by the Borel-Cantelli Lemma, for all t large enough it holds that
+
+ρˆ2t = ρ´t2 + Dt + rt ≥ ρt2
+
+(78)
+
+almost surely. Finally, it holds that ρt2 ≥ ρ2 from Lemma 2, which proves the result.
+
+E Proof of Theorem 2
+
+To prove Theorem 2, we use the following result from Theorem 3 in [20]. Lemma 6. If ρˆt ≥ ρ almost surely for t sufﬁciently large, then with
+
+Kt ≥ Kt∗ min K ≥ 1 b d/2,
+
+2ε m
+
++ ρˆt−1
+
+2, K
+
+≤ε
+
+(79)
+
+samples, we have lim supt→∞(E[LUt (θˆt)] − LUt (θt∗)) ≤ ε almost surely.
+
+Proof of Theorem 2. From Theorem 3, we know that the proposed estimate ρˆt2 ≥ ρ2 almost surely, which implies ρˆt ≥ ρ almost surely. Directly applying the above lemma completes the proof.
+
+F Estimation of m and Lb
+
+We construct the estimator of m and Lb with the samples drawn from distribution Γ¯t. By the assumption of strongly convexity, we have
+
+LUt (θ) ≥ LUt (θ ) + ∇LUt (θ ), θ − θ
+
+m + θ−θ
+2
+
+2, ∀θ, θ ∈ Θ,
+
+(80)
+
+which implies that
+
+m
+
+≤
+
+LUt (θ) − LUt (θ
+1 2
+
+)− θ−
+
+∇LUt (θ θ2
+
+), θ
+
+−
+
+θ
+
+(81)
+
+17
+
+(a)
+
+(b)
+
+Figure 2: Estimated parameter on the regression task over synthetic data. (a) Estimated strongly convex parameter. (b) Estimated largest eigenvalue.
+
+holds for any θ, θ ∈ Θ. Since m is the smallest value satisfying (81) for any θ, θ ∈ Θ, we consider following estimator
+
+mt
+
+2 Kt min θ,θ ∈Θt Kt k=1
+
+(Yk,t|Xk,t, θ) −
+
+(Yk,t|Xk,t, θ ) − ∇ (Yk,t|Xk,t, θ ), θ − θ NtΓ¯t(Xk,t) θ − θ 2
+
+.
+
+(82)
+
+Following (82), we have
+
+E(mt) = EXk,t∼Γt
+
+min 2 Kt (Yk,t|Xk,t, θ) − (Yk,t|Xk,t, θ ) − ∇ (Yk,t|Xk,t, θ ), θ − θ
+
+θ,θ ∈Θt Kt k=1
+
+NtΓt(Xk,t) θ − θ 2
+
+≤
+
+min
+θ,θ ∈Θt
+
+EXk,t ∼Γt
+
+2 Kt (Yk,t|Xk,t, θ) − (Yk,t|Xk,t, θ ) − ∇ (Yk,t|Xk,t, θ ), θ − θ
+
+Kt k=1
+
+NtΓt(Xk,t) θ − θ 2
+
+=
+
+min
+θ,θ ∈Θt
+
+EXk,t ∼Ut
+
+2 Kt (Yk,t|Xk,t, θ) − (Yk,t|Xk,t, θ ) − ∇ (Yk,t|Xk,t, θ ), θ − θ
+
+Kt k=1
+
+θ−θ 2
+
+=
+
+min
+θ,θ ∈Θt
+
+LUt (θ)
+
+−
+
+LUt (θ
+1 2
+
+)− θ−
+
+∇LUt (θ θ2
+
+), θ
+
+−
+
+θ
+
+= m,
+
+(83)
+
+which implies that mt is a conservative estimate of m. In practice, the strongly convex parameter m may also vary with time t. Thus, we use the following estimator to combine the one-step estimator mt,
+
+mˆ t = min{mt−1, mt},
+
+(84)
+
+for t ≥ 2.
+
+Moreover, following the boundedness assumption in Assumption 2, we have
+
+max
+θ∈Θ
+
+λmax
+
+[IUt (θ)] ≤
+
+Lb,
+
+(85)
+
+where λmax(·) denotes the maximal eigenvalue of a square matrix. In this case, we consider following estimator
+
+Lˆ b,t
+
+max λmax
+θt ∈Θt
+
+1 Kt 1
+
+1
+
+Kt k=1 Nt Γt(Xk,t) H(Xk,t, θt) .
+
+(86)
+
+18
+
+Similarly, Lˆb is also a conservative estimate of Lb. That is,
+
+E(Lˆb,t) = EXk,t∼Γt
+
+max λmax
+θt ∈Θt
+
+≥ max
+θt ∈Θt
+
+EXk,t ∼Γt
+
+λmax
+
+≥ max
+θt ∈Θt
+
+λmax
+
+[IUt (θt)]
+
+= Lb.
+
+1 Kt 1
+
+1
+
+Kt k=1 Nt Γt(Xk,t) H(Xk,t, θt)
+
+1 Kt 1
+
+1
+
+Kt k=1 Nt Γt(Xk,t) H(Xk,t, θt)
+
+(87)
+
+Fig. 2(a) and Fig. 2(b) demonstrate our estimation of mˆ t and Lˆb,t in the synthetic regression problem described in Section 5, respectively.
+
+G Experiments on Synthetic Classiﬁcation
+
+We consider solving a sequence of binary classiﬁcation problems by using logistic regression. At
+time t, the features of two classes are drawn from Gaussian distribution with different means µ1,t and −µ1,t. More speciﬁcally, the features are 2-dimensional Gaussian vectors with µ1,t 2 = 2 and variance 0.25I. The parameter θt is learned by minimizing the following log-likelihood function
+
+(yk,t|xk,t, θt) = log(1 + exp−yk,tθt xk,t ).
+
+(88)
+
+To ensure the change of minimizers is bounded, we set that µ1,t is drifting with a constant rate along a 2-dimensional sphere. We further set ρ = 0.1 and = 0.5.
+
+(a)
+
+(b)
+
+(c)
+
+Figure 3: Experiments on synthetic classiﬁcation: (a) Excess risk. (b) Estimated rate of change of minimizers. (c) Classiﬁcation error.
+
+Fig. 3 shows that active adaptive learning outperforms other baseline algorithms in the synthetic classiﬁcation problem.
+
+19
+

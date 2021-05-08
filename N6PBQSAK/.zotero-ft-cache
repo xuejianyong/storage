@@ -1,0 +1,222 @@
+Communicated by Andrew Barto
+Improving Generalization for Temporal Difference Learning: The Successor Representation
+Peter Dayan ComputationalNeurobiologyLaboratory, The Salk Institute, P.0.Box 85800, Sun Diego, CA 92186-5800 USA
+Estimation of returns over time, the focus of temporal difference (TD) algorithms, imposes particular constraints on good function approximators or representations. Appropriate generalization between states is determined by how similar their successors are, and representations should follow suit. This paper shows how TD machinery can be used to learn such representations, and illustrates, using a navigation task, the appropriately distributed nature of the result.
+1 Introduction
+The method of temporal differences (TD, Samuel 1959; Sutton 1984,1988) is a way of estimating future outcomes in problems whose temporal structure is paramount. A paradigmatic example is predicting the long-term discounted value of executing a particular policy in a finite Markovian decision task. The information gathered by TD can be used to improve policies in a form of asynchronous dynamic programming (DP; Watkins 1989; Barto et al. 1989; Barto et al. 1991).
+As briefly reviewed in the next section, TD methods apply to a learning framework, which specifies the goal for learning and precisely how the system fails to attain this goal in particular circumstances. Just like a proposal to minimize mean square error, TD methods lie at the heart of different mechanisms operating over diverse representations. Representation is key-difficult problems can be rendered trivial if looked at in the correct way. It is particularly important for systems to be able to learn appropriate representations, since it is rarely obvious from the outset exactly what they should be. For static tasks, generalization is typically sought by awarding similar representations to states that are nearby in some space. This concept extends to tasks involving prediction over time, except that adjacency is defined in terms of similarity of the future course of the behavior of a dynamic system.
+Section 3 suggests a way, based on this notion of adjacency, of learning representations that should be particularly appropriate for problems to which TD techniques have been applied. Learning these representations can be viewed as a task itself amenable to TD methods, and so requires
+Neural Computation 5, 613-624 (1993) @ 1993 Massachusetts Institute of Technology
+
+614
+
+Peter Dayan
+
+no extra machinery. Section 4 shows the nature of the resulting representation for a simple navigation task. Part of this work was reported in Dayan (1991a,b).
+
+2 TD Learning
+Consider the problem of estimating expected terminal rewards, or returns, in a finite absorbing Markov chain; this was studied in the context of TD methods by Sutton (1988). An agent makes a transition between
+nonabsorbing states i and j E N according to the ijth element of the
+Markov matrix Q, or to absorbing state k E 7 with probability Sik, with a
+stochastic reinforcement or return whose mean is t k and whose variance is finite. In this and the next section, the returns and transition probabilities are assumed to be fixed. The immediate expected return from state
+i E N, represented as the ith element of a vector h, is the sum of the
+probabilities of making immediate transitions to absorbing states times the expected returns from those states:
+
+The overall expected returns, taking account of the possibility of making transitions to nonabsorbing states first, are
++ + + [f]i = [h]; [Qh]; [Q2hIi ...
+
+= [(I - Q)-'h];
+
+(2.1)
+
+where 1 is the identity matrix. The agent estimates the overall expected return from each state (com-
+piled into a vector r) with a vector-valued function i(w),which depends on a set of parameters w whose values are determined during the course of learning. If the agent makes the transition from state if to iltl in one observed sequence, TD(0) specifies that w should be changed to reduce the error:
+
+f r t i = [i(w)li,+-l ['(w)li,
+
+(2.2)
+
+where, for convenience, [i(w)] is taken to be the delivered return ~ i , + ~ if if+l is absorbing. This enforces a kind of consistency in the estimates of the overall returns from successive states, which is the whole basis of TD learning. More generally, information about the estimates from later states [i(w)]+%,; for s > 1 can also be used, and Sutton (1988)defined
+the TD(A) algorithm, which weighs their contributions exponentially less according to As.
+With the TD algorithm specifying how the estimates should be manipulated in the light of experience, the remaining task is one of function approximation. How w should change to minimize the error fI+l
+
+Improving Generalization for Temporal Difference Learning
+
+61 5
+
+in equation 2.2 depends on exactly how w determines [i(w)],,.Sutton
+- (1988)represented the nonabsorbing states with real-valued vectors {xi},
+[r(w)lias the dot product w xi of the state vector with w taken as a vector of weights, and changed w in proportion to
+-(w . xi,+, - w . Xi,)Xi,
+using z;,+~instead of w . xi,+l if it+l is absorbing. This is that part of
+the gradient -Vwct+l that comes from the error at step xi,, ignoring the contribution from xi,+l (Werbos 1990; Dayan 1992).
+In the "batch-learning" case for which the weights are updated only after absorption, Sutton showed that if the learning rate is sufficiently small and the vectors representing the states are linearly independent, then the expected values of the estimates converge appropriately. Dayan
+(1992) extended this proof to show the same was true of TD(X) for 0 <
+x < 1.
+
+3 Time-Based Representations
+
+One of the key problems with TD estimation, and equivalently with TD based control (Bartoet al. 19891,is the speed of learning. Choosing a good method of function approximation, which amounts in the linear case to choosing good representations for the states, should make a substantial difference. For prediction problems such as the one above, the estimated expected overall return of one state is a biased sum of the estimated expected overall returns of its potential successors. This implies that for approximation schemes that are linear in the weights w, a good representation for a state would be one that resembles the representations of its successors, being only a small Euclidean distance away from them (with the degrees of resemblance being determined by the biases). In this way, the estimated value of each state can be partially based on the estimated values of those that succeed it, in a way made more formal below.
+For conventional, static, problems, received wisdom holds that distributed representations perform best, so long as the nature of the distribution somehow conforms with the task-nearby points have nearby solutions. The argument above suggests that the same is true for dynamic tasks, except that neighborliness is defined in terms of temporal succession. If the transition matrix of the chain is initially unknown, this representation will have to be learned directly through experience.
+Starting at state i E N, imagine trying to predict the expected future occupancy of all other states. For the jth state, j E N, this should be
+
++ + + [Xilj = [llij [Qlij [Q'lij
+
+. '
+
+= [(I - Q)-']ij.
+
+(3.1)
+
+where [MI;,is the ijth element of matrix M and 1 is the identity matrix. Representing state i using Xi is called the successor representation (SR).
+
+616
+
+Peter Dayan
+
+A TD algorithm itself is one way of learning SR. Consider a punctate representation that devotes one dimension to each state and has the Ith
+element of the vector representing state k, [x& equal to [Ilk/. Starting from i, = i, the prediction of how often [xi,], = 1 for s 2 t is exactly the prediction of how often the agent will visit state j in the future starting
+from state i, and should correctly be [x,lj. To learn this, the future values of [xi,], for s 2 t can be used in just the same way that the future delivery of reinforcement or return is used in standard TD learning.
+For a linear function approximator, it turns out that SR makes easy the resulting problem of setting the optimal weights w*, which are defined
+as those making i = r(w*). If X is the matrix of vectors representing the
+states in the SR, [Xli, = [x,Ii, then W*is determined as
+XTw* = f
+which implies, from equations 2.1 and 3.1, that
+W*= h
+But h is just the expected immediate return from each state-it is insensitive to all the temporal dependencies that result from transitions to nonabsorbing states.
+The SR therefore effectively factors out the entire temporal component of the task, leaving a straightforward estimation problem for which TD methods would not be required. This can be seen in the way that the transition matrix Q disappears from the update equation, just as would happen for a nontemporal task without a transition matrix at all. For instance, for the case of an absorbing Markov chain with batch-learning updates, Sutton showed that the TD(0) update equation for the mean value of the weights W,l satisfies
++ + Wn+l = W,l nXD(h QX'W, - XTW,,)
+where X is the representation, a is the learning rate, and, since the updates are made after observing a whole sequence of transitions from start to absorption rather than just a single one, D is the diagonal matrix whose diagonal elements are the average number of times each state is visited on each sequence. Alternatively, directly from the estimates of the values of the states,
+(XTW,I+l- i) = [I- aXTXD(Z- Q)](XTW,- i)
+Using X instead, the update becomes
++ W,l+l = W, aXD(h - WIl)
+or
+(Wtf+l - h) = (I - aXD)(W, - h)
+
+Improving Generalizationfor Temporal Difference Learning
+
+617
+
+Since X is invertible, Sutton’s proof that XTW, + r, and therefore that W,,+ h as n .+ 00, still holds. I conjecture that the variance of these estimates will be lower than those for other representations X (e.g., X = 0
+because of the exclusion of the temporal component. For control problems it is often convenient to weigh future returns
+exponentially less according to how late they arrive-this effectively employs a discount factor. In this case the occupancy of future states in equation 3.1 should be weighed exponentially less by exactly the same amount.
+A possible objection to using TD learning for SR is that it turns the original temporal learning problem-that of predicting future reinforcement-into a whole set of temporal learning problems-those of predicting the future occupancy of all the states. This objection is weakened in two cases:
+0 The learned predictions can be used merely to augment a standard representation such as the punctate one. An approximately appropriate representation can be advantageous even before all the predictions are quite accurate. Unfortunately this case is hard to analyze because of the interaction between the learning of the predictions and the learning of the returns. Such a system is used in the navigation example below.
+0 The agent could be allowed to learn the predictions by exploring its environment before it is first rewarded or punished. This can be viewed as a form of latent learning and works because the representation does not depend on the returns.
+One could regard these predictions as analogous to the hidden representations in Anderson’s (1986)multilayer backpropagation TD network in that they are fashioned to be appropriate for learning TD predictions but are not directly observable and so have to be learned. Whereas Anderson‘s scheme uses a completely general technique that makes no explicit reference to states’successors,SR is based precisely on what should comprise a good representation for temporal tasks.
+
+4 Navigation Illustration
+Learning the shortest paths to a goal in a maze such as the one in Figure 1 was chosen by Watkins (1989) and Barto et al. (1989)as a good example of how TD control works. For a given policy, that is, mapping from positions in the grid to directions of motion, a TD algorithm is used to estimate the distance of each state from the goal. The agent is provided with a return of -1 for every step that does not take it to the goal and future returns, that is, future steps, are weighed exponentially less using a discount factor. The policy is improved in an asynchronous form of
+
+618
+
+Peter Dayan
+
+Agent Goal
+
+Barrier ’
+Figure 1: The grid task. The agent can move one step in any of the four directions except where limited by the barrier or by the walls.
+dynamic programming’s policy iteration by making more likely those actions whose consequences are better than expected.
+Issues of representation are made particularly clear in such a simple example. For the punctate case, there can be no generalization between states. Distributed representations can perform better, but there are different methods with different qualities. Watkins (1989), for a similar task, used a representation inspired by Albus’ CMAC (1975). In this case, CMAC squares which cover patches of 3 x 3 grid points are placed regularly over the grid such that each interior grid point is included in 9 squares. The output of the units corresponding to the squares is 0 if the agent is outside their receptive fields, and otherwise, like a radial basis function, is modulated by the distance of the agent from the tenter of the relevant square. Over most of the maze this is an excellent representation-locations that are close in the Manhattan metric on the grid are generally similar distances from the goal, and are also covered by many of the same CMAC squares. Near the barrier, however, the distribution of the CMACs actually hinders learning-locations close in the grid but on opposite sides of the barrier are very different distances from the goal, and yet still share a similar CMAC square representation.
+By contrast, the successor representation, which was developed in the previous section, produces a CMAC-like representation that adapts correctly to the barrier. If the agent explores the maze with a completely random policy before being forced to find the goal, the learned SR would closely resemble the example shown in Figure 2. Rather like a CMAC square, the representation decays exponentially away from the starting state (5,6)in a spatially ordered fashion-however, note SRs recognition
+
+Improving Generalization for Temporal Difference Learning
+
+619
+
+Figure 2: The predictions of future occupancy starting from (5,6)after exploration in the absence of the goal. The z-coordinate shows the (normalized) predictions, and the barrier and the goal are overlaid. The predictions decay away exponentiallyfrom the starting location, except across the bamer.
+that states on the distant side of the bamer are actually very far away in terms of the task (and so the predictions are too small to be visible). Simulations confirm that using the SR in conjunction with a punctate representation leads to faster learning for this simple task (see Fig. 31, even if the agent does not have the chance to explore the maze before being forced to find the goal.
+This example actually violates the stationarity assumption made in Section 2 that transition probabilities and returns are fixed. As the agent improves its policy, the mean number of steps it takes to go from one state to another changes, and so the SR should change too. Once the agent moves consistently along the optimal path to the goal, locations that are not on it are never visited, and so the prediction of future occupancy of those should be 0. Figure 4 shows the difference between the final and initial sets of predictions of future occupancy starting from the same location ( 5 , 6 )as before. The exponential decay along the path is caused by the discount factor, and the path taken by the agent is clear. If the task for the agent were changed such that it had to move from anywhere
+
+620
+
+Peter Dayan
+
+-
+b 8 b.
+'\'\
+- \'*,' 'I' 8
+b8
+
+. - - Rpunctate
+
+-- 0
+
+&MAC
+
+- - - RSR, no latent learning
+
+- RsR, latent learning
+
+10
+
+100
+
+loo0
+
+Learning iterations
+
+Figure3 Learningcurvescomparingpunctate representation(Rpunctate),CMACsquares (&MAC) and a punctate representation augmented with the SR (RsR), in the latter case both with and without an initial, unrewarded, latent learning phase. TD control learning as in Barto et al. (1989) is temporarily switched off after the number of trials shown in the x-axis, and the y-axis shows the average number of excess steps the agent makes on the way to the goal starting from every location in the grid. Parameters are in Dayan (1991b).
+on the grid to a different goal location, this new form of the SR would actually hinder the course of learning, since its distributed character no longer correctly reflects the actual nature of the space. This demise is a function of the linked estimation and control, and would not be true for pure estimation tasks.
+5 Discussion
+This paper has considered some characteristics of how representation determines the performance of TD learning in simple Markovian environments. It suggests that what amounts to a local kernel for the Markov
+
+Improving Generalization for Temporal Difference Learning
+
+621
+
+Figure 4: The degradation of the predictions. Both graphs show the differences between the predictions after 2000 steps and those initially-the top graph as a surface, with the barrier and the goal overlaid, and the bottom graph as a density plot. That the final predictions just give the path to the goal is particularly clear from the white (positive) area of the density plot-the black (negative) area delineates those positions on the grid that are close to the start point (5,6), and therefore featured in the initial predictions, but are not part of this ultimate path.
+
+622
+
+Peter Dayan
+
+chain is an appropriate distributed representation, because it captures all the necessary temporal dependencies. This representation can be constructed during a period of latent learning and is shown to be superior in a simple navigation task, even over others that also share information between similar locations.
+Designing appropriate representations is a key issue for many of the sophisticated learning control systems that have recently been proposed. However, as Barto et al. (1991) pointed out, a major concern is that the proofs of convergence of TD learning have not been very extensively generalized to different approximation methods.
+Both Moore (1990) and Chapman and Kaelbling (1991) sought to exorcise the daemon of dimensionality by using better function approximation schemes, which is an equivalent step to using a simple linear scheme with more sophisticated input representations. Moore used kd trees (see Omohundro 1987, for an excellent review), which have the added advantage of preserving the integrity of the actual values they are required to store, and so preserve the proofs of the convergence of Q-learning (Barto et al. 1991; Watkins and Dayan 1992). However just like the CMAC representation described above, the quality of the resulting representation depends on an a priori metric, and so is not malleable to the task.
+Chapman and Kaelbling also used a tree-like representation for Q-
+learning, but their trees were based on logical formulas satisfied by their binary-valued input variables. If these variables do not have the appropriate characteristics, the resulting representation can turn out to be unhelpful. It would probably not afford great advantage in the present case.
+Sutton (1990),Thrun etal. (19911, and others have suggested the utility of learning the complete transition matrix of the Markov chain, or, for the case of control, the mapping from states and actions to next states. Sutton used this information to allow the agent to learn while it is disconnected from the world. Thrun, Moller and Linden used it implicitly to calculate the cost of and then improve a projected sequence of actions. The SR is less powerful in the sense that it provides only an appropriately distributed representation and not a veridical map of the world. A real map has the added advantage that its information is independent of the goals and policies of the agent; however, it is more difficult to learn. Sutton’s scheme could equally well be used to improve a system based on the learned representation.
+Sutton and Pinette (1985)discussed a method for control in Markovian domains that is closely related to the SR and that uses the complete transition matrix implicitly defined by a policy. In the notation of this paper, they considered a recurrent network effectively implementing the iterative scheme
+
+where xi is the punctate representation of the current state i and Q is the
+
+Improving Generalization for Temporal Difference Learning
+
+623
+
+transition matrix. x, converges to Xi from equation 3.1, the SR of state i. Rather than use this for representational purposes, however, Sutton and Pinette augmented Q so that the sum of future returns is directly predicted through this iterative process. This can be seen as an alternative method of eliminating the temporal component of the task, although the use of the recurrence implies that the final predictions are very sensitive to errors in the estimate of Q.
+The augmented Q matrix is learned using the discrepancies between the predictions at adjacent time steps-however, the iterative scheme complicates the analysis of the convergence of this learning algorithm. A particular advantage of their method is that a small change in the model (e.g., a slight extension to the barrier) can instantaneously lead to dramatic changes in the predictions. Correcting the SR would require relearning all the affected predictions explicitly.
+Issues of representation and function approximation are just as key for sophisticated as unsophisticated navigation schemes. Having a representation that can learn to conform to the structure of a task has been shown to offer advantages-but any loss of the guarantee of convergence of the approximation and dynamic programming methods is, of course, a significant concern.
+
+Acknowledgments
+I am very grateful to Read Montague, Steve Nowlan, Rich Sutton, Terry Sejnowski, Chris Watkins, David Willshaw, the connectionist groups at Edinburgh and Amherst, and the large number of people who read drafts of my thesis for their help and comments. I am especially grateful to Andy Barto for his extensive and detailed criticism and for pointers to relevant literature. Support was from the SERC.
+
+References
+Albus, J. S. 1975. A new approachto manipulatorcontrol: The CerebellarModel Articulation Controller (CMAC). Transact. ASME: J. Dynam. Syst. Measure. Control 97, 220-227.
+Anderson, C. W. 1986. Learning and problem solving with multilayer connectionist systems. Ph.D. Thesis, University of Massachusetts,Amherst, MA.
+Barto, A. G., Sutton, R. S., and Watkins, C. J. C. H. 1989. Learning and sequential decision making. Tech. Rep. 89-95, Computer and Information Science, University of Massachusetts, Amherst, MA.
+Barto, A. G., Bradtke, S. J., and Singh, S. P. 1991. Real-time learning and control using asynchronous dynamic programming. TR 91-57, Department of Computer Science, University of Amherst, MA.
+
+624
+
+Peter Dayan
+
+Chapman, D., and Kaelbling, L. P. 1991. Input generalization in delayed reinforcement learning: An algorithm and performance comparisons. Proceedings of the 1991 International Joint Conference on Artificial Intelligence, 726-731.
+Dayan, P. 1991a. Navigating through temporal difference. In Advances in Neural Information Processing, Vol. 3, R. P. Lippmann, J. E. Moody, and D. S. Touretzky, eds., pp. 464-470. Morgan Kaufmann, San Mateo, CA.
+Dayan, P. 1991b. Reinforcing connectionism: Learning the statistical way. Ph.D. Thesis, University of Edinburgh, Scotland.
+Dayan, P. 1992. The convergence of TD(A) for general A. Machine Learn. 8, 341-362.
+Moore, A. W. 1990. EfFcient memory-based learning for robot control. Ph.D. Thesis, University of Cambridge Computer Laboratory, Cambridge, England.
+Omohundro, S. 1987. Efficient algorithms with neural network behaviour. Complex Syst. 1, 273-347.
+Samuel, A. L. 1959. Some studies in machine learning using the game of checkers. Reprinted in Computers and Thought, E. A. Feigenbaum and J. Feldman, eds. McGraw-Hill, New York, 1963.
+Sutton, R. S. 1984. Temporal credit assignment in reinforcement learning. Ph.D. Thesis, University of Massachusetts, Amherst, MA.
+Sutton, R. S. 1988. Learning to predict by the methods of temporal difference. Machine Learn. 3, 9 4 .
+Sutton, R. S. 1990. Integrated architectures for learning, planning, and reacting based on approximating dynamic programming. In Proceedings of the Seventh lnternational Conference on Machine Learning. Morgan Kaufmann, San Mateo, CA.
+Sutton, R. S., and Pinette, 8. 1985. The learning of world models by connectionist networks. In Proceedings of the Seventh Annual Conference of the Cognitive Science Society, pp. 54-64. Lawrence Erlbaum, Irvine, CA.
+Thrun, S. B., Moller, K., and Linden, A. 1991. Active exploration in dynamic environments. In Advances in Neural lnformation Processing, Vol. 3, R. P.Lippmann, J. E. Moody, and D. S. Touretzky, eds., pp. 450-456. Morgan Kaufmann, San Mateo, CA.
+Watkins, C. J. C. H. 1989. Learningfrom delayed rewards. Ph.D. Thesis, University of Cambridge, England.
+Watkins, C. J. C. H., and Dayan, P. 1992. &-learning. Machine Learn. 8,279-292. Werbos, P. J. 1990. Consistency of HDP applied to a simple reinforcement learn-
+ing problem. Neural Networks 3, 179-189.
+
+Received 20 January 1992; accepted 20 October 1992.
+
