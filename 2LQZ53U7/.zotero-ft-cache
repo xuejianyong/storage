@@ -1,0 +1,2419 @@
+Meta-Learning as a Markov Decision Process
+Lisheng Sun-Hosoya
+To cite this version:
+Lisheng Sun-Hosoya. Meta-Learning as a Markov Decision Process. Machine Learning [cs.LG]. Université Paris Saclay (COmUE), 2019. English. ￿NNT : 2019SACLS588￿. ￿tel-02422144v2￿
+
+HAL Id: tel-02422144 https://hal.archives-ouvertes.fr/tel-02422144v2
+Submitted on 21 Jan 2020
+
+HAL is a multi-disciplinary open access archive for the deposit and dissemination of scientific research documents, whether they are published or not. The documents may come from teaching and research institutions in France or abroad, or from public or private research centers.
+
+L’archive ouverte pluridisciplinaire HAL, est destinée au dépôt et à la diffusion de documents scientifiques de niveau recherche, publiés ou non, émanant des établissements d’enseignement et de recherche français ou étrangers, des laboratoires publics ou privés.
+
+NNT : 2019SACLS588
+
+Meta-Learning as a Markov Decision Process
+I would like to dedicate this thesis to myThloèvseindgepdaorecntotsrat de l’Université Paris-Saclay préparée à l’Université Paris-Sud
+Ecole doctorale n◦580 Sciences et Technologies de l’Information et de la Communication (STIC)
+Spécialité de doctorat: Mathématiques et Informatique Thèse présentée et soutenue à Orsay, le 19 Décembre 2019, par
+LISHENG SUN-HOSOYA
+Composition du Jury :
+
+Thèse de doctorat
+
+M. Nicolas Thiéry Professeur, Laboratoire de Recherche en Informatique, Université Paris-Sud, France
+
+Président
+
+Mme Cécile Capponi Maîtresse de Conférences HDR, Université d’Aix-Marseille, France
+
+Rapporteur
+
+M. Daniel Silver Professeur, Acadia University, Canada
+
+Rapporteur
+
+M. Hugo Jair Escalante Professeur, Instituto Nacional de Astrofísica, Óptica y Electrónica, Mexique
+
+Examinateur
+
+M. Joaquin Vanschoren Professeur, Eindhoven University of Technology, Pays-Bas
+
+Examinateur
+
+Mme Isabelle Guyon Professeure, UPSud/INRIA Université Paris-Saclay, France
+
+Directrice de thèse
+
+Mme Michèle Sebag Dir. Recherche, CNRS Université Paris-Saclay, France
+
+Co-encadrante de thèse
+
+Declaration
+I hereby declare that except where specific reference is made to the work of others, the contents of this dissertation are original and have not been submitted in whole or in part for consideration for any other degree or qualification in this, or any other university. This dissertation is my own work and contains nothing which is the outcome of work done in collaboration with others, except as specified in the text and Acknowledgements. This dissertation contains fewer than 65,000 words including appendices, bibliography, footnotes, tables and equations and has fewer than 150 figures.
+Lisheng Sun-Hosoya January 2020
+
+Acknowledgements
+This work was performed at the Laroratoire de Recherche en Informatique at Université Paris Sud (Paris-Saclay), under the direction of Isabelle Guyon, and Michèle Sebag and with the kind advice of Amy Zhang (McGill University and Facebook AI Research). Many people helped me throughout my thesis work. I am particularly grateful to Nathan Grinsztajn who worked very hard as a master student intern under my direction.
+Special thanks: The work presented in Chapter 6 was realized in collaboration with Nathan Grinsztajn from Ecole polytechnique, Lozere, France; and Amy Zhang from Facebook AI Research, Montreal, Canada.
+
+vi
+Summary
+Machine Learning (ML) has enjoyed huge successes in recent years and an evergrowing number of real-world applications rely on it. However, designing promising algorithms for a specific problem still requires huge human effort. Automated Machine Learning (AutoML) aims at taking the human out of the loop and develop machines that generate / recommend good algorithms for a given ML task. AutoML is usually treated as a algorithm / hyper-parameter selection problem, existing approaches include Bayesian optimization (e.g. [52, 109, 35, 106]), evolutionary algorithms (e.g. [91]) as well as reinforcement learning (e.g. [123, 5]). Among them, auto-sklearn [35] which incorporates meta-learning techniques in their search initialization[19], ranks consistently well in AutoML challenges [43, 102, 57]. This observation oriented my research to the Meta-Learning domain, leading to my recent paper [101] where active learning and collaborative filtering [99] are used to assign as quickly as possible a good algorithm to a new dataset, based on a meta-learning performance matrix S, i.e. a matrix of scores of algorithms on given datasets or tasks. This direction led me to develop a novel framework based on Markov Decision Processes (MDP) and reinforcement learning (RL).
+After a general introduction (Chapter 1), my thesis work starts with an in-depth analysis of the results of the AutoML challenge (Chapter 2), for which I present systematic experiments, published as a book chapter [57]. The methods that particularly drew my attention in this analysis include wrapper methods from the Bayesian Optimization family, built around the toolkit scikit-learn [86], such as auto-sklearn and Freeze-Thaw [106, 73]. Such principled hyper-parameter selection methods were interesting to compare with (1) heuristic search (e.g. [107]) and (2) methods that avoided model/hyper-parameter selection altogether or reduced its need to the greatest possible extent, such as Selective Naive Bayes (SNB [18] and gradient boosting [112]. This analysis oriented my work towards meta-learning, leading me first to propose a formulation of AutoML as a recommendation problem, following the seminal work of [6, 7, 75], and ultimately to formulate a novel conceptualisation of the problem as a MDP (Chapter 3).
+In the MDP setting, the problem is brought back to filling up, as quickly and efficiently as possible, a meta-learning matrix S, in which lines correspond to ML
+
+vii
+tasks and columns to ML algorithms. A matrix element S(i, j) is the performance of algorithm j applied to task i. Searching efficiently for the best values in S allows us to identify quickly algorithms best suited to given tasks. In the proposed MDP/RL setting, the goal of AutoML is to develop an “agent” to search for the best algorithm for each task by placing sequential “queries” i.e. training and testing an algorithm on a given task to gain the knowledge of a new element S(i, j). The system’s state consists of the values of S(i, j) that have been revealed through this query process, each action consisting in placing a new query. In terms of reward, each query costs the agent in computational time, but this negative reward is compensated by a positive reward for eventually discovering a better performing algorithm.
+In Chapter 4 the classical hyper-parameter optimization framework (HyperOpt[13]) is first reviewed, and in particular the so-called CASH problem (Combined Algorithm Selection and Hyperparameter optimization) [110]. No meta-learning is involved at this stage; this corresponds to filling one line of matrix S, independently of others. In Chapter 5 a first meta-learning approach is introduced along the lines of our paper ActivMetaL [101] that combines active learning and collaborative filtering techniques to predict the missing values in S. This allows us finding quicker than with other baseline methods the best algorithm in each line of S [75, 101]. In this case, we are using some lines of the matrix (performances of algorithms on known datasets) as “training data” to help fill out new lines (predict performances on new datasets), but the policy implemented by our “agent” is, in some sense, “hard-coded”. Our latest research applies RL to the MDP problem we defined to learn an efficient policy to explore S. We call this approach REVEAL and propose an analogy with a series of toy games to help visualize agents’ strategies to reveal information progressively, e.g. masked areas of images to be classified [122], or ship positions in a battleship game. This line of research is developed in Chapter 6.
+The main results of my PhD project are:
+• HP / model selection: I have explored the Freeze-Thaw method and optimized the algorithm to enter the first AutoML challenge, achieving 3rd place in the final round (Chapter 3 in [57]).
+• ActivMetaL: I have designed a new algorithm for active meta-learning (ActivMetaL) and compared it with other baseline methods on real-world and artifical data. This study demonstrated that ActiveMetaL is generally able to discover the best algorithm faster than baseline methods.
+• REVEAL: I developed a new conceptualization of meta-learning as a Markov Decision Process and put it into the more general framework of REVEAL games.
+
+viii With a master student intern, I developed agents that learn (with reinforcement learning) to predict the next best algorithm to be tried. To develop this agent, we used surrogate toy tasks of REVEAL games. We then applied our methods to AutoML problems.
+The work presented in my thesis is empirical in nature. Several real world metadatasets were used in this research, each of which corresponds to one score matrix S, including the AutoML challenge result matrix, which I compiled by applying all methods of the challenge top ranking participants and other baseline methods to all datasets of various challenge rounds, OpenML datasets, Statlog Dataset in UCI database, and Cause-Effect pairs challenge datasets. Artificial and semi-artificial meta-datasets are also used in my work: one was constructed from a matrix factorization in order to guarantee a certain spectrum of singular values for S; another was constructed by applying systematically various regression algorithms to simple univariate regression problems from the cause-effect pair challenge dataset 1. The results indicate that RL is a viable approach to this problem, although much work remains to be done to optimize algorithms to make them scale to larger meta-learning problems.
+1See book in preparation https://sites.google.com/a/chalearn.org/causality/ experimental-design.
+
+Résumé en français
+L’apprentissage automatique (ML) a connu d’énormes succès ces dernières années et repose sur un nombre toujours croissant d’applications réelles. Cependant, la conception d’algorithmes prometteurs pour un problème spécifique nécessite toujours un effort humain considérable. L’apprentissage automatisé (AutoML) a pour objectif de sortir l’homme de la boucle. AutoML est généralement traité comme un problème de sélection d’algorithme / hyper-paramètre. Les approches existantes incluent l’optimisation Bayésienne, les algorithmes évolutionnistes et l’apprentissage par renforcement. Parmi eux, auto-sklearn, qui intègre des techniques de meta-learning à l’initialisation de la recherche, occupe toujours une place de choix dans les challenges AutoML. Cette observation a orienté mes recherches vers le domaine du Meta-learning. Cette orientation m’a amené à développer un nouveau cadre basé sur les Processus de Décision Markovien (MDP) et l’apprentissage par renforcement (RL).
+Après une introduction générale (Chapter 1), mon travail de thèse commence par une analyse approfondie des résultats du challenge AutoML (Chapter 2), pour lequel je présente des expériences systématiques, publiées sous forme de chapitre de livre [57]. Les méthodes qui ont particulièrement attiré mon attention dans cette analyse incluent les méthodes d’encapsulation de la famille Bayesian Optimization, construites autour de la boîte à outils scikit-learn [86], telles que l’auto-apprentissage et Freeze-Thaw [106, 73]. De telles méthodes de sélection d’hyper-paramètres fondées sur des principes étaient intéressantes à comparer avec (1) la recherche heuristique (par exemple [107]) et (2) les méthodes qui évitaient complètement la sélection de modèle / hyper-paramètre ou réduisaient le plus possible son besoin, comme Selective Naive Bayes (SNB [18] et gradient boosting [112]. Cette analyse a orienté mon travail vers le méta-apprentissage, m’amenant d’abord à proposer une formulation d’AutoML comme problème de recommandation, à la suite du travail séminal de [6, 7, 75], et pour finalement formuler une nouvelle conceptualisation du problème en tant que MDP (Chapter 3).
+Dans le cadre MDP, le problème est ramené au remplissage, aussi rapidement et efficacement que possible, d’une matrice de meta-learning S, dans laquelle les lignes correspondent aux tâches ML et les colonnes aux algorithmes ML. Un élément
+
+x
+matriciel S(i, j) est la performance de l’algorithme j appliqué à la tâche i. La recherche efficace des meilleures valeurs en S nous permet d’identifier rapidement les algorithmes les mieux adaptés à des tâches données. Dans le cadre MDP / RL proposé, l’objectif d’AutoML est de développer un «agent» pour rechercher le meilleur algorithme pour chaque tâche en plaçant des «requêtes» séquentielles, c’est-à-dire en entrainant et en testant un algorithme sur une tâche donnée pour acquérir la connaissance d’un nouvel élément S(i, j). L’état du système est constitué des valeurs de S(i, j) qui ont été révélées par ce processus de requête, chaque action consistant à placer une nouvelle requête. En termes de récompense, chaque requête coûte à l’agent un temps de calcul, mais cette récompense négative est compensée par une récompense positive pour éventuellement découvrir un algorithme plus performant.
+Dans le chapitre 4, le cadre classique d’optimisation d’hyper-paramètres (HyperOpt [13]) est d’abord examiné, et en particulier le problème dit CASH (Combined Algorithm Selection and Hyperparameter optimization) [110]. Aucun meta-learning n’est impliqué à ce stade; cela correspond au remplissage d’une ligne de matrice S, indépendamment des autres. Dans le chapitre 5, une première approche de meta-learning est introduite le long des lignes de notre article ActivMetaL [101] qui combine l’apprentissage actif et les techniques de filtrage collaboratif pour prédire les valeurs manquantes en S. Cela nous permet de trouver plus rapidement qu’avec d’autres méthodes de base le meilleur algorithme dans chaque ligne de S [75, 101]. Dans ce cas, nous utilisons certaines lignes de la matrice (performances d’algorithmes sur des ensembles de données connus) comme des «données d’entraînement» pour aider à remplir de nouvelles lignes (prédire les performances sur de nouveaux ensembles de données), mais la politique mise en œuvre par notre «agent» est, dans un certain sens, «codée en dur». Nos dernières recherches appliquent RL au problème MDP que nous avons défini pour apprendre une politique efficace pour explorer S. Nous appelons cette approche REVEAL et proposons une analogie avec une série de jeux pour aider à visualiser les stratégies des agents pour révéler progressivement des informations, par ex. zones masquées d’images à classer [122] ou positions de navire dans un jeu de cuirassé. Cette ligne de recherche est développée au chapitre 6.
+Les principaux résultats de mon projet de thèse sont:
+• Sélection HP / modèle: j’ai exploré la méthode Freeze-Thaw et optimisé l’algorithme pour entrer dans le premier challenge AutoML, obtenant la 3ème place du tour final (chapitre 3).
+• ActivMetaL: j’ai conçu un nouvel algorithme pour le meta-learning actif (ActivMetaL) et l’ai comparé à d’autres méthodes de base sur des données réelles et
+
+xi
+artificielles. Cette étude a démontré qu’ActiveMetaL est généralement capable de découvrir le meilleur algorithme plus rapidement que les méthodes de base.
+• REVEAL: j’ai développé une nouvelle conceptualisation du meta-learning en tant que processus de décision Markovien et je l’ai intégrée dans le cadre plus général des jeux REVEAL. Avec un stagiaire en master, j’ai développé des agents qui apprennent (avec l’apprentissage par renforcement) à prédire le meilleur algorithme à essayer.
+Le travail présenté dans ma thèse est de nature empirique. Plusieurs méta-données du monde réel ont été utilisées dans cette recherche. Des méta-données artificielles et semi-artificielles sont également utilisées dans mon travail. Les résultats indiquent que RL est une approche viable de ce problème, bien qu’il reste encore beaucoup à faire pour optimiser les algorithmes et les faire passer à l’échelle aux problèmes de méta-apprentissage plus vastes.
+
+Table of contents
+
+List of figures
+
+xvii
+
+List of tables
+
+xix
+
+1 Background and Motivation
+
+1
+
+1.1 Introduction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 1
+
+1.2 Scope of AutoML . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2
+
+1.2.1 The AutoML setting . . . . . . . . . . . . . . . . . . . . . . 2
+
+1.3 Computational and statistical aspects of AutoML . . . . . . . . . . . 3
+
+1.4 Overview of hyper-parameter selection . . . . . . . . . . . . . . . . . 4
+
+1.5 Filter, wrappers, and embedded methods . . . . . . . . . . . . . . . . 7
+
+1.6 Summary of my thesis objectives . . . . . . . . . . . . . . . . . . . . 7
+
+2 Empirical setting
+
+9
+
+2.1 Lessons learned from the AutoML challenge . . . . . . . . . . . . . . 9
+
+2.2 Definition of Meta-Learning problem . . . . . . . . . . . . . . . . . 19
+
+2.3 Design of benchmarking meta-learning datasets . . . . . . . . . . . . 19
+
+2.3.1 Real-world meta-datasets: AutoML, StatLog, OpenML . . . . 20
+
+2.3.2 Synthetic and toy meta-datasets: Matrix factorization, CEP,
+
+MNIST patches . . . . . . . . . . . . . . . . . . . . . . . . . 29
+
+2.4 Summary of experimental setting chapter . . . . . . . . . . . . . . . 36
+
+3 Mathematical statement of the AutoML problem as a MDP
+
+39
+
+3.1 Notations and problem setting . . . . . . . . . . . . . . . . . . . . . 39
+
+3.2 A game of REVEAL . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+
+3.2.1 REVEAL definition . . . . . . . . . . . . . . . . . . . . . . 41
+
+3.2.2 REVEAL game examples . . . . . . . . . . . . . . . . . . . 42
+
+3.3 AutoML as a REVEAL game . . . . . . . . . . . . . . . . . . . . . . 43
+
+3.3.1 1D AutoML: REVEAL(β = 0.1, τ = 20, a• = position of the
+
+best algorithm) . . . . . . . . . . . . . . . . . . . . . . . . . 44
+
+xiv
+
+Table of contents
+
+3.3.2 2D AutoML . . . . . . . . . . . . . . . . . . . . . . . . . . . 45 3.4 Evaluation procedure in REVEAL games . . . . . . . . . . . . . . . 45 3.5 Summary on the MDP setting . . . . . . . . . . . . . . . . . . . . . . 45
+
+4 Algorithm selection and Hyperparameter Optimization: No meta-learning
+
+at all
+
+47
+
+4.1 Hyperparameter selection as a CASH problem . . . . . . . . . . . . . 47
+
+4.1.1 How to solve CASH? . . . . . . . . . . . . . . . . . . . . . . 48
+
+4.2 Freeze-Thaw: My exploration on HP selection . . . . . . . . . . . . . 49
+
+4.3 Summary of the chapter on HP selection . . . . . . . . . . . . . . . . 50
+
+5 Active Meta-learning
+
+53
+
+5.1 Active Meta-learning as a Recommendation problem . . . . . . . . . 53
+
+5.2 The ACTIVMETAL algorithm . . . . . . . . . . . . . . . . . . . . . 55
+
+5.2.1 CofiRank: the subroutine for recommendation . . . . . . . . 55
+
+5.2.2 ACTIVMETAL . . . . . . . . . . . . . . . . . . . . . . . . . 56
+
+5.2.3 Comparison of algorithms for some single dataset . . . . . . . 59
+
+5.2.4 Comparison with SVD-based algorithms . . . . . . . . . . . 63
+
+5.3 Summary of the chapter on ACTIVMETAL . . . . . . . . . . . . . . . 64
+
+6 RL solutions to meta-learning
+
+67
+
+6.1 Overview of Reinforcement Learning (RL) . . . . . . . . . . . . . . 67
+
+6.1.1 Notations and definitions . . . . . . . . . . . . . . . . . . . . 69
+
+6.1.2 Tabular RL algorithms . . . . . . . . . . . . . . . . . . . . . 71
+
+6.1.3 Function approximation methods for larger action spaces . . . 73
+
+6.2 Toy REVEAL examples . . . . . . . . . . . . . . . . . . . . . . . . 75
+
+6.2.1 Reveal a bi-color segment to find its first black element . . . . 75
+
+6.2.2 Revealing digits progressively to find their brightest patches . 76
+
+6.3 RL setting for 1D Meta-learning problem . . . . . . . . . . . . . . . 82
+
+6.3.1 Experimental setting . . . . . . . . . . . . . . . . . . . . . . 82
+
+6.3.2 Results on CEP . . . . . . . . . . . . . . . . . . . . . . . . . 86
+
+6.3.3 Results on other meta-datasets . . . . . . . . . . . . . . . . . 89
+
+6.3.4 Computational considerations . . . . . . . . . . . . . . . . . 91
+
+6.4 Summary of the RL chapter . . . . . . . . . . . . . . . . . . . . . . . 92
+
+7 Discussion and further work
+
+95
+
+7.1 The Liu-Xu α − β − γ framework . . . . . . . . . . . . . . . . . . . 95
+
+7.2 Generalization to other meta-learning settings . . . . . . . . . . . . . 96
+
+7.3 Relating MDP, POMDP, REVEAL, and bandits . . . . . . . . . . . . 99
+
+Table of contents
+
+xv
+
+7.4 Conclusion . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 100
+
+References
+
+103
+
+List of figures
+2.1 Learning Curve of ‘aad_freiburg’ and ‘abhishek’ for the evita dataset 11 2.2 Meta-learning: Linear Discriminant Analysis . . . . . . . . . . . . . 14 2.3 Comparison of methods (2015-2016 challenge) including basic meth-
+ods, basic methods with optimised HP, and challenge winners . . . . . 17 2.4 AutoML meta-dataset . . . . . . . . . . . . . . . . . . . . . . . . . . 22 2.5 Round 0 datasets by sklearn-KNN and FLANN-KNN . . . . . . . . . 25 2.6 StatLog meta-dataset . . . . . . . . . . . . . . . . . . . . . . . . . . 30 2.7 OpenML meta-dataset . . . . . . . . . . . . . . . . . . . . . . . . . 31 2.8 Artificial meta-dataset . . . . . . . . . . . . . . . . . . . . . . . . . . 33 2.9 CEP meta-dataset . . . . . . . . . . . . . . . . . . . . . . . . . . . . 35 2.10 MNIST-patch meta-dataset . . . . . . . . . . . . . . . . . . . . . . . 37
+4.1 Original and adapted implementations of FTEC . . . . . . . . . . . . 51
+5.1 Meta-learning curves . . . . . . . . . . . . . . . . . . . . . . . . . . 58 5.2 Comparison of Meta-learning algorithms on single Artificial datasets . 60 5.3 Comparison of Meta-learning algorithms on single AutoML datasets . 61 5.4 Comparison of Meta-learning algorithms on single OpenML datasets . 62 5.5 Comparison of Meta-learning algorithms on single StatLog datasets . 63 5.6 Meta-learning curves with SVD-based ranking . . . . . . . . . . . . 64
+6.1 RL system overview . . . . . . . . . . . . . . . . . . . . . . . . . . 68 6.2 Q learning algorithm . . . . . . . . . . . . . . . . . . . . . . . . . . 73 6.3 ‘Segment’ REVEAL game . . . . . . . . . . . . . . . . . . . . . . . 76 6.4 RL DQN architecture used in MNIST REVEAL game . . . . . . . . 78 6.5 Supervised learning upper-baseline architecture used in MNIST RE-
+VEAL game . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 78 6.6 One test episode of MNIST REVEAL game realised by a RL agent
+that can repeat actions . . . . . . . . . . . . . . . . . . . . . . . . . . 80
+
+xviii
+
+List of figures
+
+6.7 Same test episode of MNIST REVEAL game realised by a Baseline CNN agent . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 81
+6.8 MNIST REVEAL Learning curves . . . . . . . . . . . . . . . . . . . 83 6.9 CEP meta-dataset: RL vs. Random search on finding high-performance
+algorithms in test time . . . . . . . . . . . . . . . . . . . . . . . . . 87 6.10 Performance - time trade-off in 1D meta-learning problem . . . . . . 88 6.11 CEP: an easy meta-learning task . . . . . . . . . . . . . . . . . . . . 89 6.12 Other meta-datasets: RL vs. ACTIVMETAL and Random search . . . 91 6.13 Performance and computational effort comparison . . . . . . . . . . . 93
+7.1 Relating MDP, POMDP, REVEAL, and bandits: POMDP . . . . . . . 102 7.2 Relating MDP, POMDP, REVEAL, and bandits: REVEAL . . . . . . 102 7.3 Relating MDP, POMDP, REVEAL, and bandits: Bandits . . . . . . . 102
+
+List of tables
+2.1 Statistics of benchmark meta-datasets . . . . . . . . . . . . . . . . . 20 2.2 Datasets of the 2015/2016 AutoML challenge . . . . . . . . . . . . . 28 6.1 Computational considerations . . . . . . . . . . . . . . . . . . . . . 92 7.1 Supervised learning illustration of the three-level formulation . . . . . 96
+
+Chapter 1
+Background and Motivation
+1.1 Introduction
+Until about ten years ago, machine learning (ML) was a discipline little known to the public. Large internet corporations accumulating massive amounts of data such as Google, Facebook, Microsoft and Amazon have popularized the use of ML and data science competitions have engaged a new generation of young scientists in this wake. Today, governments and corporations keep identifying new applications of ML and, with the increased availability of open data, everyone seems to be in need of a learning machine. Unfortunately, the success of ML applications in many domains relies heavily on the skills of data scientists who design model architectures and/or select a good set of hyper-parameters. My PhD thesis aims at advancing the field of Automated Machine Learning (AutoML) to develop a methodology to automate the design of learning machines as far as possible. Specifically, in the context of supervised learning feature-based representations only, I am working on producing black-box machine learning algorithm that can process “any data", in “any time", with “any resource". This means selecting an appropriate model with its hyper-parameter values, and outputs the desired type of predictions, taking into account available computational resources and a computational time budget. Borrowing from the vocabulary of Reinforcement Learning (RL), my goal is to design an AutoML agent whose objective is to quickly discover the best suited algorithm to solve a given task.
+Although the acronym AutoML was coined recently by Frank Hutter and collaborators, the problems of automated machine learning, model selection, and hyperparameter optimization have been studied for several decades in the machine learning community. The following brief overview borrows material from our paper [46].
+
+2
+
+Background and Motivation
+
+1.2 Scope of AutoML
+
+The overall AutoML problem covers a wide range of difficulties, which cannot be addressed all at once in a single challenge. To name only a few: data “ingestion" and formatting, pre-processing and feature/representation learning, detection and handling of skewed/biased data, inhomogeneous, drifting, multimodal, or multi-view data (hinging on transfer learning), matching algorithms to problems (which may include supervised, unsupervised, or reinforcement learning, or other settings), acquisition of new data (active learning, query learning, reinforcement learning, causal experimentation), management of large volumes of data including the creation of appropriately sized and stratified training, validation, and test sets, selection of algorithms that satisfy arbitrary resource constraints at training and run time, the ability to generate and reuse workflows, and generating explicative reports.
+Therefore, restricting the scope of our thesis work was of great importance to ensure that intermediate milestones of immediate practical interest are reached, as further discussed in the rest of this chapter.
+
+1.2.1 The AutoML setting
+For the purpose of this chapter, a predictive model (or model for short) has the form y = f (x) = f (x; α ) with a set of parameters α = [α0, α1, α2, ..., αn] trainable with a learning algorithm (trainer). The trained model (predictor) y = f (x) produced by the trainer is evaluated by an objective function J( f ), used to assess the model performance on test data.
+A model hypothesis space is defined by a vector θ = [θ1, θ2, ..., θn] of hyperparameters, which may include both categorical variables corresponding to switching between alternative models and other modeling choices such as preprocessing parameters, type of kernel in a kernel method, number of units and layers in a neural network, or training algorithm regularization parameters [94]. Some authors refer to this problem as full model selection [31, 100], others as the CASH problem (Combined Algorithm Selection and Hyperparameter optimization) [108].
+We will then denote hyper-models as
+
+y = f (x; θ ) = f (x; α (θ ), θ ),
+
+(1.1)
+
+where the model parameter vector α is an implicit function of the hyper-parameter vector θ obtained by using a trainer for a fixed value of θ , and training data composed of input-output pairs (xi, yi).
+
+1.3 Computational and statistical aspects of AutoML
+
+3
+
+The goal of AutoML is to devise algorithms capable of searching efficiently for the best hyper-parameters θ .
+
+1.3 Computational and statistical aspects of AutoML
+As an optimization problem, model selection is a bi-level optimization program [24, 26, 10]; there is a lower objective to train the parameters α of the model (e.g. the weights of a neural network), and an upper objective to train the hyper-parameters θ (e.g. the number of layers and units per layer), both optimized simultaneously. A related problem, not addressed in this thesis, is that of building optimal ensembles of models in which “base learners” vote to make the final decision [20, 39, 22]. Practically, computational resources are always limited: for each task there is always an upper bound on execution time and memory available, and a given number of available CPUs and/or GPUs. This places a constraint on the AutoML agents to produce a solution in a given time, and hence to optimize the model search from a computational point of view.
+As a statistics problem, model selection is a problem of multiple testing in which error bars on performance prediction degrade with the number of models/hyperparameters tried or, more generally, model complexity [117]. Two common pitfalls should be avoided: over-fitting and under-fitting. By over-fitting we mean selecting a too complex model that performs well on training data but performs poorly on unseen data, i.e. models that do not generalize. By under-fitting we mean selecting a too simple model, which does not capture the complexity of the data, and hence performs poorly both on training and test data. The initial goal in this thesis was to jointly address the problem of over-fitting/under-fitting and the problem of efficient search for an optimal solution, as stated in [59]. But, while until recently, a key aspect of AutoML was to avoid over-fitting, with the advent of “big data” and progress made in learning theory, the emphasis has now shifted to the computational aspect of the problem: that of finding quickly the best performing model and principally avoiding under-fitting.
+This was confirmed in our analysis of the first AutoML challenge summarized in Chapter 2: we found that the computational contraints have been far more challenging to participants than the problem of overfitting. The main contributions of the winners have been to devise novel efficient search techniques with cutting edge optimization methods. Practically, if very large datasets are available, it is sufficient for model selection to use a single training/validation set split and rely on the validation set performances to rank algorithms, the additional refinement of performing
+
+4
+
+Background and Motivation
+
+cross-validation or using bootstrap estimators [49] providing only a minor advantage, given the additional computational cost.1 Likewise, in several recent competitions [46], we observed that the ranking of algorithms obtained using a (large) validation set, providing immediate feed-back on the “public” leaderboard, was usually similar to that obtained with another (large) independent test set concealed to the participants (on a “private” leaderboard).
+Based on these observations, in the remainder of my thesis, we make the simplifying assumption that performances on the test set are the “gold standard” to determine whether one algorithm is better than another.
+
+1.4 Overview of hyper-parameter selection
+Everyone who has modeled data has had to face some common modeling choices: scaling, normalization, missing value imputation, variable coding (for categorical variables), variable discretization, degree of nonlinearity and model architecture, among others. ML has managed to reduce the number of hyper-parameters and produce black-boxes to perform tasks such as classification and regression [49, 28]. Still, any real-world problem requires at least some preparation of the data before it can be fitted into an “automatic" method, hence requiring some modeling choices. Much progress has been made on end-to-end solutions for more complex tasks such as text, image, video, and speech processing, using deep-learning methods [9]. However, even these methods have many modeling choices and hyper-parameters. As part of our initial thesis work, we surveyed the literature on hyper-parameter selection.
+To simplify the discussion that follows, we lump all parameters describing models and hyper-parameters in a single vector θ , but more elaborate structures, such as trees or graphs can be used to define the hyper-parameter space [111].
+Most practitioners use heuristics such as grid search or uniform sampling to sample θ space, and use k-fold cross-validation as the upper-level objective [27]. In this framework, the optimization of θ is not performed sequentially [11]. All the parameters are sampled along a regular scheme, usually in linear or log scale. This leads to a number of possibilities that exponentially increases with the dimension of θ . There is a lack of principled guidelines to determine the number of grid points and the value of k in k-fold cross-validation, and there is no guidance for regularizing the upperlevel objective. Although progress has been made in experimental design to reduce the risk of over-fitting [58, 67], in particular by splitting data in a principled way [98],
+1The most popular such method is k-fold cross-validation. It consists of splitting the dataset into k folds; (k − 1) folds are used for training and the remaining fold is used for testing; eventually, the average of the test scores obtained on the k folds is reported.
+
+1.4 Overview of hyper-parameter selection
+
+5
+
+to our knowledge, no one has addressed the problem of optimally splitting data. However, as noted before, the problems of optimally splitting data and regularizing the upper-level objective are alleviated when big data are available.
+When hyper-parameters are continuous, instead of discretizing them (as done with grid search), efforts have been made to optimize directly continuous hyper-parameters with bi-level optimization methods, using either the k-fold cross-validation estimator [10, 79] or the leave-one-out estimator as the upper-level objective. The leave-one-out estimator may be efficiently computed, in closed form, as a by-product of training only one predictor on all the training examples (e.g. virtual-leave-one-out [45]). The method was improved by adding a regularization term [23]. Gradient descent has been used to accelerate the search, by making a local quadratic approximation of [61]. In some cases, the full upper-level objective function can be computed from a few key examples [48, 85]. Other approaches minimize an approximation or an upper bound of the leave-one-out error, instead of its exact form [83, 116]. Nevertheless, these methods are still limited to specific models and continuous hyper-parameters.
+The so-called CASH problem (Combined Algorithm Selection and Hyperparameter optimization) was coined in 2013 by Thornton and collaborators [110]. An early attempt at solving the CASH problem in 2002 was the pattern search method that uses k-fold cross-validation. It explores the hyper-parameter space by steps of the same magnitude and, when no change in any parameter further decreases the objective function, the step size is halved and the process repeated until the steps are deemed sufficiently small [78]. In 2009, [31] addressed the CASH problem using Particle Swarm Optimization, which optimizes a problem by having a population of candidate solutions (particles), and moving these particles around the hyper-parameter space using the particle’s position and velocity.
+While regularizing the second level of inference is a recent addition to the frequentist ML community, it has been an intrinsic part of Bayesian modeling via the notion of hyper-prior. Some methods of multi-level optimization combine importance sampling and Monte-Carlo Markov Chains [3]. The field of Bayesian hyper-parameter optimization has rapidly developed and yielded promising results, in particular by using Gaussian processes to model generalization performance [96, 105]. But Treestructured Parzen Estimator (TPE) approaches modeling P(x|y) and P(y) rather than modeling P(y|x) directly [14, 13] have been found to outperform GP-based Bayesian optimization for structured optimization problems with many hyperparameters including discrete ones [30]. The central idea of these methods is to fit the upper-level objective to a smooth function in an attempt to reduce variance and to estimate the variance in regions of the hyper-parameter space that are under-sampled to guide the search towards regions of high variance. These methods are inspirational and
+
+6
+
+Background and Motivation
+
+some of the ideas can be adopted in the frequentist setting. For instance, the randomforest-based SMAC algorithm [53], which has helped speed up both local search and tree search algorithms by orders of magnitude on certain instance distributions, has also been found to be very effective for the hyper-parameter optimization of machine learning algorithms, scaling better to high dimensions and discrete input dimensions than other algorithms [30].
+We also notice that Bayesian optimization methods often combine with other techniques such as meta-learning and ensemble methods [35] in order to gain advantage in some challenge settings with time budget limit [44]. Some of these methods consider jointly the two-level optimization and take time cost as a critical guidance for hyperparameter search [106, 63].
+Besides Bayesian optimization, several other families of approaches exist in the literature and have gained much attention with the recent rise of deep learning. Ideas borrowed from reinforcement learning have recently been used to construct optimal neural network architectures [123, 5]. These approaches formulate the hyper-parameter optimization problem in a reinforcement learning flavor with, for example, states being the actual hyper-parameter setting (e.g. network architecture), actions being added or deleting a module (e.g. a CNN layer or a pooling layer), and reward being the validation accuracy. They can then apply off-the-shelf reinforcement learning algorithms (e.g. RENFORCE, Q-learning, Monte-Carlo Tree Search) to solve the problem. Other architecture search methods use evolutionary algorithms [91, 4]. These approaches consider a set (population) of hyper-parameter settings (individuals), modify (mutate and reproduce) and eliminate unpromising settings according to their cross-validation score (fitness). After several generations, the global quality of the population increases. One important common point of reinforcement learning and evolutionary algorithms is that they both deal with the exploration-exploitation trade-off. Despite the impressive results, these approaches require huge amount of computational resources and some (especially evolutionary algorithms) are hard to scale. [88] recently proposed weight sharing among child models to largely speed up [123] while achieving comparable results.
+Finally, splitting the problem of parameter fitting into two levels can be extended to multiple levels, at the expense of extra complexity—i.e. need for a hierarchy of data splits to perform multiple or nested cross-validation [29], insufficient data to train and validate at the different levels, and increase of the computational load.
+In conducting this survey and analyzing the results of the AutoML challenge (Chapter 2), we arrived at the conclusion that, while still an active area of research, hyper-parameter selection has arrived at a good level of maturity, and is no longer the bottleneck of AutoML. In contrast, meta-learning remains a very uncharted territory,
+
+1.5 Filter, wrappers, and embedded methods
+
+7
+
+with very promising initial results. Hence we focused most of our effort in this thesis on meta-learning.
+
+1.5 Filter, wrappers, and embedded methods
+Borrowing from the conventional classification of feature selection methods [64, 16, 45], model search strategies can be categorized into filters, wrappers, and embedded methods. Filters are methods for narrowing down the model space, without training the learner. Such methods include preprocessing, feature construction, kernel design, architecture design, choice of prior or regularizers, choice of noise model, and filter methods for feature selection. Although some filters use training data, many incorporate human prior knowledge of the task or knowledge compiled from previous tasks. Recently, [8] proposed to apply collaborative filtering methods to model search. Wrapper methods consider learners as a black-box capable of learning from examples and making predictions once trained. They operate with a search algorithm in the hyper-parameter space (grid search or stochastic search) and an evaluation function assessing the trained learner’s performance (cross-validation error or Bayesian evidence). Embedded methods are similar to wrappers, but they exploit the knowledge of the learning machine algorithm to make the search more efficient. For instance, some embedded methods compute the leave-one-out solution in a closed form, without leaving anything out, i.e. by performing a single model training on all the training data (e.g. [45]). Other embedded methods jointly optimize parameters and hyper-parameters [61, 80, 79].
+The focus of this thesis is on filter and wrapper methods. In Chapter 2, in the context of the work I performed on the AutoML challenge, I present methods of hyper-parameter selection, which are typically wrapper methods. In Chapters 5 and 6, I turn to meta-learning, whose objective is to produce filters (methods to select algorithms without actually training and testing them).
+
+1.6 Summary of my thesis objectives
+The original focus of the AutoML community was on over-fitting avoidance. But with the emergence of “big data” the current emphasis is on model search efficiency. Novel effective approaches have been proposed in the academic literature that have become wide spread among practitioners because they are both theoretically well founded and practically efficient, e.g. Bayesian optimization (BO). Such approaches build a posterior p(model|data) by applying candidate models to the input data and use this
+
+8
+
+Background and Motivation
+
+posterior distribution to guide the search (e.g. [54], [106]). Complementary to such approaches, Meta Learning develops a set of meta-features capturing the nature of data, which are then used to infer the model performance based on past experiences on similar data, without actually training the model (e.g. [82]). Meta learning has been used to initialize BO search [35]).
+The original formulation of the problem of AutoML is limited to search for the best model/hyper-parameters for a single dataset/task. In this thesis, my ambitions are to tackle a Lifelong Machine Learning problem, which, 1) given a dataset, can suggest promising models; 2) given available models, can suggest suitable datasets to learn to reinforce its problem solving capacity. To that end, I developed Meta Learning techniques to perform these tasks using first active learning (see Chapter 5), then Reinforcement Learning (RL) to learn an optimized model search policy (see Chapter 6).
+
+Chapter 2
+Empirical setting
+In this chapter, we first give a brief account of the main findings of our post-hoc analysis of the first AutoML challenge (2015-2016) [46]. This competition challenged the participants to submit code that solve classification and regression problems from fixed-length feature representations, without any human intervention. The challenge setting and the datasets have been used extensively thoughout my thesis work and the lessons learned from the challenge have influenced my research directions towards meta-learning.
+The Code for the challenge analysis is at https://github.com/LishengSun/AutoML-2016-simulations-and-analyses.
+2.1 Lessons learned from the AutoML challenge
+The objective of the AutoML challenge series (http://automl.chalearn.org) is to push research towards creating “universal learning machines” capable of learning and making predictions without human intervention. This means that the participants must deliver code, which is blind tested on datasets never released before. The first AutoML challenge (to which I participated) was limited to:
+• Supervised learning problems (classification and regression). • Feature vector representations. • Homogeneous datasets (same distribution in the training, validation, and test
+set). • Medium size datasets of less than 200 MBytes. • Limited computer resources with an execution times of less than 20 minutes
+per dataset on an 8 core x86_64 machine with 56 GB RAM.
+
+10
+
+Empirical setting
+
+Within this constrained setting, the testbed was composed of 30 datasets from a wide variety of application domains (medical diagnosis, speech recognition, credit rating, prediction of drug toxicity/efficacy, classification of text, prediction of customer satisfaction, object recognition, protein structure prediction, action recognition in video data) and ranged across different types of complexity (class imbalance, sparsity, missing values, categorical variables). In this limited framework, there remain many modeling choices.
+Many robust learning machines with a reduced number of hyper-parameters have emerged in the recent years in an effort to produce perfect black-boxes to perform tasks such as classification and regression [49, 28]. But the availability of toolboxes rich in such models, e.g. Weka [47] or scikit-learn [87], has not eliminated modeling choices. Similarly to AI, which has endeavored to pass the Turing test, ML has undertaken the task of beating the “no free lunch theorem”, stating that no ML algorithm can be superior to all others on every task. Tools like AUTO-SKLEARN [37, 35, 38]1, a wrapper around the scikit-learn library built by the winners of the AutoML challenge have made big strides towards that goal.
+
+Statistical complexity vs. computational complexity
+The dilemma of model selection is to avoid “searching too hard” (and falling in the trap of over-fitting) and “not searching hard enough” (and falling in the trap of under-fitting). One often refers to as statistical complexity all ailments related to the “curse of dimensionality” or solving ill-posed problems, in which not enough training data is available to ensure good generalization. Another notion of complexity, complementing the first one, is computational complexity: exploring exhausively (or very intensively) a very large model space by evaluating “all” (or very many) models is generally infeasible because of the combinatorial nature of the problem of probing simultaneouly several hyper-parameters. Success in the AutoML challenge depends on addessing both types of complexity.
+Best practices for model selection converge towards the Ockham’s razor principle, which prescribes limiting model complexity to the minimum necessary to explain the data, or shave off unnecessary parameters. This has been grounded in theory over the past few years in such frameworks as regularization, Bayesian priors, Minimum Description Length, Structural Risk Minimization (SRM), and the bias/variance tradeoff [93, 41, 49, 28, 117]. With modern learning machines designed to regularize and prevent overfitting, good practitioners usually do not over-train their models. Indeed, in the challenge, our analyses revealed no over-fitting of models. Two means of com-
+1https://automl.github.io/auto-sklearn/stable/
+
+2.1 Lessons learned from the AutoML challenge
+
+11
+
+Fig. 2.1 Learning Curve of ‘aad_freiburg’ (yellow) and ‘abhishek’ (blue) for the evita dataset.
+Abhishek starts with a better solution but performs a less efficient exploration. In contrast, aad_freiburg starts lower but ends up with a better solution. In green: the ‘aad_freiburg’ learning curve keeps improving beyond the time limit imposed in the
+challenge (20 min).
+batting over-fitting are pervasive: using cost functions penalizing model complexity and ensembling. The latter has been adopted by all winners, see Section 2.1.
+The most pressing problem in today’s AutoML research is therefore that of underfitting, which cannot be solved by brute-force search if computational resources are limited. In the next section, we review what “clever search” entails in today’s state-ofthe art.
+Heuristic search vs. Bayesian optimization
+Model search (including hyper-parameter search, jointly referred to as HP search) involves two necessary components: (1) a means of estimating the performance of the model on future data (estimator), and (2) a strategy for exploring the search space (policy).
+For problem 1, there is presently a large consensus for the choice of estimators. Obviously, when vast amounts of training data are available, reserving a single subset of the training data for validation is simple and efficient. Otherwise, common practice is to use some form of cross-validation (CV). K-fold CV and its variants are a favorite, in front of bootstrapping (e.g. bagging used in Random Forests). For K, most people use K=10, although there is no clear theoretical foundation for this choice. It has been known for decades that a special kind of CV estimator, the leave-one-out estimator, can be efficiently approximated by training a single model (e.g. virtual-leave-one-out [45]). Yet such methods are not applicable to all algorithms and require dedicated code, so
+
+12
+
+Empirical setting
+
+they are not popular amongst practitionners, which prefer using plain CV in a wrapper setting. Likewise, techniques of bilevel optimization, optimizing simultaneously parameters and hyper-parameters (e.g. [10, 79]) have not gained in popularity for the same reason.
+Problem 2 is presently the main focus in AutoML research: develop efficient search policies. The ‘aad_freiburg’ team (who developped AUTO-SKLEARN [37, 35, 38] and dominated both the 2015-2016 AutoML challenge and its 2018 sequel) used a method inspired by Bayesian optimization [30]. The key idea is to guide the search with a “cheap” evaluation of models. CV is thus used to evaluate only a few candidate points in HP space. A predictor of model performance in HP space is built with a form of active learning. Random Forest (RF) regressors lend themselves particularly well to this exercise and have superseded Gaussian processes [Hutter et al.]. One reason is that they are based on decision trees, which are hierarchical in nature, thus making it easy to map a hierarchy of hyper-parameters. Another reason is that, as an ensemble method, RF yields also an estimator of the variance of the predictions. Armed with an estimation of the expectation and the variance of the model to be evaluated, Bayesian optimization methods estimate the expected benefit of effectively training and testing a new model. Typically, this is a function expressing the exploration/exploitation tradeoff, i.e. you want to explore regions of high variance (where your predictions are least confident) but not waste too much time exploring if there are low hanging fruits (models with good performances candidates for winning).
+Another form of Bayesian optimization, which was very strong in the first AutoML challenge, is “freeze-thaw” (introduced by J. Lloyd in the first phases whose code was overtaken by S. Sun, placing 3rd in the final phase) [73]. Other top ranking participants used various forms of heuristic search with performances that ended up nearly as good. It is difficult to tell apart at this stage the influence of various factors in the success of methods. Initialization played an important role. We show a typical example of learning curve in Figure 2.1. Given enough time, the Bayesian optimization method (‘aad_freiburg’) ends up with better performance, but Abhishek has a better initialization.
+The strongest contender to such “clever search” methods is plain grid search applied to models having only very few hyper-parameters. Grid search applied to gradient tree boosting is a typical illustration of such approach, which has been very successful in challenges, since at least 2006 [74]. The Intel team produced very good results with such methods in the AutoML challenge.
+Finally, search free methods are worth mentionning. Marc Boullé applied the Selective Naive Bayes (SNB) [17, 18] extending the Naive Bayes method for classification and regression. His software developed by Orange Labs and in use in production,
+
+2.1 Lessons learned from the AutoML challenge
+
+13
+
+was used in the challenge with minimal adaptation to make it compliant to the challenge settings. Without any further tuning, it returned a solution with honorable results, within the time limit of the challenge. It is therefore a very strong baseline.
+
+Meta-learning
+Meta-learning aims at defining some general principles over different datasets2. The ‘aad_freiburg’ team investigated meta-learning applied to the initialization of Bayesian search. Specifically, they considered 140 datasets from openml.org[114] (a platform which allows to systematically run algorithms on datasets) and they defined metafeatures of datasets, including simple statistics characterizing input and output space, and the performance of a few landmark algorithms such as one nearest neighbor (1NN) and decision tree. They also ran AUTO-SKLEARN on these datasets and recorded the best performing algorithm for each dataset. Given a new dataset, and considering its neighbors in terms of meta-features, they can then initialize the HP search for the new dataset with the algorithms performing best on its neighbors, resulting in significant improvements compared to random initialization of the HP search.
+To further understand the success of this method, we investigated which metafeatures are most predictive of the best performing models. To that end we performed the following experiment using scikit-learn. We excluded landmark models from the set of meta-features and built a linear discriminant classifier (LDA) to predict which of four basic models would perform best on the 30 datasets of the challenge, thus defining a 4-class classification problem. Basic models included Naive Bayes (NB), Stochastic Gradient Descent linear model (SGD-linear), K=Nearest neighbor (KNN), and Random Forest (RF), with default hyper-parameter settings. The results shown in Figure 2.1 reveal three clusters in the space of the two first LDA components. Further, the features that contribute most to the first two LDA components are the fraction of missing values and features characterizing the distribution of target values.3
+2Meta-learning differs from transfer learning, which is concerned with transferring models/knowledge among tasks. Transfer learning can take various forms depending on the type of information that overlaps between tasks [84], i.e. similarity of input space distribution and/or similarity of outputs/labels. In the AutoML challenge framework however, the diversity among the application domains and types of learning difficulties hinders transfer learning, that will not be considered further in the paper. Actually, the help of using transfer learning in such competition is an open question. We have seen in other past challenges lending themselves to transfer learning that most (if not all) the participants did not do any transfer learning, even through on the long run transfer learning proved to be useful. The main problem may be that challenges are time constrained and transfer learning pays off only if you do it right and have enough time.
+3Given the small size of available datasets (only 30 datasets in total), the LDA is trained on all datasets, and the model has no generality.
+
+14
+
+Empirical setting
+
+Fig. 2.2 Linear Discriminant Analysis. (a)We trained LDA using (X=meta features, except
+landmarks; y=which model won of four basic models (NB, SGD-linear, KNN, RF). The models were trained with default hyper parameters. In the space of the two first LDA components, each point represents one dataset. The colors code for the winning basic models. The color transparency reflects the scores of the corresponding winning model (better is darker).
+
+2.1 Lessons learned from the AutoML challenge
+
+15
+
+Although the ‘aad_freiburg’ team showed in their 2015 paper [35] that this initialization faired better than random initialization, there is still room for improvement. Indeed, learning curves of the first AutoML (of which an example is shown in Figure 2.1) have revealed that other competitors had far better initializations.
+For the 2018 edition of the AutoML challenge, the ‘aad_freiburg’ team introduced a novel strategy: Portfolio Successive Halving-AUTO-SKLEARN. As a form of meta-learning, they created a fixed portfolio of machine learning pipelines using over 400 datasets. At each period, the less successful pipelines (as estimated from the Bayesian optimization model), are discarded along the so-called Bayesian Optimization HyperBand (BO-HB) [32, 34].
+
+Towards AutoML: engineering vs. principles
+Overall, we can ask ourselves whether the AutoML challenge helped pushing “the science of AutoML” and whether some design guidelines have emerged and whether the “no free lunch” theorem has been beaten.
+One thing is sure: ensembling always helps4, whether you choose a homogeneous ensemble like Random Forests or a heterogeneous ensemble, built e.g. with the method of [22]. Other design choices regarding meta-learning and search are still evolving. However, what drives most progress in the field is the emergence of simple new concepts that researchers can share and re-implement to reproduce results. In that respect, Bayesian optimization has been helpful.
+To reproduce the results of the challenge, there is one good news and one bad news. The good news is that all the code is open-sourced5. The bad news is that if you want to write your own code based on e.g. scikit-learn and the principles outlined in this paper, it will be a significant amount of engineering. First, most methods of scikit-learn will die on you for many datasets (out-of-memory or out-of-time). Second, there are a lot of tricks of the trade to perform meta-learning and get Bayesian optimisation to work.
+So it may be far easier to create your own code from scratch and create your own “universal approximator” with a handful of hyper-parameters tunable with grid search. But be careful, many other people have tried; scikit-learn is full of such models. Figure 2.3 shows the performance of “pure models” vs. the performances of the challenge winners. They are lagging behind. It is not so easy to beat the “no free lunch” theorem.
+Other engineering aspects play an important role. In the third round of the challenge when large sparse datasets were introduced, the vast majority of methods failed blind
+4This phenomenon has also been observed heavily in Kaggle competitions[Kag]
+5http://automl.chalearn.org
+
+16
+
+Empirical setting
+
+testing by either running out of time or out of memory. Ironically, the winners won thanks to proper exception handling (they returned random results rather than failing). During the “tweakathon” phase that followed blind testing the participants had an opportunity to fix their code. This revealed that the tasks of round 3 were not particularly difficult, once engineering problems were dealt with.
+You may also be tempted to go beyond Bayesian optimization in the line of research pursuing heterogeneous model search, by performing better meta-learning or even by learning policies with reinforcement learning. Some ideas along these lines have been proposed in the literature [123, 5] and for the first time in 2018, one of the top participants (wiWangl) used Q-Learning to learn machine learning pipelines.
+You may be tempted to use neural networks or deep learning. Unfortunately, for such time constrained challenge, even with GPUs (we provided GPUs in round 4 of the first AutoML challenge), they are not among the best performing methods.
+In conclusion, it is fair to say that the winners provided a well engineered solution satisfying the constraint of the challenge in terms of time budget and robustness to algorithm failures, but for any new proposed task, manually selected and fined tuned algorithms may still perform better.
+
+Discussion: challenge and benchmark design
+The diversity of the 30 datasets of our first AutoML challenge was both a feature and a curse: it allowed us to test the robustness of software across a variety of situations, but made meta-learning difficult (datasets being different with respect to meta-features). Likewise, we attached different metrics (loss functions) to each dataset. This contributed to making the tasks more realistic and more difficult, but also made meta-learning harder. Consequently external datasets must be used if meta-learning is to be explored for the AutoML challenge tasks. As previously mentioned, this was the strategy adopted by the AAD Freiburg team, which used the OpenML data for meta training. They used over 400 datasets for meta-learning in last challenge edition.
+With respect to task design, we learned that the devil is in the details. Challenge participants generally solve exactly the task proposed by the organizers, to the point that their solution may not be adaptable to seemingly similar scenarios. In the case of the AutoML challenge, we pondered whether the metric of the challenge should be the area under the learning curve (plotting performance as a function of time) or one point on the learning curve (the performance obtained after a fixed maximum computational time elapsed). We ended up favoring the second solution for practical reasons. Examining after the challenge the learning curves of some participants, it is quite clear that the two problems are radically different, particularly with respect
+
+2.1 Lessons learned from the AutoML challenge
+
+17
+
+Fig. 2.3 Comparison of methods (2015-2016 challenge) including basic methods (-def
+suffix), basic methods with optimised HP (-auto suffix), and challenge winners. Winners in general win over basic methods, even with optimized HPs. There is no basic method that dominates all others. Though RF-auto (Random Forest with optimised HP) is very strong, it is often outperformed by other methods and sometimes by RF-def (Random Forest with default HP). Thus, under the tight computational constraints of the challenge, optimizing HP does not always pay. For KNN though, time permitting, optimizing HP generally helps by a long shot. Interestingly, KNN wins, even over the challenge winners, on some datasets.
+to strategies mitigating “exploration” and “exploitation”. This prompted us to think about the differences between “fixed time” learning (the participants know in advance the time limit and are judged only on the solution delivered at the end of that time) and “any-time” learning (the participants can be stopped at any time and asked to return a solution). Both scenarios are useful: the first one is practical when models must be delivered continuously at a rapid pace, e.g. for marketing applications; the second one is practical in environments when computational resources are unreliable and interruption may be expected (e.g. people working remotely via an unreliable connection). This will influence the design of future challenges.
+Also regarding task design, both AutoML challenges differ in the sequence of difficulties tackled in each round. In the 2015/2016 challenge, round 0 introduced five datasets representing a sample of all types of data and difficulties (types of targets, sparse data or not, missing data or not, categorical variables of not, more examples than features or not). Then each round ramped up difficulty introducing each time 5 new datasets. But in fact the datasets of round 0 were relatively easy. Then during each
+
+18
+
+Empirical setting
+
+round, the code of the participants was blind tested on data that were one notch harder than in the previous round. Hence transfer was quite hard. In the 2018 challenge, we had only 2 phases, each with 5 datasets of similar difficulty and the datasets of the first phase were each matched with one corresponding dataset on a similar task in the second phase. As a result, transfer was made simpler.
+Concerning the starting kit and baseline methods, we provided code that ended up being the basis of the solution of the majority of participants (with notable exceptions from industry such as Intel and Orange who used their own “in house” packages). Thus, we can question whether the software provided biased the approaches taken. Indeed, all participants used some form of ensemble learning, similarly to the strategy used in the starting kit. However, it can be argued that this is a “natural” strategy for this problem. But, in general, the question of providing enough starting material to the participants without biasing the challenge in a particular direction remains a delicate issue.
+From the point of view of challenge protocol design, we learned that it is difficult to keep teams focused for an extended period of time and go through many challenge phases. We attained a large number of participants (over 600) over the whole course of the AutoML challenge, which lasted over a year (2015/2016) and was punctuated by several events (such as hackathons). However, few teams participated to all challenge rounds and despite our efforts to foster collaboration, the general spirit was competitive. It may be preferable to organize yearly events punctuated by workshops. This is a natural way of balancing competition an cooperation since workshops are a place of exchange where participants get rewarded by the recognition they gain via the system of scientific publications. As a confirmation of this conjecture, the second instance of the AutoML challenge (2017/2018) lasting only 4 months attracted nearly 300 participants.
+One important novely of our challenge design was “code submission”. Having the code of the participants executed on the same platform under rigorously similar conditions is a great step towards fairness and reproducibility, as well as ensuring the viability of solutions from the computational point of view. We have imposed to the winners to release their code under an open source licence to win their prizes. This was good enough an incentive to obtain several publicly available software as the “product” of the challenges we organized. In our second challenge (AutoML 2018), we have made use of dockers. Distributing the docker makes it possible for anyone downloading the code of the participants to reproduce easily the results without stubling upon installation problems due to inconsistencies in computer environments and libraries. Still the hardware may be different and we find that, in post-challenge evaluations, changing computer may yield significant differences in results. Hopefully,
+
+2.2 Definition of Meta-Learning problem
+
+19
+
+with the generalization of use of cloud computing that is becoming more affordable, this will become less of an issue.
+
+2.2 Definition of Meta-Learning problem
+As stated earlier, the analysis of the AutoML challenge results drive us to the conclution that, hyper-parameter selection, while still being an active area of research, reaches a good level of maturity. The next bottleneck of AutoML will be meta-learning, which we are going to define in this section.
+Meta-learning is learning across datasets, which aims at finding a good algorithm on a new dataset, given the past experiences. To define the meta-learning problem properly, we first define its learning source, the meta-dataset:
+Definition 1 (Meta-dataset). A meta-dataset S is a collection of Machine Learning datasets with algorithms applied on them. It can be expressed as a (n × m) matrix, where row i (for i = 1, . . . , n) corresponds to dataset Di, and column j (for j = 1, . . . , m) corresponds to algorithm A j, and the element S(i, j) represents the performance score of A j applied on Di.
+Then, the meta-learning problem is defined as:
+Definition 2 (Meta-Learning Problem). Given a meta-dataset S of dimension ((n − 1) × m) and a new dataset Dn, the meta-learning problem is to find the best algorithm j∗ for Dn that satisfies:
+j∗ = argmax S(n, j)
+j=1,...,m
+The next section introduces the meta-datasets we use for experiments presented in this thesis, then Chapter 5 and 6 propose two different approaches to solve the meta-learning problem.
+
+2.3 Design of benchmarking meta-learning datasets
+The AutoML challenge described in the previous section kick-started our research on meta-learning by providing a wealth of datasets and performances of many algorithms on the tasks defined on such datasets. This yielded our first meta-learning dataset, which is a meta-dataset S containing all algorithm performances (datasets in lines and algorithms in columns). However, in meta-learning, each “example” being a task (or dataset), it is difficult to gather enough examples to get a good benchmark. Our
+
+20
+
+Empirical setting
+
+Table 2.1 Statistics of benchmark meta-datasets used. #Datasets=number of datasets,
+#Algo=number of algorithms, Rank=rank of the performance matrix.
+
+Artificial StatLog
+
+#Dataset #Algo Rank Metric
+
+50 20 20 None
+
+22 24 22 Error rate
+
+Pre-
+
+None
+
+processing
+
+Take square root
+
+Source
+
+Generated StatLog
+
+by
+
+Dataset
+
+authors in UCI
+
+database
+
+OpenML 76 292 76 Accuracy
+None
+Alors [75] website
+
+2015/2016 CEP
+
+MNIST-
+
+AutoML
+
+patch
+
+30
+
+8608
+
+70,000
+
+17
+
+163
+
+49
+
+17
+
+118
+
+947
+
+BAC or Error rate Averaged
+
+R2
+
+pixel
+
+values Scores Normal. Neighbor.
+
+for
+
+on X (i.e. average
+
+aborted features), within a
+
+algo. set Errors for square
+
+to 0
+
+aborted window
+
+algo. set
+
+to 1 2015/2016 Generated Generated
+
+AutoML by the by the
+
+authors authors
+
+from
+
+from
+
+Causality MNIST
+
+chal-
+
+dataset
+
+lenge
+
+solution to that problem has been to create a collection of meta-learning datasets from several sources.
+In this section, we describe all meta-learning datasets we have generated / gathered for the study of meta-learning in Chapters 3, 5, 6. Table 2.1 summarizes the statistics our six resulting meta-learning datasets, which we now describe in further detail.
+
+2.3.1 Real-world meta-datasets: AutoML, StatLog, OpenML
+This section describes three real-world meta-datasets: AutoML from the previously introduced AutoML challenge, OpenML from the OpenML platform and used in [75, 101], as well as StatLog from the UCI database.
+AutoML meta-dataset
+The main product of our post-challenge studies of the first AutoML challenge 2015/2016, from the point of view of the long term research, is the meta-learning dataset (metadataset) that we generated, consisting of a meta-dataset matrix S grouping the perfor-
+
+2.3 Design of benchmarking meta-learning datasets
+
+21
+
+mance of 17 learning algorithms applied on all 30 datasets of the challenge. This is an essential resource we use to develop meta-learning algorithms addressing the AutoML problem as a MDP in later Chapters 3, 5 and 6.
+We visualized the data in Figure 2.4. We will show a similar visualization for other meta-datasets described in the remainder of the chapter. From top to bottom:
+TOP - Two-way hierarchical clustering. This allows us to see that there is some structure in data, which can potentially be exploited by meta-learning algorithms, although there is not a very marked “block” structure, which would indicate that some subsets of algorithms are more suitable to solve some subsets of tasks.
+MIDDLE - Spectrum of singular values. This shows that, even though the matrix is full rank, some singular values 6 are more prominent and “explain” a large fraction of the variance in data, confirming the potential for meta-learning algorithms.
+BOTTOM - Top ranking algorithms. We indicate with a red dot the best algorithm. This shows that the winning method is not always the same and therefore that an automatic method that could predict which algorithm performs best would be useful.
+
+• Datasets of the AutoML challenge (lines of SAutoML) We describe now in detail the datasets of the 2015/2016 AutoML challenge, which we used not only to create our fist benchmark meta-learning dataset, but also to generate the plots mentioned in section 2.1 and other post-challenge studies [46].
+The organizers of the challenge gathered a pool of 70 datasets during the summer 2014 with the help of numerous collaborators, and ended up selecting 30 datasets for the 2015/2016 challenge (see Table 2.2), chosen to illustrate a wide variety of domains of applications: biology and medicine, ecology, energy and sustainability management, image, text, audio, speech, video and other sensor data processing, Internet social media management and advertising, market analysis and financial prediction. They preprocessed data to obtain feature representations (i.e., each example consists of a fixed number of numerical coefficients).
+6The singular values are from Singular Value Decomposition (SVD) [42]. SVD is a matrix factorization method that factorizes a (m × n) matrix M into three matrices: M = UΣV T , where U and V are unity matrices with dimension (m × m) and (n × n) and called left and right singular matrix of M respectively, Σ is a diagonal (m × n) matrix with non-negative values on the diagonal which are called singular values of M, and express the ‘proportion’ of information contained in M. Keeping the k (with k < n) greatest singular values and replacing the rest with 0 to form Σ′, then recompose Sˆ = UΣ′V T gives the provably best k-rank approximation of S.
+
+22
+
+Empirical setting
+
+Fig. 2.4 AutoML meta-dataset: SAutoML after global normalization (i.e. we subtracted the global mean and divided by the global standard deviation). TOP: Two-way hierarchical clustering based on normalized SAutoML, in which both datasets (rows) and algorithms (columns) are arranged so that similar items are grouped together. MIDDLE: Spectrum of singular values of normalized SAutoML. BOTTOM: Top ranking algorithms of normalized SAutoML, where only algorithms (columns) are arranged based on their medians over datasets (from highest to lowest); then, for each dataset, the algorithms with maximum score values are marked with a red dot.
+
+2.3 Design of benchmarking meta-learning datasets
+
+23
+
+Text, speech, and video processing tasks were included in the challenge, but not in their native variable length representations.
+• Algorithms applied to the AutoML challenge (columns of SAutoML)
+Following the AutoML challenge, we designed a challenge “re-match” called “Beat auto-sklearn”7, whose purpose was to stimulate the community to try to beat the winners of the first challenge. This encouraged the AAD Freiburg team, creator of the winning entry auto-sklearn (a wrapper around the well-known machine learning scikit-learn library [87]), to exhibit their programmatic interface to scikit-learn (a.k.a. sklearn). In this way, it became easy to decouple their hyper-parameter optimization (hyperopt) algorithm from its interface to scikitlearn. This allowed us, in particular, to test other hyper-parameter optimization strategies (using the same model space) or to optimize the hyper-parameters of single models with the auto-sklearn hyperopt engine.
+We applied various types of learning algorithms to the 30 AutoML datasets to obtain the performance on held-out test sets. These algorithms pertain to two families:
+– Winner solutions: The code of winning entries (in at least some of the challenge rounds) was run systematically on all 30 datasets 8, because some participants entered late or abandoned early, we did not have performances for all methods on all datasets.
+– Basic scikit-learn learning algorithms: Many participants used the scikitlearn (sklearn) package, including the winning group AAD Freiburg, which produced the auto-sklearn software. We used the auto-sklearn API to conduct post-challenge systematic studies of the effectiveness of hyperparameter optimization. We compared the performances obtained with default hyper-parameter settings in scikit-learn and with hyper-parameters optimized with auto-sklearn9, both within the time budgets as imposed during the challenge, for four “representative” basic methods: k-nearest neighbors (KNN), naive Bayes (NB), Random Forest (RF), and a linear model trained with stochastic gradient descent (SGD-linear10).
+The metrics used to measure the performance of algorithms are BAC (for classification tasks) / R2 (for regression tasks), they produce values between 0 and
+7The challenge is no longer running, but we still have the Codalab worksheet at https://worksheets. codalab.org/worksheets/0x107449520d9c48aaaceef240d557ba88.
+8The public winner codes can be found at http://automl.chalearn.org/.
+9We use scikit-klearn 0.16.1 to mimic the challenge environment, and auto-sklearn 0.4.0. 10We set the loss of SGD to be ‘log’ in scikit-learn for these experiments.
+
+24
+
+Empirical setting
+
+1 (one is best). The missing values (performance of algorithms aborted due to execution time constraints) were replaced by 0. This first meta-learning matrix SAutoML took weeks of human effort to generate, especially adapting and debugging scikit-learn implementation to meet different tasks. The experiments were run on a x86_64 machine with 8 CPU. The time limit allocated to each task was the same as in the challenge. The Code and results for these postchallenge studies are at Github. We have also built a docker image lisesun / codalab_automl2016 for reproducibility purposes.
+• Difficulties encountered with the AutoML challenge meta-dataset: The foremost difficulty we faced when generating these meta-learning matrices is the failure of algorithms when applying them on large and/or sparse datasets, due to the limitation of computational resources. This resulted in many missing values in the performance matrix SAutoML, which, for practical purposes, are replaced by 0. We started investigating this issue by comparing various KNN implementations. Specifically, we compared the sklearn-KNN implementation to that of FLANN [81]. on the AutoML 2015-2016 Round 0 datasets. The results in Figure 2.5 11 show that FLANN is generally faster than scikit-learn.
+One interesting way in which algorithms can be evaluated is to monitor their learning curve (performance progress as a function of time) rather than just their final performance at the end of a fixed time budget. The Area Under the Learning curve is indeed the metric used in the more recent AutoDL challenge http: //autodl.chalearn.org, in which we made contributions at the design level. We attempted to generate learning curves for all datasets and all learning algorithms studied in the first AutoML challenge. Some algorithms lend themselves well to generating learning curves. For example, ensemble methods such as Random Forests (RF) or boosted ensembles of trees (Gradient boosting) allow us to increase progressively the number of trees. Also, algorithms based on stochastic gradient descent keep cycling over all training examples and can be interrupted and re-started easily to generate learning curves. But, for many algorithms (e.g. KNN or SVM) one needs to wait until the model is fully trained to get predictions and no further improvement is gained afterwards. This leads to learning curves that are just step-functions. Conceivably, such algorithms could be re-written to generate smooth learning curves, but we did not have time to undertake such endeavor.
+As a result of these difficulties, we focused on the “fixed time” learning setting in which algorithms must be executed (for training and testing) within a fixed
+11This experiment is run on a x86_64 machine with 8 CPU.
+
+2.3 Design of benchmarking meta-learning datasets
+
+25
+
+Fig. 2.5 Round 0 datasets by sklearn-KNN and FLANN-KNN. X axis is the total time of fitting plus predicting. Y axis is the performance expressed using BAC / R2 score for classification / regression tasks. k=5 in both cases. The KNN algorithm used to compute the nearest neighbors in sklearn is set to ‘auto’, i.e. sklearn can decide the most appropriate algorithm among {ball-tree, kd-tree, brute force} based on the dataset. We can see that FLANN is generally faster than sklearn, especially datasets with many features like newsgroups or many samples like adult, but performance sometimes degrades.
+
+26
+
+Empirical setting
+
+time budget, as opposed to the “any-time” learning setting in which algorithms can be stopped at any time. In the former case, the metric of success is the test set performance at the end of the time budget whereas in the latter case it is the area under the learning curve.
+
+• Meta-data for the AutoML challenge: To perform the meta-learning experiments in Section 2.1, we have recomputed, for each of the 30 datasets, the meta-features implemented in [37, 35, 38]12. Here is the full list of used meta-features, including the landmarks excluded in experiments in Section 2.1, but used in our later Reinforcement learning experiments in Section 2.3.2 and Section 6.3.1.
+
+–
+
+ClassProbabilityMin
+
+=
+
+mini=1...n(
+
+p(Cl
+
+assi))
+
+=
+
+mini=1...n
+
+(
+
+NumberO f Instances_Classi TotleNumberO f Instances
+
+)
+
+–
+
+ClassProbabilityMax
+
+=
+
+maxi=1...n
+
+(
+
+p(Cl
+
+assi))
+
+=
+
+maxi=1...n
+
+(
+
+NumberO f Instances_Classi TotleNumberO f Instances
+
+)
+
+– ClassEntropy = mean(− ∑ni=1 p(Classi)ln(p(Classi))) where p(Classi) is
+
+the probability of having an instance of Class_i
+
+– ClassOccurences = number of examples for each class
+
+–
+
+ClassProbabilityMean
+
+=
+
+mean(
+
+ClassOcurrences NumberO fClasses
+
+)
+
+–
+
+ClassProbabilitySTD
+
+=
+
+std(
+
+ClassOcurrences NumberO fClasses
+
+)
+
+–
+
+DatasetRatio =
+
+NumberO f Features NumberO f Instances
+
+–
+
+InverseDatasetRatio =
+
+NumberO f Instances NumberO f Features
+
+– LogInverseDatasetRatio = log(DatasetRatio)
+
+– Landmark[Some_Model]: accuracy of [Some_Model] applied on dataset.
+
+– LandmarkDecisionNodeLearner & LandmarkRandomNodeLearner: Both are decision tree with max_depth=1. ‘DecisionNode’ considers all features when looking for best split, and ‘RandomNode’ considers only 1 feature, where comes the term ‘random’.
+
+– Skewnesses: Skewness of each numerical features. Skewness measures the symmetry of a distribution. A skewness value > 0 means that there is more weight in the left tail of the distribution. Computed by scipy.stats.skew.
+
+– SkewnessMax / SkewnessMin / SkewnessMean / SkewnessSTD: max / min / mean / std over skewness of all features.
+12Kurtosis, Skewness, KurtosisPCA and SkewnessPCA are intermediate metafeatures used to calculate some other metafeatures
+
+2.3 Design of benchmarking meta-learning datasets
+
+27
+
+– NumSymbols: Sizes of categorical features: for each categorical feature, compute its size (number of values in the category).
+
+– SymbolsMax / SymbolsMin / SymbolsMean / SymbolsSTD / SymbolsSum = max / min / mean / std / sum over NumSymbols
+
+– NumberOfCategoricalFeatures: Number of categorical features.
+
+– NumberOfNumericFeatures: Number of numerical features
+
+–
+
+RatioNumericalToNominal =
+
+NumberO f NumericFeatures NumberO fCategoricalFeatures
+
+–
+
+RatioNominalToNumerical =
+
+NumberO fCategoricalFeatures NumberO f NumericFeatures
+
+– Kurtosis = Fourth central moment divided by the square of the variance =
+
+E [(xi −E [xi ])4 ] [E [(xi −E [xi ])4 ]]2
+
+where
+
+xi
+
+is
+
+the
+
+i-th
+
+feature.
+
+Computed
+
+using
+
+scipy.stats.kurtosis.
+
+– KurtosisMax / KurtosisMin / KurtosisMean / KurtosisSTD = max / min /
+
+mean / std of kurtosis over all features
+
+– PCAKurtosis: Transform data by PCA, then compute the kurtosis
+
+– NumberOfInstances = Number of examples
+
+– NumberOfFeatures = Number of features
+
+– NumberOfClasses = Number of classes
+
+– LogNumberOfFeatures = log(NumberO f Features)
+
+– LogNumberOfInstances = log(NumberO f Instances)
+
+– MissingValues: Boolean matrix of dim (NumberOfInstances , NumberOfFeatures), indicating if an element of is a missing value.
+
+– NumberOfMissingValues: Total number of missing value
+
+– NumberOfInstancesWithMissingValues: Number of examples containing missing values.
+
+– NumberOfFeaturesWithMissingValues: Number of features containing missing values.
+
+– PCA: PCA decomposition of data.
+
+– PCAFractionOfComponentsFor95PercentVariance: Fraction of PCA components explaining 95% of variance of the data.
+
+– PCAKurtosisFirstPC: Kurtosis of the first PCA component.
+
+– PCASkewnessFirstPC: Skewness of the first PCA component.
+
+Rnd DATASET
+
+Task
+
+Metric Time C Cbal Sparse Miss Cat Irr
+
+Pte Pva
+
+Ptr
+
+N Ptr/N
+
+Empirical setting
+
+0 1 ADULT 0
+
+multilabel F1 300 3 1
+
+0.16 0.011 1 0.5 9768 4884 34190
+
+24 1424.58
+
+0 2 CADATA 1
+
+regression R2 200 0 NaN 0
+
+0
+
+0 0.5 10640 5000 5000
+
+16 312.5
+
+0 3 DIGITS 2
+
+multiclass BAC 300 10 1
+
+0.42 0
+
+0 0.5 35000 20000 15000 1568 9.57
+
+0 4 DOROTHEA 3 binary
+
+AUC 100 2 0.46 0.99 0
+
+0 0.5
+
+800 350
+
+800 100000 0.01
+
+0 5 NEWSGROUPS 4 multiclass PAC 300 20 1
+
+1
+
+0
+
+00
+
+3755 1877 13142 61188 0.21
+
+1 1 CHRISTINE 5
+
+binary
+
+BAC 1200 2 1
+
+0.071 0
+
+0 0.5 2084 834 5418 1636 3.31
+
+1 2 JASMINE 6
+
+binary
+
+BAC 1200 2 1
+
+0.78 0
+
+0 0.5 1756 526 2984
+
+144 20.72
+
+1 3 MADELINE 7
+
+binary
+
+BAC 1200 2 1
+
+1.2e-06 0
+
+0 0.92 3240 1080 3140
+
+259 12.12
+
+1 4 PHILIPPINE 8
+
+binary
+
+BAC 1200 2 1
+
+0.0012 0
+
+0 0.5 4664 1166 5832
+
+308 18.94
+
+1 5 SYLVINE 9
+
+binary
+
+BAC 1200 2 1
+
+0.01 0
+
+0 0.5 10244 5124 5124
+
+20 256.2
+
+2 1 ALBERT 10
+
+binary
+
+F1 1200 2 1
+
+0.049 0.14 1 0.5 51048 25526 425240
+
+78 5451.79
+
+2 2 DILBERT 11
+
+multiclass PAC 1200 5 1
+
+0
+
+0
+
+0 0.16 9720 4860 10000 2000 5
+
+2 3 FABERT 12
+
+multiclass PAC 1200 7 0.96 0.99 0
+
+0 0.5 2354 1177 8237
+
+800 10.3
+
+2 4 ROBERT 13
+
+multiclass BAC 1200 10 1
+
+0.01 0
+
+00
+
+5000 2000 10000 7200 1.39
+
+2 5 VOLKERT 14
+
+multiclass PAC 1200 10 0.89 0.34 0
+
+00
+
+7000 3500 58310
+
+180 323.94
+
+3 1 ALEXIS 15
+
+multilabel AUC 1200 18 0.92 0.98 0
+
+0 0 15569 7784 54491 5000 10.9
+
+3 2 DIONIS 16
+
+multiclass BAC 1200 355 1
+
+0.11 0
+
+0 0 12000 6000 416188
+
+60 6936.47
+
+3 3 GRIGORIS 17
+
+multilabel AUC 1200 91 0.87 1
+
+0
+
+00
+
+9920 6486 45400 301561 0.15
+
+3 4 JANNIS 18
+
+multiclass BAC 1200 4 0.8 7.3e-05 0
+
+0 0.5 9851 4926 83733
+
+54 1550.61
+
+3 5 WALLIS 19
+
+multiclass AUC 1200 11 0.91 1
+
+0
+
+00
+
+8196 4098 10000 193731 0.05
+
+4 1 EVITA 20
+
+binary
+
+AUC 1200 2 0.21 0.91 0
+
+0 0.46 14000 8000 20000 3000 6.67
+
+4 2 FLORA 21
+
+regression ABS 1200 0 NaN 0.99 0
+
+0 0.25 2000 2000 15000 200000 0.08
+
+4 3 HELENA 22
+
+multiclass BAC 1200 100 0.9 6e-05 0
+
+0 0 18628 9314 65196
+
+27 2414.67
+
+4 4 TANIA 23
+
+multilabel PAC 1200 95 0.79 1
+
+0
+
+0 0 44635 22514 157599 47236 3.34
+
+4 5 YOLANDA 24 regression R2 1200 0 NaN 1e-07 0
+
+0 0.1 30000 30000 400000
+
+100 4000
+
+5 1 ARTURO 25
+
+multiclass F1 1200 20 1
+
+0.82 0
+
+0 0.5 2733 1366 9565
+
+400 23.91
+
+5 2 CARLO 26
+
+binary
+
+PAC 1200 2 0.097 0.0027 0
+
+0 0.5 10000 10000 50000 1070 46.73
+
+5 3 MARCO 27
+
+multilabel AUC 1200 24 0.76 0.99 0
+
+0 0 20482 20482 163860 15299 10.71
+
+5 4 PABLO 28
+
+regression ABS 1200 0 NaN 0.11 0
+
+0 0.5 23565 23565 188524
+
+120 1571.03
+
+5 5 WALDO 29
+
+multiclass BAC 1200 4 1
+
+0.029 0
+
+1 0.5 2430 2430 19439
+
+270 72
+
+Table 2.2 Datasets of the 2015/2016 AutoML challenge. C=number of classes. Cbal=class balance. Sparse=sparsity. Miss=fraction of
+
+missing values. Cat=categorical variables. Irr=fraction of irrelevant variables. Pte, Pva, Ptr=number of examples of the test, validation, and
+
+training sets, respectively. N=number of features. Ptr/N=aspect ratio of the dataset. The number in red next to dataset names represents the
+
+numbering in the figure on AutoML meta-dataset 2.4.
+
+28
+
+2.3 Design of benchmarking meta-learning datasets
+
+29
+
+StatLog meta-dataset
+The StatLog [62] meta-dataset is a public dataset from the UCI database ( http: //archive.ics.uci.edu/ml/datasets/StatLog+(australian+credit+approval). We took the square root of the performances to equalize the distribution of scores (avoid a very long distribution tail). Figure 2.6 shows the visualization of the StatLog meta-dataset. We see the hierarchical clustering (TOP) is homogeneous both in datasets and algorithms. It’s challenging to find sub-sets of algorithms / datasets. The median-arranged matrix (BOTTOM) also shows no specific algorithms outperform on multiple datasets.
+OpenML meta-dataset
+This meta-dataset is a subset of the OpenML platform [115] (https://www.openml.org/) and used in [75]. Figure 2.7 shows the visualization of the OpenML meta-dataset. We see clear block structures in the hierarchical clustering (TOP) on both dataset and algorithm directions, suggesting that sub-sets of datasets and algorithms can be found, this is coherent with the median-arranged matrix (BOTTOM) where a large number of algorithms are good at multiple datasets, and many datasets have more than one best algorithms. In this sense, the OpenML meta-dataset, compared to others, is more suitable for meta-learning.
+
+2.3.2 Synthetic and toy meta-datasets: Matrix factorization, CEP, MNIST patches
+This section describes three synthetic meta-datasets: Artificial constructed from a matrix factorization, CEP generated from the Cause-Effect Pairs challenge, and MNIST patches from the MNIST dataset.
+Artificial meta-dataset
+The Artificial meta-dataset is constructed from a matrix factorization to create a simple benchmark we understand well, which allows us to easily vary the problem difficulty. 13 More precisely, the artificial matrix SArti f icial is obtained as a product of three matrices UΣV , U and V being orthogonal matrices and Σ a diagonal matrix of “singular values”, whose spectrum is chosen to be exponentially decreasing, with Σii = exp(−β i), β = 100 in our experiments. Figure 2.8 shows the visualization of the Artificial meta-dataset.
+13The Code for generating the artificial meta-dataset is at https://github.com/LishengSun/ ActiveMetaLearn/blob/master/src/utils/make_artificial_matrix.py.
+
+30
+
+Empirical setting
+
+Fig. 2.6 StatLog meta-dataset: SStatLog after global normalization. TOP: Two-way hierarchical clustering based on normalized SStatLog. MIDDLE: Spectrum of singular values of normalized SStatLog. BOTTOM: Top ranking algorithms of normalized SStatLog.
+
+2.3 Design of benchmarking meta-learning datasets
+
+31
+
+Fig. 2.7 OpenML meta-dataset: SOpenML after global normalization. TOP: Tow-way hierarchical clustering based on normalized SOpenML. MIDDLE: Spectrum of singular values of normalized SOpenML . BOTTOM: Top ranking algorithms of normalized SOpenML.
+
+32
+
+Empirical setting
+
+Compared to other real-world meta-datasets (e.g. Figure 2.4), we notice that a block structure is more apparent in the hierarchical clustering (TOP), indicating that it should be easier to find subsets of algorithms, which are better on subsets of tasks. However, surprisingly, the BOTTOM picture indicates that only a few algorithms (e.g. algorithm #3 and #13, representing 2 algorithm families that are good at different subsets of tasks.) seem to be better at a large number of tasks. This is because only the absolute maximal values are red-marked in each dataset, while multiple algorithms have performance just slightly lower than the maximum (e.g. algorithm #2 compared to #3, and algorithm #7 compared to #13 for many tasks).
+
+CEP meta-dataset
+The CEP meta-dataset was constructed using data from the cause-effect pair challenge (https://www.kdnuggets.com/2013/04/chalearn-cause-effect-pairs-challenge.html) without making any use of underlying causal relationship. The meat-dataset includes samples of pairs of variables (CE pairs), continuous, binary, or categorical. We used a subset of these pairs to create univariate “machine learning tasks”: classification or regression problems using a SINGLE input variable. Thus each little task/dataset in our meta problem is one of the CE pairs. Our experiments thus far have been limited to one continuous input variable and one categorical output variable (classification problem), ignoring the causal direction. The present CEP meta-dataset consists of 8608 classification datasets, 163 algorithms and 16 meta-features. The performance of algorithms are measured by BAC. The evaluation time of each (dataset, algorithm) pair is also recorded, giving an extra time matrix SCEP_time. Figure 2.9 shows the visualization both on performance and time matrix. We see that block structures are more pronounced in datasets in the performance matrix, but in algorithms when looking at time matrix. But the overall structure is rather homogeneous, high similarity presents both in datasets and algorithms. However, thanks to a large number of datasets, the CEP meta-dataset provides a suitable learning source for a simple meta-learning problem.
+• Algorithms applied to the CEP datasets: To ensure the similarity in algorithms so that meta-learning is possible, 163 basic learning algorithms were selected from diverse families: "KNN", "DecisionTree", "RandomForest", "GradientBoostingTree", "AdaBoost", "lSVM", "kSVM", "Logit", "Perceptron", "GaussianNaiveBayes", "MultiLayerPerceptron", "ExtraTrees". All algorithms used are from scikit-learn. For each hyper-parameter in these algorithms, some values are sampled in an ad-hoc fashion, then each possible combination of
+
+2.3 Design of benchmarking meta-learning datasets
+
+33
+
+Fig. 2.8 Artificial meta-dataset: SArti ficial after global normalization. TOP: Two-way hierarchical clustering based on normalized SArti ficial. MIDDLE: Spectrum of singular values of normalized SArti ficial. BOTTOM: Top ranking algorithms of normalized SArti f icial .
+
+34
+
+Empirical setting
+
+these hyper-parameters form one algorithm. Failures of simulation are marked as 0 (worst BAC) in the matrix of performance and 1 second in the time matrix.
+• Meta-features of CEP datasets : 16 Meta-features are also computed for each dataset in CEP to help tackle the cold start problem in meta-learning when using RL in Chapter 6: ’NumberOfInstances’, ’LogNumberOfInstances’, ’NumberOfClasses’, ’ClassProbabilityMin’, ’ClassProbabilityMax’, ’ClassProbabilityMean’, ’ClassProbabilitySTD’, ’Kurtosisses’, ’Skewnesses’, ’ClassEntropy’, ’LandmarkLDA’, ’LandmarkNaiveBayes’, ’LandmarkDecisionTree’, ’LandmarkDecisionNodeLearner’, ’LandmarkRandomNodeLearner’, ’Landmark1NN’. The definition of these meta-features is given in Section 2.3.1.
+
+MNIST-patch meta-dataset
+In Chapter 6, we will use the MNIST dataset [68] to create an exploration game, which is a toy example before addressing the more difficult meta-learning problem. This section will first describe this meta-dataset(for more information, please refer to Section 6.2.2). The original MNIST dataset is a handwritten digit database largely used to train various image related machine learning systems. It consists of a training set (60, 000 images) and a test set (10, 000 images). The digit classes range from 0 to 9.
+The MNIST dataset first caught our attention when it was presented in the Natural Image game in [122] where it was used to create a game environment in which an RL agent is trained to efficiently reveal a masked MNIST image and predict its label. We then drew the link between a MNIST image and a machine learning dataset, and realized that if an agent can be trained to navigate in the pixel space, under additional assumptions, it should be able to train it to navigate in the algorithm performance space, i.e. our meta dataset matrices S. We then created a meta-dataset where each row is a flatten MNIST image. However, if we simply flatten the MNIST image to a 32 × 32 = 1024 vector 14, the searching space will be too large for the agent to learn efficiently, additionally, there are many equal pixel values in a image, making this space very redundant. We thus use a square window of size 5 to average the neighboring pixels, this is interpreted as a patch brightness, The notion of patch reduces the size of the vector to 49. This (70000, 49) 15 matrix is our final MNIST-patch meta-dataset, it is similar to other meta-datasets we present so far, where an image is equivalent to a
+14One original MNIST image is of size 28 × 28. We used the version of [122] where images are transformed to size of 32 × 32 for algorithm compatibility.
+1560,000 images from train set and 10,000 from test set, each of them has 49 patches and therefore 49 brightness values.
+
+2.3 Design of benchmarking meta-learning datasets
+
+35
+
+Fig. 2.9 200 randomly sampled datasets from CEP meta-dataset, which con-
+tains 2 matrices of same dimension: SCEP_per f for algorithm performances and SCEP_time for algorithm computational times. 1st panel: Tow-way hierarchical clustering based on normalized SCEP_per f . 2nd panel: Spectrum of singular values of normalized SCEP_per f . 3rd panel: Top ranking algorithms in normalized SCEP_per f . 4th panel: Tow-way hierarchical clustering based on SCEP_time after taking natural logarithm.
+
+36
+
+Empirical setting
+
+dataset, and a patch brightness value is equivalent to an algorithm performance value. Figure 2.10 shows a sub-sample of 200 images randomly (without replacement) drawn from the whole MNIST-patch meta-data train set. A clear block structure presents in columns (i.e. the direction of patch), this is not surprising because most MNIST images have digit in the center of the image, which corresponds to a common bright area. However, there is no clear block structure in rows (i.e. the direction of images), meaning that the images are rather i.i.d. This observation shows that training an agent to find brightest patches across different digits is possible 16.
+
+2.4 Summary of experimental setting chapter
+This chapter presented the experimental setting used in the remainder of this thesis. The analysis of the AutoML challenge (2015-2016), which was summarized at the beginning of the chapter, was a pivotal element in outlining the importance of metalearning. The AutoML challenge datasets were used to create a novel meta-learning dataset. Several other meta-learning datasets were added to create a benchmark of meta-learning, including datasets borrowed from the literature (StatLog and OpenML), and synthetic/toy datasets (simple matrix factorization, CEP, MNIST patches).
+Thus, the main contribution of this chapter is a collection meta-datasets, which are used in this thesis and are made available (at https://github.com/LishengSun/REVEAL/ upload/master/env/meta_learning_env/meta_learning_matrices) to the research community to further explore the meta-learning problem. As my attention moved from standard Hyper-parameter selection to meta-learning, these meta-datasets will serve as meta-learning sources and will be extensively used in Chapter 5 and 6, where the framework of meta-learning as a Markov Decision Process (MDP) is introduced.
+
+16It is possible because of the way in which people hand-write: they usually put more pressure at the beginning of writing when the pen hits the paper, which results in the brightest patches. This is a common fact across different digits
+
+2.4 Summary of experimental setting chapter
+
+37
+
+Fig. 2.10 200 random sampled images from MNIST-patch meta-dataset: This
+form a 200 × 49 matrix SMNISTpatch, in which one row is one flatten MNIST image, one column is one patch, the value is the brightness. TOP: Two-way hierarchical clustering
+based on SMNISTpatch. MIDDLE: Spectrum of singular values of SMNISTpatch. BOTTOM: Top ranking patches of SMNISTpatch.
+
+Chapter 3
+Mathematical statement of the AutoML problem as a MDP
+In this chapter, we formulate the problem of algorithm (or model) selection, which is at the hart of the AutoML problem, as a Markov Decision Process (MDP). This will provide us with a formal framework to address the problem of hyper-parameter selection and meta-learning in a principled way. In a MDP, the system under study is a Markov process, hence has a finite number of states and the next state is determined (via state transition probabilities) from (a finite number of) recent past states and actions. In our problem of interest, states encode our knowledge of the performance of algorithms on given tasks (the performance of machine learning methods on given datasets); actions encode our next move in “information space”, i.e. which algorithm (learning machine) we decide to run on a particular dataset to reveal it performance (AutoML MDPs actually belong to a larger family of problems, which we baptized REVEAL games). Our goal is to uncover as far as possible the best performing algorithm(s). To that end, we will define objective functions or “rewards” to guide our meta-learning algorithms. For example, an immediate reward (that can be used by reinforcement Learning algorithms) could be the improvement in algorithm performance.
+3.1 Notations and problem setting
+A Markov Decision Process (MDP) is a sequential decision making process. It is described by a 4-tuple (state st, action at, transition probability p(st+1|st, at), reward rt+1). In each time step, the process is in some state st, the decision maker, also
+
+40
+
+Mathematical statement of the AutoML problem as a MDP
+
+called the agent, has access to information on st 1 that allows it to decide its action at, the process responds with a transition to a next state st+1 drawn from a model p(st+1|st, at) and a reward rt+1 to inform the agent about the quality of its action. The goal of the agent is to maximize the reward accumulated over time. Meta-learning can be formulated as a MDP, in the sense that the agent (human or any AutoML system), placed in some state (a partially filled row in the meta-dataset matrix S), is moving in that row (i.e. the algorithm performance space) to find the position of the highest value (i.e. the algorithm with highest performance). At each time step, the action of the agent is to choose one algorithm to evaluate. After each evaluation, the agent gains more information (one more value in matrix S): this is the next state. The improvement in evaluation score of the algorithm could play the role of reward. After seeing enough datasets (i.e. many rows, one at a time), the agent builds a prior knowledge on the algorithm space across datasets, this allows it to find more efficiently the best algorithm for a new dataset drawn from the same mother distribution, which is the underlying probability distribution from which the datasets (i.e. the rows in S) are sampled.
+To address the problem of finding an optimal policy (a good agent in our MDP setting), it is helpful to view solutions to AutoML problems as algorithm recommender Systems (RS), seeking the algorithm best suited to a given dataset [99]. Two approaches exist: (1) Sequential Optimization that searches for the maximal performance on ONE particular dataset (thus one row in S). Examples include hyper-parameter optimization (Chapter 4) and Collaborative Filtering (Chapters 5); (2) Reinforcement Learning (RL) that searches for a policy that leads to the maximal performance on ANY task (Chapter 6). The advantage of RL compared to Sequential Optimization is the learned policy can be applied on new datasets.
+Compared to standard MDPs, the AutoML MDP has two specific features: (1) it has finite time horizon, i.e. we limit the number of decision making steps in each episode; (2) an action only gains more information about the state, it has no effect on the data generating process. We have identified a whole family of games that share these same specifications, which we call REVEAL games. Section 3.2 gives the definition and examples of REVEAL games, which allowed us to test various RL algorithms and visualize their behavior. Section 3.3 explains how AutoML can be formulated as a REVEAL game.
+1If the agent has access to partial information about the state st , the process is a Partially Observable Markov Decision Process (POMDP). In this chapter, we assume that the agent has access to full information about st and restrict the discussion to a MDP framework.
+
+3.2 A game of REVEAL
+
+41
+
+3.2 A game of REVEAL
+
+To project the above formulation into a realistic setting, let’s imagine a REVEAL game, in which the game board is filled with face-down information cards. A game player picks a card and flips it to reveal the hidden information to earn a reward. The overall goal is to accumulate rewards as quickly as possible. We now give a more formal definition of a REVEAL game.
+
+3.2.1 REVEAL definition
+
+Definition 3 (REVEAL game). A REVEAL game is a MDP, fully defined by a 4element tuple: (S, A, p(St+1|St, at), R∥∆), where ∆ = {β , τ, a•} is the set of game parameters:
+
+• State: S is a matrix of dimension M × D × N. It contains M channels, each of them is a D × N matrix encoding one type of information, e.g. D is for datasets and N for algorithms. The game starts at s0 which is the empty S. st is the partially revealed matrix at time t defined by a triplet
+
+
+
+st = {ik, jk, S(ik, jk)} for k = 1, . . . ,t − 1 if t < τ and at ̸= a•
+
+(3.1)
+
+ s• if t = τ or at = a•
+
+where (ik, jk) is revealed at time k with action ak. The game terminates when the time t exceeds the time budget τ or when the action at hits the goal a• . The set of states is thus S = {s0, st(t = 1, . . . , τ − 1), s•}
+
+• Action: The set of actions at time t is noted At: .
+
+
+
+P At =
+
+if t < τ and st ̸= s•
+
+(3.2)
+
+0/ otherwise
+
+– When t < τ or when the goal is not achieved (i.e.st ̸= s•), the agent can choose to reveal a position in S, this is noted by P. It can be (but not necessary) the union of set of row indices I and column indices J , i.e. P = I × J . In this case, at = (it, jt).
+– The game terminates when t = τ or when the goal is achieved, the action space is empty.
+
+42
+
+Mathematical statement of the AutoML problem as a MDP
+
+• p(st+1|st, at) is the transition probability. If S is assumed pre-computed, the transition is deterministic given st and at :
+
+ st+1 = st {it , jt , S(it , jt )}
+s• otherwise
+
+if t < τ and at ̸= a•
+
+(3.3)
+
+• R is the reward signal computed using the reward function r(t), which contains a positive term r+(t) : S → R representing how good to be in the current state st, and a negative term r−(t) : S → R representing how much the agent actually pays for being in that state. β controls this performance-cost trade-off.
+
+r(t) = r+(t) − β r−(t) with β > 0
+
+(3.4)
+
+3.2.2 REVEAL game examples
+To gain a better understanding of class of MDP problems that we called REVEAL games and thus guide our design of meta-learning algorithms, we created a suite of toy REVEAL games. In this section we describe a few. We parameterize each game using our previously described notation.
+Battleship: REVEAL(β = 0, a• = ship locations)
+2 One of the simplest example is the famous game of “battleship”: “ships” are placed on a grid, hidden to the player (agent). The player must blindly aim at the position of ships to try to sink them. At each try, the player gains the information whether a ship (partially) occupies the targeted location, i.e. whether the player touched or sank a ship. The game is usually played with 2 players, each providing a puzzle to the other. Formally: S = the game board. A = set of all locations on the game board. Goal = uncovering ship locations to destroy them faster than the opponent. If the game is not put under any time limit specified by the game designer, the time limit is bounded by the board game.
+2β = 0 if we don’t “charge” the agent for revealing any position, it can be changed freely to suit the need of the game designer.
+
+3.3 AutoML as a REVEAL game
+
+43
+
+Reveal a MNIST image to predict its digit: REVEAL(β = 1, τ = 100, a• = correct digit label)
+This game is proposed in [122], the agent initially placed in the center of a fully masked MNIST digit image should learn to reveal that image progressively to predict its label within 100 time steps. The state is a 2-channel matrix S of dimension 2 × 32 × 32 including the under being revealed 32 × 32 image and another 32 × 32 image encoding the agent’s current location. The actions are close moves related to the current position: P = {Le f t, Right,U p, Down}. After each move, the agent predicts the label, if the prediction is correct, the game board transits to s• and the game terminates. 3 Since the game is also put under a time limit τ = 100 steps , it terminates automatically when t = τ even the prediction is always wrong. Each action costs r− = −0.01, only correct prediction is rewarded positively with r+ = 1.
+Reveal a MNIST image progressively to find the brightest patches: REVEAL(β = 0.5, τ = 20, a• = positions of the brightest patches)
+We have modified the setting of the previous game to make the problem more alike to AutoML. Now the goal of the agent is to reveal the image to find the brightest patches. States are still the (2, 32, 32) matrix, action space is now all possible positions in the image but we don’t require the agent to predict the label anymore. The game terminates automatically when one of the brightest patches is found or when the time budget exceeds τ, thus, P = I × J during the game. τ = 20 steps; The rewards is also modified to combine the performance and cost: r+(t) = mean(S[0, at]), β = 0.5, r−(t) = −0.05. In Chapter 6, we use RL to train the agent that successfully learns to navigate the the brightest patches in an unseen MNIST image. Figure 6.6 shows this agent performing one test episode.
+
+3.3 AutoML as a REVEAL game
+The AutoML problem itself can be viewed as a REVEAL game: given a sparse matrix S of dimension M × D × N where Sm,i, j is the value of channel m of algorithm j applied on dataset i, reveal more of its values by running more algorithms on datasets. Different channels may contain information such as: performance, computational cost, value revealed-or-not, etc. The missing values in S correspond to the pairs (algorithm, dataset) that are not yet revealed, i.e. the algorithm was not run yet on the particular dataset. The purpose of the agent is to find the best algorithm for a dataset of interest
+3This game has two actions (move, predict) where the second action ‘predict’ is performed by a pre-trained classifier.
+
+44
+
+Mathematical statement of the AutoML problem as a MDP
+
+as quickly as possible. This setting assumes that we have a finite number of algorithms and datasets. It is similar to the “brightest patch” MNIST REVEAL game, where MNIST images play the role of one row in the meta-learning dataset (i.e. images are “flattened” as a line vector of the S matrix).
+
+3.3.1 1D AutoML: REVEAL(β = 0.1, τ = 20, a• = position of the best algorithm)
+
+There are 2 possible settings in this problem: 1D and 2D. The 1D setting is similar to the segment game in 6.2.1. The agent is given 1 dataset (i.e. 1 row) at a time, its goal is to reveal and find the best algorithm for this dataset. In this setting:
+
+• States: the matrix S is M × 1 × N. It contains 1 dataset and N algorithms 4, it can have M > 1 channels: performance channel, revealed-or-not channel (that is 1 for positions the agent has revealed and 0 otherwise), computational time channel, etc. Hence, if we note the index of the dataset of interest as d, S:,d, j, j ∈ (1, . . . , N) is a M-dimensional vector. M = 2 in our experiments in Chapter 6 containing performance and computational time. All values in S:,d, j = NAN if the position j is not revealed yet, and channel values otherwise. In the real-world, the matrix S can be infinite because it grows with more and more datasets/algorithms added to the agent’s experience, i.e. the action space can be enormous compared to a small time budget τ. In this case, the agent might not be able to achieve the goal a• within τ, the game termination thus is wholly determined by the condition t = τ, and the agent is rewarded according to the best algorithm found within τ.
+
+• Actions: P = J = {0, . . . , N − 1} = any position in the row. at = jt
+
+• Reward is the combination of performance (computed as the difference of performance of current action S0,d, jt 5 and the best performance in the action history) and cost (computed as the computational time required to evaluate the
+chosen algorithm S1,d, jt ):
+
+
+rt = r+(t) − β r−(t)  
+r+(t) = |S(d, jt )per f − maxtk−=10(S(d, jk)per f )|   r−(t) = S(d, jt )time
+
+(3.5)
+
+4An algorithm can be a learning machine, a meta feature, or other information about the dataset 5Assume the 0th channel is the algorithm performance and 1th channel is the algorithm computational time.
+
+3.4 Evaluation procedure in REVEAL games
+
+45
+
+3.3.2 2D AutoML
+Similar setting as in 1D, except now the agent is given more than one rows at a time. The purpose of this 2D setting is to mimic a challenge environment, in which the agent should solve multiple datasets within a resource budget τ, and the final reward is defined upon the average performance over all datasets. The agent thus needs to learn how to schedule its resource across datasets.
+• States: the matrix S is M × d × N. It contains d datasets and N algorithms.
+• Actions: P = I × J = {0, . . . , d − 1} × {0, . . . , N − 1} = any position in the (d × N) matrix;
+• Reward: we use the same reward shaping as in 1D setting, but instead of considering per dataset, we take the average at each time steps.
+
+3.4 Evaluation procedure in REVEAL games
+How do we evaluate the performance of a REVEAL agent? There are mainly two ways:
+• Online learning: No train/test split. Each new game is first treated as a test instance and solved by the agent trained with previous games. During the test time, the agent keeps adapting its parameters. Hence, the test instance is also a training instance. In the case of meta-learning, a game is equivalent to a dataset, i.e., a row in the matrix S.
+• Off-line learning: There is a clear train/test split, i.e. we maintain a train set from which we sample games for the agent to solve during its training time. Then, once the training terminates, the parameters of the agent are frozen, and the testing starts, the agent is asked to solve games sample from the test set. The reward, in this case, is the average reward over the test set. For the meta-learning problems shown in Chapters 5 and 6, for large meta-datasets such as CEP, we use 70% of rows for training and the remaining 30% of rows for testing; for smaller meta-datasets (AutoML, OpenML, StatLog, Artificial), we perform 10 fold cross-validation by testing on one fold at a time.
+
+3.5 Summary on the MDP setting
+In this chapter, the AutoML meta-learning problem was formulated as a Markov Decision Process (MDP). This formulation allows us to develop different policies to
+
+46
+
+Mathematical statement of the AutoML problem as a MDP
+
+solve the AutoML problem in later chapters: Hyper-parameter selection where no meta-learning is performed to find a best algorithm for a particular dataset (Chapter 4), Collaborative filtering where a hard-coded policy is used to find the best algorithm in a greedy fashion (Chapter 5) and Reinforcement learning where an agent is trained to learn a policy that is useful for new datasets. (Chapter 6)
+Clearly, this simplified formulation has limitations that we will discuss in the last chapter, including that of a discrete finite state space. We also did not impose any particular constraints on action space, which could implement some prior knowledge on hyper-parameter space. We will also discuss in the last chapter possible extensions that we did not develop in this thesis, including representing the problem as a POMDP (Partially Observable Markov Decision Process), exploring continuous state-action spaces (for example continuous hyper-parameters), and revealing matrix S not only linewise (give an particular dataset), but column-wise (task selection) of bi-bidirectionally (finding the best overall match of algorithms to tasks).
+
+Chapter 4
+Algorithm selection and Hyperparameter Optimization: No meta-learning at all
+As claimed in Chapter 3, the goal of AutoML is to build an agent to learn a policy p(a|s) in a MDP: the action a can be seen as choosing an algorithm to use, when in the state s. The state s encodes all information exposed to the agent so far, making the whole process a MDP. How to build such agent? There are 3 possibilities: (1) Let the agent learn from trial and error (Chapter 6); (2) Treat unknown algorithm performances as missing values and hard code the policy to choose the algorithm with maximal estimated value (Chapter 5). Both (1) and (2) make use of knowledge gained from past experiences, while (3) Hyperparameter selection looks solely at the task at hand, and assigns appropriate algorithm to it through the optimization of a metric function L that encodes the task preference (e.g. a loss function that measures the performance of the algorithm applied on the dataset under consideration, or a customized scoring function that trades off between the performance and the computational cost of the algorithm).
+4.1 Hyperparameter selection as a CASH problem
+No algorithm is best for all tasks. The best choice depends on the task (its data distribution D, the metric L it uses to measure the performance) and the fact that whether the algorithm is well tuned. Auto-WEKA [110] first proposed Combined Algorithm Selection and Hyperparameter optimization (CASH) to formulate this dependence jointly:
+
+48 Algorithm selection and Hyperparameter Optimization: No meta-learning at all
+
+Definition 4. CASH Given a set of algorithm A = {A(1), . . . , A(k)} with associated hyperparameter spaces Λ(1), . . . , Λ(k), we define the combined algorithm selection and
+hyperparameter optimization problem (CASH) as computing
+
+∑ A∗λ ∗
+
+∈
+
+argminA( j)∈A
+
+,λ ∈Λ( j)
+
+1 K
+
+K
+L
+i=1
+
+(A( j), Dt(ria)in, Dv(ai)lid)
+
+where L (A( j), Dt(ria)in, Dv(ai)lid) is the metric value achieved by A trained on Dt(ria)in and evaluated on Dv(ai)lid)
+This way, the agent policy is hard coded as:
+
+
+
+1 − ε p(a|s) =
+
+if a = A∗
+λ∗
+
+ε
+
+otherwise
+
+where s encodes the current task, and ε trades off exploration - exploitation. CASH setting is a particular way of formulating the Hyper-parameter optimization
+problem, but others are possible (e.g. having a single validation set or even using the training error if we have really "big data").
+
+4.1.1 How to solve CASH?
+
+The first solution family is BlackBox Optimization: without knowledge about the
+
+real function L , we can only query algorithm points A( j) and observe its the value of
+λ
+L (A( j)). Then we can choose building a model of L (model-based) or not (model-
+λ
+free). The examples of model-free optimization include grid search (exhaustive search
+
+over hyperparameter space Λ( j))); random search [12] (starting from a random position
+
+λj
+
+in
+
+Λ( j)),
+
+sample
+
+a
+
+neighbor
+
+position
+
+λ
+
+′ j
+
+from
+
+the
+
+hypersphere
+
+of
+
+a
+
+given
+
+radius
+
+surrounding
+
+λ
+
+j
+
+,
+
+update
+
+the
+
+searching
+
+center
+
+to
+
+the
+
+new
+
+position
+
+if
+
+L
+
+(A( j′
+λ
+
+))
+
+>
+
+L
+
+(A( j)).
+λ
+
+Because the metric function L has usually a low effective dimension (i.e. some
+
+dimensions of D are more relevant to L than other), random search is proven to
+
+be more efficient than grid search in practice, especially when the dimension of D
+
+grows); population-based optimization (e.g. evolutionary algorithm [91], particle
+
+swarm optimization [31], which maintain an algorithm population and perform local
+
+mutation, recombination on these candidate to achieve better algorithm generations).
+
+The standard approach of model-based optimization is Bayesian Optimization
+
+(BO) [21]. BO combines the Baye’s Theorem and an acquisition function for efficient sampling in the search space Λ( j) to optimize an objective function L . The Bayes’
+
+4.2 Freeze-Thaw: My exploration on HP selection
+
+49
+
+theorem
+
+p(L
+
+|{A( j), L
+λ
+
+(A( j))})
+λ
+
+∝
+
+p({A( j′), L
+λ
+
+(A( j′))}|L
+λ
+
+) p(L
+
+)
+
+allows the optimization to start from a prior p(L ) encoding our belief about the
+
+unknown objective function. After some observations (or queries) {A( j), L (A( j))}
+
+λ
+
+λ
+
+we can update the likelihood probability p({A( j), L (A( j))}|L ), and the product of
+
+λ
+
+λ
+
+both allows us to refine progressively the posterior probability which is our model
+
+of L given observations. In practice, p(L ) is usually approximated using Gaussian
+
+process (GP) [90]1. Random Forest can also be used in the place of GP for its good
+
+performance on high-dimensional and discrete data [55, 109, 35]. At each iteration, an acquisition function is used to decide the next point A( j)(t + 1) to sample while
+λ
+automatically trades off the exploration and exploitation, some examples include
+
+expected improvement [77] and entropy search [50].
+
+Instead of directly modeling the posterior p(L |{A( j), L (A( j))}) like in GP, Tree-
+
+λ
+
+λ
+
+structured Parzen Estimator Approach (TPE) [15] proposed to model the likelihood
+
+p({A( j′), L (A( j′))}|L ) using 2 non-parametric densities l(A) and g(A), where l(A) is
+
+built
+
+λ
+using
+
+all
+
+λ
+observations
+
+{A(
+
+j′)
+
+such
+
+that
+
+L
+
+(A(
+
+j′))}
+
+<
+
+L∗
+
+and
+
+g(A)
+
+using
+
+remaining
+
+λ
+
+λ
+
+observations. Expected improvement is then used as acquisition function for next-point
+
+sampling. TPE is the sub-routine in AutoML toolkit Hyperopt-sklearn [65].
+
+As BlackBox optimization receives algorithm performance as feedback, it can
+
+suffer when the performance evaluation gets expensive. This brings out the second
+
+family: Multi-Fidelity optimization, which trades off between the performance approx-
+
+imation and the evaluation complexity. One example is HyperBand [69] which starts
+
+the evaluation with randomly sampled HP configurations and successively halve the
+
+less promising ones. BOHB [33] replaces the random sampling in HyperBand with
+
+BO.
+
+4.2 Freeze-Thaw: My exploration on HP selection
+My first experience in AutoML was the AutoML0 challenge in 2015-2016, at that time AutoML and HP selection were equivalent to me. My final submission to the challenge was a re-implementation of the Freeze-Thaw Ensemble Construction algorithm (FTEC). FTEC was first implemented by a top participant ‘jlr44’ [73] where an ensembling was added on-the-fly on top of the original Freeze-Thaw algorithm [106] to profit from the data mining experiences.
+1GP is a distribution over functions, it is fully defined by a mean function m(A) and a kernel k(A, A′) that expresses the covariance between 2 points A and A′.
+
+50 Algorithm selection and Hyperparameter Optimization: No meta-learning at all
+Freeze-Thaw Bayesian Optimization (BO) suggests to repeatedly stop less promising algorithms and resume / start promising ones so that limited computational resource can be concentrated on training good candidates. This is done by building 2 models: (1) model of HP from which new configurations A( j) are sampled, this is an infinite
+λ
+mixture of exponential decays Gaussian Process (GP); (2) learning curve model for each sampled configuration, this is a smooth GP over time. BO with entropy search as acquisition function is then used to decide which algorithm to explore further. These ingredients together make Freeze-Thaw an any-time interruptible algorithm suitable for AutoML challenge. FTEC implements FT in the scikit-learn searching space, and uses cross-validation to evaluate the candidates. FTEC furthermore implements a stacking ensembling and memory management (e.g. quick predictions generated by pilot algorithms trained on reduced size data as a backup for algorithm failures) to reinforce the algorithm’s power during the challenge. I then improved the FTEC by replacing all detected failures with a heuristic search to make it more task-flexible, hence less failures in the challenge environment 4.1.
+4.3 Summary of the chapter on HP selection
+In this chapter, the first level of AutoML was explored: no meta-learning at all, i.e. solving the “model/algorithm selection” problem for individual datasets independently, focusing only on hyper-parameter (HP) selection. The approach taken was that of Freeze-Thaw, which includes core techniques commonly used in HP selection, such as Bayesian optimization and learning curve estimation. Even pure HP selection solutions achieve good results in many applications, including the AutoML challenge, their limitation lying in the absence of meta-learning. This greatly limits the AutoML system’s ability to learn from its own past, i.e. across datasets. Therefore, in the follwing chapters, we will start exploring meta-learning.
+
+4.3 Summary of the chapter on HP selection
+
+51
+
+Fig. 4.1 The original FTEC implemented by ‘jlr44’ has been repaired after the challenge, and compared with my adapted version, which avoids a large number of failures (with performance 0). The simulations are rerun in a challenge-like environment with the same time budgets. X-axis are challenge dataset names. On y-axis the performances are computed using the specific metric associated to each dataset used in the challenge, error bars are computed through boostraping.
+
+Chapter 5
+Active Meta-learning
+In Chapter 3, we cast the AutoML problem as a MDP, fully represented by the tuple (S, A, PSt+1|St,at , R) where state S is the Meta-learning matrix, A is the set of actions (usually the set of positions in S available for the agent to reveal), P is the transition probability from St to St+1 when at is taken and R is the reward function.
+One way to solve this AutoML MDP is to use Reinforecment learning, where an agent is trained to learn a good policy to explore S efficiently, i.e. achieving the region of maximum values within as few steps as possible. This is our next main contribution detailed in Chapter 6.
+In this chapter, we explore meta-learning with policies that are NOT learned. Since the central problem is deciding which position in S to explore in the next step, the policy can be hard-coded with the help of an estimator (or surrogate score) Sˆ of missing values in S. In this case, the agent chooses the element in Sˆ satisfying some criterion (e.g. the one with highest predicted value or highest expected improvement in a Bayesian optimization context). The surrogate score is refined over time when more and more elements of matrix S are revealed. We call this approach active Meta-learning.
+The code for experiments in this Chapter is at https://github.com/LishengSun/ ActiveMetaLearn. 1
+5.1 Active Meta-learning as a Recommendation problem
+Recommender systems belong to a subclass of information filtering systems, which seek to predict the "rating" or "preference" that a user would give to an item. They are
+1To run the code, CofiRank must be installed. We recommend using the Docker [Doc] image we built for this purpose. The repository also includes a Jupyter-notebook to demonstrate the experiments.
+
+54
+
+Active Meta-learning
+
+widely used by platforms like Amazon, Ebays, etc. to propose products to purchase. This problem can be represented by a sparse rating matrix S where Si, j is the rating if user i has rated item j, otherwise Si, j is a missing value. One common design of recommendation system is Collaborative Filtering (CF), which is based on the assumption that similar users would like similar items. This can be translated to the fact that the rating matrix S (of size (D, N) where D is the number of users and N the number of items) can be approximated as product of 2 matrices S ∼ UV ′ (U of size (D, d), V of size (N, d) with d ⩽ min(D, N)) under the assumption that S is of low rank d. A common approach to solve this approximation is to take it as a regression problem and let UV ′ estimate directly the ratings in S (e.g. Maximum Margin Matrix Factorization [97, 92] minimizes the trade-off between the complexity of UV ′ and the hinge loss between UV ′ and S computed on known values in S, the complexity of UV ′ actually plays the role of regularizer to ensure the generalization to unknown values). However, the authors of CofiRank [120] argue that approximating the ratings is actually a harder problem because ratings are biased by individual users, and that one should instead estimate the ranking (of the ratings). In this context, CofiRank propose to build a matrix F that maximize the ranking measure NDCG between S and F. CofiRank is used as a subroutine in our algorithm ACTIVMETAL, section 5.2.1 gives more detail about CofiRank.
+Meta-learning can be thought of an algorithm recommender system in that a dataset likes more a particular algorithms because the latter performs better on it. In this sense, the rating matrix S becomes our Meta-learning matrix (of size (D, N) where D is the number of datasets and N the number of algorithms 2). CF techniques can then be used to estimate the missing performances (MMMF) or their rakings (CofiRank), and the one with highest estimated value will be recommended.
+Alors [75] applies CofiRank to build such algorithm recommender. However, there is still a challenge in algorithm recommender system: the cold start problem, i.e. how to deal with a brand new dataset (a complete empty line appended to S). This requires the dimension augmentation from D to D + 1 in S. Alors uses dataset meta-features X of size (d′, D) to learn a mapping from X to U, since the new task has its meta-features of size (d′, 1), the learned mapping brings it to (1, d) which is then appended to U and the dimension augmentation is complete, standard CF techniques such as CofiRank can then be applied. There are other approaches to deal with the cold start, in our
+2According to Chapter 3, the dimension of S is M × D × N where M is the number of channels. Here when we treat the problem as a recommender system, we consider only M = 1 channel which is the performance as the sole learning source. We note Sd, j the value of position (d, j) in this 1-channel matrix S.
+
+5.2 The ACTIVMETAL algorithm
+
+55
+
+ACTIVMETAL [101], we augment the dimension by random selection or selecting the column with highest median over old tasks.
+Probabilistic Matrix Factorization for AutoML [40] proposes a similar approach than ACTIVMETAL, but models the performance using a Gaussian Process [90]: p(S|U,V, σ 2) = ∏Nn=1 N (Sn|UnV ′, σ 2I), the GP is refined by optimizing the log likelihood on known entries, and Bayesian optimization is used to recommend the next algorithm to evaluate.
+
+5.2 The ACTIVMETAL algorithm
+Our paper [101] proposes to treat the AutoML problem as an algorithm recommender system and use collaborative ranking technique (CofiRank[120]) to find as quickly as possible the best algorithm for a new task. Section 5.2.1 give a brief summary on CofiRank, section 5.2.2 introduces the algorithm ACTIVMETAL and its application to real world problems.
+
+5.2.1 CofiRank: the subroutine for recommendation
+Given the sparse rating matrix S ∈ R(N,D) of N users and D items, CofiRank proposes to build a full low-rank matrix F ∈ R(N,D), F ∼ UV ′ in such a way that ranking entries in F is equivalent to ranking entries in S. The performance of F is measured by Normalized Discounted Cumulative Gain (NDCG [118]):
+
+N
+
+R(F, S) = ∑ NDCG@k(Πi, Si)
+
+(5.1)
+
+i=1
+
+where Πi = argsort(−Fi) is the sorted row (i.e. user) i of matrix F.
+
+k 2sπi − 1
+
+DCG@k(s,
+
+π
+
+)
+
+=
+
+∑
+i=1
+
+l
+
+og(i
+
++
+
+2)
+
+(5.2)
+
+where sπi is the vector s (thus a certain row in S) after the permution π. DCG is designed to focus on the top k ranked items via the denominator, k is the truncation value. DCG is then normalized to be bouneded in [0, 1], 1 when Π = Π∗:
+
+DCG@k(s, π)
+
+=
+
+DCG@k(Πi, Si) DCG@k(Πis, Si)
+
+(5.3)
+
+Given a F, we can have its performance measure R(F,Ytrain), but we want to maximize R(F,Ytest), this is done by restricting the complexity of F (detailed later).
+
+56
+
+Active Meta-learning
+
+But R(F,Y ) is non-convex, to solve the maximization, we will instead minimize a convex upper bound of −NDCG(π, s) for each individual user and sum them up. This convex upper bound is defined as:
+
+l( f , s) := max[∆(π, s)+ < c, fπ − f >] ≥ ∆(π, s∗)
+
+(5.4)
+
+π
+
+where ∆(π, s) := 1 − NDCG(π, s) brings NDCG to a regret loss. < c, fπ − f > is the inner product between a decreasing sequence c and f permutated by π, this maps the rating f to a real value such that maximizing the latter yields argsort( f ) (Polya-Littlewood-Hardy inequality).
+Now, maximizaing R becomes minimizing l( f , s) over all users i:
+
+N
+L(F, S) = ∑ l(Fi, Si) i=1
+
+(5.5)
+
+Replacing
+
+F
+
+by
+
+UV ′
+
+and
+
+adding
+
+a
+
+regularizer
+
+Ω[F ]
+
+:=
+
+1 2
+
+minU,V
+
+[t rUU ′
+
++ trVV
+
+′],
+
+we
+
+get the final optimization problem:
+
+min
+U,V
+
+L(UV
+
+′,
+
+Strain)
+
++
+
+1 2
+
+[U
+
+,
+
+V
+
+[t
+
+rUU
+
+′
+
++
+
+t
+
+rV
+
+V
+
+′]
+
+(5.6)
+
+U (size (N, d)) and V ′ (size (d, D)) are respectively the user and item matrix that captures the user / item specifics. The rank d in CofiRank is rather computational concerns, d = 10 or 100 in their rating matrix experiments. The problem 5.6 is solved by minimizing alternatively U and V . Because the term L is expensive to minimize, they use bundle methods for a quicker converge rate.
+
+5.2.2 ACTIVMETAL
+In our paper ACTIVMETAL [101], we define the active meta-learning problem in a collaborative filtering recommender setting as follows: GIVEN:
+• An ensemble of datasets (or tasks) D of elements d (not necessarily finite);
+• A finite ensemble of n algorithms (or machine learning models) A of elements a j, j = 1, · · · , N ;
+• A scoring program S (d, a) calculating the performance (score) of algorithm a on dataset d (e.g. by cross-validation). Without loss of generality we will assume that the larger S (d, a), the better. The evaluation of S (d, a) can be
+
+5.2 The ACTIVMETAL algorithm
+
+57
+
+computationally expensive, hence we want to limit the number of times S is invoked.
+
+• A training matrix S, consisting of p lines (corresponding to example datasets di, i = 1, · · · p drawn from D) and n columns (corresponding to all algorithms in A ), whose elements are calculated as Si j = S (di, a j), but may contain missing values (denoted as NaN).
+
+• A new test dataset dt ∈ D, NOT part of training matrix S. This setting can easily be generalized to test matrices with more than one line.
+GOAL: Find “as quickly as possible” j∗ = argmax j(Sdt,aj ). For the purpose of this
+paper “as quickly as possible” shall mean by evaluating as few values of Sdt,aj , j = 1, · · · , n as possible. This can be broken down to 2 processes: (1) INITIALIZATIONSCHEME(S) which chooses the first algorithm to evaluate on the new dataset dt; (2) SELECTNEXT(S, t) which select the next algorithm to evalute at time t, this is where CofiRank can be applied. Algorithm 1 gives the general algorithm, in which different strategies can be plugged into those two above processes. In the paper we compared ActiveMetaLearningCofiRank (initialization = best median, selection according to ranking returned by CofiRank at each time step) with 3 baselines Random (random initialization and selection), SimpleRankMedian (initialization and selection according to the ranking of median over all old datasets), MedianLandmarks1CofiRank (initialization = best median, selection according to ranking returned by CofiRank at t). We applied our methods on 1 Artificial dataset and 3 real-world datasets, the result is shown in Figure 5.1. For more details please refer to the full paper [101].
+
+Algorithm 1 ACTIVMETAL
+
+1: procedure ACTIVMETAL(A , S , S, dt , nmax)
+
+2: n ← size(S, 2)
+
+▷ Number of algorithms to be evaluated on dt
+
+3: t ← NaNvector(n) ▷ Algorithm scores on dt are initialized w. missing values 4: j+ ←INITIALIZATIONSCHEME(S) ▷ Initial algorithm a j+ ∈ A is selected
+
+5: while n < nmax do
+
+6:
+
+t[ j+] ← S (dt, a j+) ▷ Complete t w. one more prediction score of a j+ on
+
+dt
+
+7:
+
+j+ = SELECTNEXT(S, t)
+
+8:
+
+n ←length(notNaN(t))
+
+▷ number of algorithms evaluated on dt
+
+9: return j+
+
+ACTIVMETAL differs from other traditional algorithm selection techniques by the facts: (1) it is purely meta-learning, the only learning source is the performance of
+
+58
+
+Active Meta-learning
+
+(a) Artificial data.
+
+(b) AutoML data.
+
+(c) StatLog data.
+
+(d) OpenML data.
+
+Fig. 5.1 Meta-learning curves. We show results of 4 methods on 4 meta-learning datasets, using the leave-one-dataset-out estimator. The learning curves represent performance of the best model trained/tested do far, as a function of the number of models tried. The curves have been averaged over all datasets held-out. The method Active Meta-learning w. CofiRank (red curve) generally dominates other methods. It always performs at least as well as the median of random model selection (blue curve), a hard-to-beat benchmark. The more computationally economical Median Landmark w. 1 CofiRank consisting in training/testing only 3 models (Landmarks) to rank methods using only 1 call to CofiRank (pink curve) generally performs well, except on OpenML data for which it would be most interesting to use it, since this is the largest Meta-learning datasets. Thus active learning cannot easily be replaced by the use of Landmarks, lest more work is put into Landmark selection. The method SimpleRank w. median that ranks algorithm with their median performance (green curve) is surprisingly a strong contender to Active Meta-learning w. CofiRank for the StatLog and OpenML datasets, which are cases in which algorithms perform similarly on all datasets.
+
+5.2 The ACTIVMETAL algorithm
+
+59
+
+algorithms on past tasks; (2) it is active learning, it queries Sdt,aj on the fly to improve its estimations; (3) it is flexible, other matrix factorization technique can be used in place of CofiRank. Based on these properties, it will serve as a baseline in our work on treating Meta-learning as a REVEAL game (Chapter 6).
+
+5.2.3 Comparison of algorithms for some single dataset
+In this section, we compare different meta-learning algorithms on some single dataset for each of the meta-datasets. The observations are consistent with that in the average curves 5.1. For the Artificial meta-dataset (Fig. 5.2), which is generated to favor the low-rank propriety, not surprisingly, the two active meta-learning algorithms (red and violet curves) outperform other algorithms for most of the time. For the AutoML metadataset (Fig. 5.3), Active Meta-learning w. CofiRank does generally well, especially in the first steps; ‘AutoML test_0’ illustrates a special case where SimpleRank w. median gives a good approximation to the true ranking, and thus outperforms other comparator approaches. In the case of OpenML and StatLog (Fig. 5.4 and Fig. 5.5) it is seen that one iteration of Cofirank (violet curve) yields good results, this is interpreted for StatLog because the meta-dataset lacks diversity, so exploration is not that much needed.
+
+60
+
+Active Meta-learning
+
+Fig. 5.2 Artificial DATA: the comparison of Meta-learning algorithms for 5 single test datasets are shown. The random curves are median over 1000 runs, the shading area are 5%, 25%, 75% and 95% quantiles.
+
+5.2 The ACTIVMETAL algorithm
+
+61
+
+Fig. 5.3 AutoML DATA: the comparison of Meta-learning algorithms for 5 single test datasets are showed. The random curves are median over 1000 runs, the shading area are 5%, 25%, 75% and 95% quantiles.
+
+62
+
+Active Meta-learning
+
+Fig. 5.4 OpenML DATA: the comparison of Meta-learning algorithms for 5 single test datasets are showed. The random curves are median over 1000 runs, the shading area are 5%, 25%, 75% and 95% quantiles.
+
+5.2 The ACTIVMETAL algorithm
+
+63
+
+Fig. 5.5 StatLog data: the comparison of Meta-learning algorithms for 4 single test datasets are showed. The random curves are median over 1000 runs, the shading area are 5%, 25%, 75% and 95% quantiles.
+5.2.4 Comparison with SVD-based algorithms
+We have tested other SVD-based ranking methods: Instead of using median (over performances of all datasets in S) to obtain an algorithm ranking, we can also use SVD decomposition and rank the algorithms according to their projections on S’s column space, i.e. S ∼ UV ′, S:,k ·U:,0 is the projection of kth algorithm of S on column space U’s first component. The higher this value is, the better k’s ranking is. .
+
+64
+
+Active Meta-learning
+
+• SVD-landmarks w. 1 CofiRank: Run only once CofiRank, which is warm-started by the first SVD-ranked algorithm, to obtain a single ranking according to which the selection is performed.
+• Simple rank w. SVD / median: No CofiRank is used in this case. The single ranking is given by SVD median.
+
+Fig. 5.6 Meta-learning curves with SVD-based ranking. We show results of 5 methods on 3 meta-learning datasets, using the leave-one-dataset-out estimator. The learning curves represent performance of the best model trained/tested do far, as a function of the number of models tried. The curves have been averaged over all datasets held-out. The conclusion remain unchanged as in 5.1: the method Active Meta-learning w. CofiRank (red curve), warm-started with the best medien algorithm, generally dominates other methods. The new added method SimpleRank w. SVD performs competitively well on Artificial and OpenML (which catches up quickly after a low initialization) where the low-rank assumption of SVD is better ensured (see visualization on singular values of these meta data in Section 2.3).
+5.3 Summary of the chapter on ACTIVMETAL
+In this chapter, we proposed a first meta-learning solution to the AutoML MDP called ACTIVMETAL. The objective of ACTIVMETAL is to find the best algorithm for a
+
+5.3 Summary of the chapter on ACTIVMETAL
+
+65
+
+particular new dataset by evaluating as few algorithms as possible. This is done by a greedy policy that chooses the algorithm with the highest estimated performance. Even though ACTIVMETAL achieves promising results in the investigated real-world meta-datasets, its limitation lies in the fact that each selection step requires a new matrix factorization. ACTIVMETAL thus becomes computationally costly when the meta-dataset is large. Therefore, in the next chapter, we will start exploring the RL approach that learns a policy across datasets and can be used directly by any new dataset.
+
+Chapter 6
+RL solutions to meta-learning
+In this chapter, we experiment with novel techniques of Reinforcement Learning (RL) in an attempt to push the frontiers of meta-learning, which was previously defined as a MDP, or more precisely, a REVEAL game in Chapter 3. The central idea is to learn a policy from past tasks/datasets, then apply it to search for the best algorithm solving a new task. We apply “Deep” Reinforcement learning techniques, especially Double Deep Q-Networks (Double DQN). After an introduction to RL in Section 6.1, we introduce two toy REVEAL games to illustrate our problem-solving methodology using Double DQN (Section 6.2). We then present experimental results on metalearning as a REVEAL game, and compare them with various baselines, including ACTIVMETAL, the method we introduced in Chapter 5.
+The Code for this chapter is found at https://github.com/LishengSun/REVEAL.
+6.1 Overview of Reinforcement Learning (RL)
+We briefly review a few concepts of Reinforcement Learning, which are necessary to understand our approach (see e.g. [103] for a more complete treatment). In supervised learning, the “correct answer” (also called ground truth or target value) y is provided to the learning machine for each training input x, such that the learning machine (or agent) can learn to produce correct desired outputs. This setting is typical of classification or regression problems. In contrast, in Reinforcement Learning (RL), the agent is given a reward instead of the correct answer and must learn by trial and error to produce the correct answer, without ever being told that answer. This setting is typical of control problems, games, and Markov Decision Processes (MDPs).
+See Figure 6.1 for an overview of our system.
+
+68
+
+RL solutions to meta-learning
+
+(a) RL setting for meta-learning REVEAL games
+
+(b) Deep Q-Learning Network (DQN)
+Fig. 6.1 System overview: In this chapter, we consider that the RL agent’s aim is to learn a policy to
+solve a MDP problem, more specifically a REVEAL game. Thus, what is usually referred to as “the environment” or the “world” is the “board” of our REVEAL game (a row of the meta-data matrix in the particular case of meta-learning). (a) Matrix S contains pre-computed meta-learning knowledge (the meta-dataset), which plays the role of our environment. In a given game episode, the environment “decides” on which row of matrix S to work on (the hidden “game board”). The agent takes successive actions to reveal algorithm performances and computational times on the particular dataset (values in the two-dimentional matrix row). The actions are decided by the agent’s policy learned using "double" Deep Q-Learning (DQN), see text in Sec.6.1.3. (b) In our DQN architecture, the input to the neural network is the state, a two-dimensional vector representing the current partially revealed scores and computational time. An embedding of the state is then learned via the first network block to which meta-features are appended. A second block network is then used to estimate the action values, which is the output.
+
+6.1 Overview of Reinforcement Learning (RL)
+
+69
+
+6.1.1 Notations and definitions
+We consider RL solutions to Markov Decision Processes. RL algorithms’ goal is to find a policy that maximizes an expected (discounted) reward. This is usually achieved by estimating the value of a state under that policy, or more conveniently the value of a state-action pair. We recall such definitions and the Bellman equations providing conditions for finding an optimal policy.
+
+MDP
+
+In what follows, we assume a finite MDP, defined as follows:
+
+• S : set of states s ∈ S
+
+• A : set of actions a ∈ A
+
+• r: rewards
+
+• π(a|s) : S → A : a policy specifying the probability of taking action a in state s • p(s′, r|s, a): transition probability, i.e. model of environment
+
+The goal of an agent is to learn or propose a policy that maximizes the expected
+
+return Gt, an accumulation of future rewards. This expected return is defined differently depending on the episodic or continuous nature of the task. If the decision process
+
+{s0, a0, r1, . . . , st, at, rt+1, . . . , } terminates naturally at t = T with a transition to a
+
+terminal state s•, the task is called episodic, with episode length T . The expected
+
+return Gt is then defined as:
+
+T
+
+Gt = ∑ rk
+
+(6.1)
+
+k=t
+
+In contrast, if the decision process never ends (T → ∞), the task is a continuing task.
+
+In that case, the expected return Gt is defined as:
+
+T
+∑ Gt = γkrt+k+1 , k=0
+
+(6.2)
+
+γ being called the discounting factor (0 < γ < 1). This allows us to define Gt as a moving average and avoids dealing with an ever growing quantity. In what follows adopt this definition even for episodic tasks, granted that, if T is finite (0 < γ ≤ 1).
+
+70
+
+RL solutions to meta-learning
+
+State value vπ (s)
+The value of a state s under some policy π is the total reward the agents will accumulate by starting from s and following π thereafter. Therefore, by definition:
+
+vπ (s) = Eπ [Gt|st = s]
+
+(6.3)
+
+One simple policy would be to move to state s′ with largest vπ (s′). It can be shown
+
+that:
+
+vπ (s) = ∑ π(a|s) ∑ p(s′, r|s, a)[r + γvπ (s′)], ∀s ∈ S
+
+(6.4)
+
+a
+
+s′,r
+
+Eq. 6.4 is called the Bellman equation for vπ . This recursive equation relies on the sometimes unknown quantity p(s′, r|s, a)). It is conceptually useful to derive algorithms to compute exactly or approximate vπ (s′).
+
+State-action value qπ (s, a) Another useful quantity is qπ (s, a), which evaluates an action in a particular state:
+
+qπ (s, a) = Eπ [Gt|st = s, at = a]
+
+(6.5)
+
+This yields the Bellman equation for qπ (s, a):
+
+qπ (s, a) = ∑ p(s′, r|s, π(s))[r + γqπ (s′, π(s))], ∀s ∈ S s′,r
+
+(6.6)
+
+Note that vπ (s) is a weighted sum of qπ (s, a) over all possible actions. A policy can then be defined e.g. by taking the maximum q value over all allowed
+actions. Similarly as before, this new Bellman equation is conceptually useful to derive algorithms to compute exactly or approximate qπ (s, a).
+
+Optimal policy and Bellman optimal equations
+Solving a RL task means searching a policy that achieves a best reward over the long run. Such a policy is called optimal policy π∗, it must satisfy
+
+vπ∗(s) = max vπ (s), ∀s ∈ S
+π
+The Bellman optimal equations are:
+
+∑ vπ
+
+∗
+
+(s)
+
+=
+
+max
+a∈A (s)
+
+s′,r
+
+p(s′,
+
+r|s,
+
+a)[r
+
++
+
+γ
+
+v∗π
+
+(s′
+
+)]
+
+(6.7) (6.8)
+
+6.1 Overview of Reinforcement Learning (RL)
+
+71
+
+∑ π
+
+∗(s)
+
+=
+
+arg
+
+max
+a∈A (s)
+
+s′
+
+,r
+
+p(s′,
+
+r|s,
+
+a)[r
+
++
+
+γ
+
+v∗π
+
+(s′
+
+)]
+
+∑ qπ∗(s, a) = p(s′, r|s, a)[r + γ max qπ∗(s′, b)]
+
+s′,r
+
+b∈A (s)
+
+π∗(s) = arg max qπ∗(s′, a)]
+a∈A (s)
+
+(6.9) (6.10) (6.11)
+
+vπ∗(s) = max qπ∗(s, a)
+a∈A (s)
+
+(6.12)
+
+They express the fact that the value of s under the optimal policy must equal the expected value of the best action in s. Once the value of the optimal policy is computed, the optimal policy can be recovered by always choosing the action with the highest value. The importance of Bellman equations in RL lies in the fact that they allow us to compute the state value (e.g. s) from the value of other states (e.g. s′). This offers the possibility for iterative approaches for calculating the value for each action, the so-called q−value, used in Q-learning methods, which we use in the thesis.
+
+6.1.2 Tabular RL algorithms
+In this section we present a first taxonomy of RL algorithms concerning small discrete action spaces, for which the q−values of state-action pairs can be exhaustively estimated.
+Such methods often iterate two steps policy evaluation and policy improvement. How we do these two things depends on the RL task. In general, RL algorithms can be classified based on these facts:
+• Is the environment model known? Yes → Model-based (Dynamic Programming (DP)); No → Model-free (Monte Carlo (MC) and Temporal Difference (TD))
+• Is a new estimation based on previous estimations? Yes → Bootstrapping (DP and TD); No → No bootstrapping (MC)
+To put things in context, we briefly review these various approaches, although we are mostly concerned with function approximation methods developed in the next section (Section 6.1.3).
+Model-based: Dynamic Programming (DP)
+Dynamic Programming (DP): DP computes the optimal policy given the model through bootstrapping. There exists two approaches:
+
+72
+
+RL solutions to meta-learning
+
+1. Policy Iteration = Policy evaluation + Policy improvement:
+
+• Policy evaluation: Using Bellman equation as a update rule:
+
+vk+1(s) = ∑ π(a|s) ∑ p(s′, r|s, a)[r + γvk(s′)]
+
+a
+
+s′,r
+
+(6.13)
+
+will converge to the true value vπ (s) when the number of iterations is large enough. Note that vk+1 is estimated on the basis of previous estimations for its successor states vk(s′). This is called bootstrapping.
+• Policy improvement: Make a new policy π′ that is better than the current one π, by acting greedily with respect to the value function of the current policy:
+
+∑ π
+
+′(s)
+
+=
+
+arg
+
+max
+a
+
+qπ
+
+(s,
+
+a)
+
+=
+
+arg
+
+max
+a
+
+s′
+
+,r
+
+p(s′
+
+,
+
+r|s,
+
+a)[r
+
++
+
+γ
+
+vπ
+
+(s′)]
+
+(6.14)
+
+• Policy Iteration: Once a policy π ’s value vπ is estimated, we can use it to improve π and yield an better policy π′. This process is called policy iteration, and will converge to the optimal policy π∗ with its value vπ∗.
+2. Value Iteration = extreme case of Policy Iteration: In policy iteration, the policy improvement occurs only after the current policy evaluation converges. Actually, we don’t need to wait to the exact evaluation convergence. One extreme case is when policy evaluation is stopped after just one sweep, this is called value iteration.
+
+Model-free
+We introduce two principled algorithms in model-free RL:
+• Monte Carlo (MC): When we don’t have any model of the environment, one possible workaround is to learn from experiences. Suppose we want to estimate vπ (s), we can generate a set of episodes passing through s by following π, then average over all returns we get from these episodes. When the number of such episodes is large enough, the average actually approaches the true value of vπ (s). This is what Monte Carlo methods do. Policy evaluation and policy improvement in MC is done only after one episode ends (episode-by-episode basis).
+• Temporal Difference (TD) and Q-learning: Temporal difference (TD) learning is a class of model-free RL methods which learn by bootstrapping from the
+
+6.1 Overview of Reinforcement Learning (RL)
+
+73
+
+Fig. 6.2 Q learning algorithm. Image source: [104].
+
+current value estimates. Similar to MC, TD methods also learn from experience samples, but they update estimates based on other previously learned estimates, without waiting for the termination of episode. In the TD family, one popular algorithm is Q-learning [119]. This is a off-policy TD algorithm. The term ‘off-policy’ means in Q-learning, the optimal value q∗ is directly approximated, independently of the actual policy, with an exploration policy (e.g. ε-greedy, i.e. random action is chosen with probability of ε, and the action arg max q(s, a)
+a
+is chosen with probability of 1 − ε). Once the q∗ is learned, the optimal policy can be easily recovered via Bellman equations. The Q-learning algorithm is given in 6.2. The algorithms we use to solve the REVEAL problems in this chapter will be a function approximation version of Q-learning.
+
+6.1.3 Function approximation methods for larger action spaces
+
+DQN, Double DQN
+
+In the previous section, we introduced RL algorithms in “tabular situations” for which q−values can be estimated separately for each state-action. However, In our cases of interest, the action space A is too large to learn each action value in each state separately (e.g. |A | = 49 in MNIST-patch, |A | = 163 in meta-learning with CEP.). Instead, we use a parametric function to approximate those values. In particular, in Q-learning the state-action values q(s, a) are parameterized as qˆ(s, a; θt) and updated using fitted Q-iteration:
+
+θt+1 = θt + α(Ytq − qˆ(st , at ; θt ))∇θt qˆ(st , at ; θt ))
+
+(6.15)
+
+74
+
+RL solutions to meta-learning
+
+where the target is similar to that in the tabular case:
+
+Ytq
+
+=
+
+rt+1
+
++
+
+γ
+
+max
+a
+
+qˆ(st+1,
+
+a;
+
+θt )
+
+(6.16)
+
+The algorithm minimizes the loss L(θ ) = (qˆ −Ytq)2 via gradient descent. A deep Q network (DQN) uses a neural network as the Q value approximator. The parameters θ in this case correspond to the weights in the network. A milestone in RL is to use DQN to successfully solve a series of Atari games [76]. In this work, in order to stabilize the learning, they developed a method called “experience replay”, a biologically inspired mechanism where the agent keeps track of the outputs of previous actions {st, at, st+1, rt+1}, which are then sampled to train the network. In our cases of interest, the action space is large. Due to the “max” operator in the Bellman equation that drives the agent to choose the action with highest estimated Q value, even with a ε-greedy, it is known that DQN suffers from the maximization bias, where it tends to overestimate the value functions. The maximization bias leads to divergences and unstable behaviour. We then use a Double DQN which was proposed to correct this drawback (DDQN [113]). The DDQN corrects this bias by instantiating two separate identical DQN networks and randomly swapping between them at each optimization update, one being used as the target, and one being used as the policy. The neural network architecture we used to implement the DDQN for meta-learning is shown in Fig. 6.1.
+
+Other RL algorithms
+There exist many other RL algorithms. Among them: REINFORCE [121], Natural Policy Gradient [60], Trust Region Policy Optimization (TRPO [95]) are policy gradient methods, where the policy π is parameterized and learned directly and the agent maximizes the rewards by taking actions with high rewards more likely; Actor-Critic methods [66] combine policy gradient and value approximation by splitting the model into two parts: one actor to choose actions based on a state, and one critic to estimate the Q values of the action; Deep Deterministic Policy Gradient (DDPG [71]) is an actor-critic approach for continuous actions; etc. These are possible algorithms that we are going to try in future work to solve the meta-learning problems. In this work we focus on DDQN because it is reportedly easiest to deploy in applications, other methods requiring elaborate hyper-parameter tuning.
+
+6.2 Toy REVEAL examples
+
+75
+
+6.2 Toy REVEAL examples
+
+In Chapter 3, various REVEAL games were introduced: the 1D meta-learning problem; revealing a bi-color segment to find its first black element; revealing a MNIST image to find its brightest patches (3.2.2); etc. In this section, we are going to present RL solutions to some of them. We begin with toy examples having similarity with the our meta-learning problem of interest, then move the to 1D meta-learning problem.
+
+6.2.1 Reveal a bi-color segment to find its first black element
+This toy game was created to serve as a simplified version of the 1D meta-learning problem.
+Game setting
+The agent initially faces to a fully masked 1D bi-color segment of length l, in which elements are white until some random position, after which all elements are black.1 The position of the first black element (transition from black to white) is sampled randomly (Top panel of Figure 6.3). The goal of the agent is to reveal and predict the first black element. The state is the partially revealed segment. At each time step, the agent can choose to reveal an element in the segment. After each time step, the agent predicts the position of the first black element, the episode ends with a reward of 1 if the prediction is right, otherwise the agent fails after l steps. Before the termination of the episode, the agent receives a negative reward of 0.1 for revealing at each time steps; this is to help the agent learn to shorten the episode.
+Double DQN architecture and Results
+The RL agent has a double DQN architecture. It consists of two identical DQNs as shown in Fig. 6.1.The bottom panel of Figure 6.3 shows the learning curve of the RL agent compared with the well-known optimal solution which is binary search. We see the agent learns to perform the optimal search after ∼ 22000 episodes of training. Succeeding in this toy segment game gives us hope to tackle the more complex 1D meta-learning problem. This small example allowed us to perform a sanity check of our algorithm implementation.
+1In an analogy with meta-learning, white is supposed to represent bad algorithms and black good ones.
+
+76
+
+RL solutions to meta-learning
+
+Fig. 6.3 ‘Segment’ REVEAL game. We show results of the game in which the board is one-dimensional and finite. The goal is to find the position of the transition of black and white. This game has an optimal non-RL agent (no training at all), which performs iterative Dichotomic search. TOP: Two instances of the ‘segment’ REVEAL game. BOTTOM: graph of accumulated reward over the time of an episode as a function of the episode number, we consider 25,000 episodes. Test performance is average over 15 test datasets. At some point the blue line is going above the red line because the optimal agent is optimal only when averaging over all possible datasets, here we tested only on 15 datasets. During the RL training, we do ε-greedy for exploration, which explains the occasional drops in reward. Test performances are more stable (no exploration).
+6.2.2 Revealing digits progressively to find their brightest patches
+We designed a REVEAL game analogous to our meta-learning problem, which uses real-world data and provides intuitive visual feed-back. This game was inspired by the “Natural Image” games proposed in [122] and described in Section 3.2.2. The goal of the original game was modified from predicting the class of a handwritten digit by uncovering progressively its pixels to searching for its brightest patches in as few steps as possible. This is to make the whole setting more similar to a 1D meta-learning problem: one (flattened) image is equivalent to one dataset, and searching for the brightest patches is equivalent to searching for the best algorithm.
+Game setting
+We use the MNIST handwritten digit database [68] to create the REVEAL game environment where the agent initially faces a fully masked image. This masked image
+
+6.2 Toy REVEAL examples
+
+77
+
+can be any class of MNIST, i.e. from 0 to 9. The state consists of the partially revealed
+
+32 × 32 image and its already revealed positions. At each time step, the agent can
+
+choose any position in the image to reveal a square window w of the image. The goal
+
+of the agent is to find one of the 3 2 brightest patches in the image, where each patch
+
+corresponds to a window-sized square. The brightness of a patch is computed as the
+
+average pixel value in the patch window. The episode ends when the goal is achieved
+
+and
+
+the
+
+agent
+
+receives
+
+a
+
+reward
+
+of
+
+1,
+
+otherwise
+
+it
+
+fails
+
+after
+
+a
+
+maximum
+
+32×32 w
+
+steps.
+
+During the game, the immediate reward of each step is the combination of step cost 3
+
+and the improvement on the best brightness found so far.
+
+RL CNN agent vs. upper-baseline supervised CNN agent
+
+We have developed 2 agents to play the game: a RL agent, which learns a policy from trial and errors, and a supervised CNN agent (CCN upper-baseline), which learns to imitate a hard-coded policy based on the full image (not available for learning to the RL agent).
+
+• RL agent: we use a Double DQN architecture to train the RL agent. As introduced before, the Double DQN method includes two networks with identical architecture shown in Figure 6.4, which are randomly swapped at each optimization update to serve as target and policy network. The policy network is used to generate actions. The architecture contains a CNN identical to that used in the CNN supervised upper-baseline, followed by an extra linear layer before generating the Q values. The input to the RL agent is the state, i.e. already visited positions plus the partially revealed image. The output of the RL agent is the action that has highest estimated Q value (this is the case at test time; during training, we use an ε-greedy policy forcing the agent to act randomly with probability ε and follow the DQN policy otherwise, where ε decays with the number of training episodes. This allows the agent to explore more at the beginning of learning. Once training is done, the CNN weights are “frozen” for the testing and one of the two CNNs is used to predict action values (ε = 0).
+
+• Supervised upper-baseline CNN agent: This agent uses a CNN (contains 3 convolutional layers and ReLU nonlinearities) to predict the full image from a partially revealed image. That is, during training, the true full image is given as target at each time step for the agent to learn. In the first few actions, since only a
+
+2The reason of having 3 targets instead of 1 is that sometimes there are more than one patches with
+
+the same brightness in the image.
+
+3the
+
+step
+
+cost
+
+is
+
+−1 lep
+
+,
+
+where
+
+lep
+
+is
+
+the
+
+length
+
+of
+
+one
+
+episode,
+
+which,
+
+in
+
+our
+
+setting,
+
+equals
+
+the
+
+maximum
+
+number
+
+of
+
+steps
+
+32×32 w
+
+.
+
+78
+
+RL solutions to meta-learning
+
+Fig. 6.4 RL DQN architecture used in MNIST brightest patch game: In the experiments we use a “double DQN architecture”, which includes two CNNs used in alternance during training, to stabilize the learning procedure. The CNN gets the partially revealed image as input and uses one of the two CNNs to estimate the Q-value of each action. At test time, either CNNs can be used to select the most promising action (deterministic policy). During training, we use an ε-greedy policy: one CNN is used to select the action; the parameters of the other are updated using the Q-learning algorithm.
+Fig. 6.5 Supervised learning upper-baseline CNN architecture, used MNIST brightest patch game: The agent gets the partially revealed image as input, uses a CNN to learn to predict the full image, and selects the estimated brightest patch that has not been revealed yet as its action.
+
+6.2 Toy REVEAL examples
+
+79
+
+few bright pixels will be visible, predicting the full image is very difficult, hence, the CNN agent is expected to predict a ‘mixture’ of all images, which is bright at the center and dark everywhere else (as shown in Figure 6.5). The agent then chooses the patch with highest predicted brightness that has not been revealed yet. During testing, the CNN is frozen, the agent then uses this pre-trained CNN to estimate the full image and acts accordingly.
+These two agents have some significant differences: (1) Full vs. Partial learning information: the RL agent never sees the underlying full image, it learns upon partial information, however, the CNN agent during the training is given the full image to learn, which allows it to build a strong ‘prior’ on how an ‘average’ image will be like, this is its first advantage; (2) Repeating actions: The CNN agent is hard-coded to choose actions only among those that have not been revealed yet 4; the RL agent, in contrast, should learn through the reward not to repeat actions (because repeating actions will cause negative reward and make the episode longer). This is the second advantage of the CNN agent. These two properties make the CNN agent a very difficult upper-baseline to beat.
+Even though the CNN is a very difficult baseline to beat, it is not impossible to beat. Indeed, its objective is to predict the full digit with a mean-square-error loss, not focusing particularly on the next action, whose goal is to uncover the brightest patch. In contrast, the RL agent gets reinforced to do well on that specific task.
+
+Results
+The purpose of the experiments in to show that RL can approach or exceed the performances of the supervised upper-baseline CNN and show that the RL agent can learn difficult things like not visiting several times the same patch.
+We first show two runs of our algorithms for illustrative purposes. In Figures 6.6 and 6.7 we show respectively the RL agent and the baseline CNN agent acting on a same test image after being trained for 2000 episodes. Two observations can be made:
+• RL agent learns not to re-visit patches: While the CNN agent was programmed not to repeat itself (in a hard-coded manner), the RL agent had to LEARN not to revisit several times the same patch. Thus it is impressive that it terminates the game in only 2 steps, compared to CNN baseline agent which takes 5 steps.
+4this is because the general prior that the CNN is expected to learn won’t change dramatically from one step to another, which means the action with the highest predicted brightness will stay the same for many steps, and the CNN will always choose the same action if repeated actions are allowed
+

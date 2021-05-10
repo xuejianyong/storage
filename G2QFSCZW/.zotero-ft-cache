@@ -1,0 +1,726 @@
+PERGAMON
+
+Neural Networks 12 (1999) 961–974
+
+Neural Networks
+www.elsevier.com/locate/neunet
+
+What are the computations of the cerebellum, the basal ganglia and the cerebral cortex?
+K. Doya*
+Kawato Dynamic Brain Project, ERATO, Japan Science and Technology Corporation, 2-2 Hikaridai, Seika, Soraku, Kyoto 619-0288, Japan Received 24 December 1998; accepted 26 April 1999
+
+Abstract
+The classical notion that the cerebellum and the basal ganglia are dedicated to motor control is under dispute given increasing evidence of their involvement in non-motor functions. Is it then impossible to characterize the functions of the cerebellum, the basal ganglia and the cerebral cortex in a simplistic manner? This paper presents a novel view that their computational roles can be characterized not by asking what are the “goals” of their computation, such as motor or sensory, but by asking what are the “methods” of their computation, speciﬁcally, their learning algorithms. There is currently enough anatomical, physiological, and theoretical evidence to support the hypotheses that the cerebellum is a specialized organism for supervised learning, the basal ganglia are for reinforcement learning, and the cerebral cortex is for unsupervised learning.
+This paper investigates how the learning modules specialized for these three kinds of learning can be assembled into goal-oriented behaving systems. In general, supervised learning modules in the cerebellum can be utilized as “internal models” of the environment. Reinforcement learning modules in the basal ganglia enable action selection by an “evaluation” of environmental states. Unsupervised learning modules in the cerebral cortex can provide statistically efﬁcient representation of the states of the environment and the behaving system. Two basic action selection architectures are shown, namely, reactive action selection and predictive action selection. They can be implemented within the anatomical constraint of the network linking these structures. Furthermore, the use of the cerebellar supervised learning modules for state estimation, behavioral simulation, and encapsulation of learned skill is considered. Finally, the usefulness of such theoretical frameworks in interpreting brain imaging data is demonstrated in the paradigm of procedural learning. ᭧ 1999 Published by Elsevier Science Ltd. All rights reserved.
+Keywords: Supervised learning; Reinforcement learning; Unsupervised learning; State prediction; Value function; Model-free; Sequence learning
+
+1. Introduction
+Traditionally, the cerebellum and the basal ganglia were thought to be dedicated to the control of movement. However, this idea is rapidly losing ground to the corpus of evidence that suggests their involvement in non-motor tasks (Brown, Schneider & Lidsky, 1997; Desmond & Fiez, 1998; Lawrence, Sahakian & Robbins, 1998; Leiner, Leiner & Dow, 1993; Middleton & Strick, 1994). Despite the demise of the motor control-only dogma, the activity of the cerebellum and the basal ganglia in brain imaging studies tends to be neglected or under-evaluated, often as the artifacts of motor components in the task response. This negligence is not only due to the wide prevalence of the old theory, but also due to the paucity of alternative theories that would enable us to comprehend the way the cerebellum and
+* Tel.: ϩ 81-774-95-1210; fax: ϩ 81-774-95-3001. E-mail address: doya@erato.atr.co.jp (K. Doya)
+
+the basal ganglia participate in sensory or cognitive tasks (Houk, 1997; Ito, 1993).
+One characteristic feature of the cerebellum is its highly uniform anatomical organization (Llinas & Walton, 1998). The characteristic multiple inhibitory pathways are also present throughout the parallel circuit of the basal ganglia (Wilson, 1998). The cerebral neocortex also has a characteristic six-layer organization (Douglas & Martin, 1998). These anatomical features, which are preserved throughout each of these structures, suggest that the cerebellum, the basal ganglia, and the cerebral cortex are each specialized for a certain kind of computation. However, the question about their unique “purposes” of computation, such as motor control, sensory acquisition, or cognitive processing, is ill-posed because all of these functions depend on each other under a normal behavioral context (Bower, 1997). Furthermore, the cerebellum and the basal ganglia are reciprocally connected to the cerebral cortex (Fig. 1), and the connected areas tend to be simultaneously active, making it
+
+0893-6080/99/$ - see front matter ᭧ 1999 Published by Elsevier Science Ltd. All rights reserved. PII: S0893-608 0(99)00046-5
+
+962
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+2. Three basic learning paradigms
+
+Cerebral Cortex
+
+Cerebellum
+
+Thalamus
+
+Basal Ganglia
+
+substantia nigra
+
+This section presents a summary of the formulations and the algorithms of the three major learning paradigms considered in the computational learning theories, namely, supervised learning, reinforcement learning, and unsupervised learning (Fig. 2). This classiﬁcation is due to the nature of the teaching signals that guide learning: directional error vectors in supervised learning, scalar rewards, or reinforcement signals, in reinforcement learning, and none in unsupervised learning.
+2.1. Supervised learning
+
+inferior olive
+Fig. 1. The global network linking the cerebellum, the basal ganglia and the cerebral cortex.
+difﬁcult to differentiate their roles by a mere observation of their activity.
+The approach taken in this paper is to ask what are the unique “methods” of computation, namely, the learning algorithms, for which the cerebellum, the basal ganglia and the cerebral cortex are specialized. The speciﬁc hypotheses considered in this paper are that the cerebellum is a specialized organism for supervised learning, the basal ganglia is for reinforcement learning, and the cerebral cortex is for unsupervised learning. In this framework, a particular function, such as the control of arm movement, can be realized by a global network combining different learning modules in the cerebellum, the basal ganglia and the cerebral cortex. Moreover, learning modules in the same structure, for example, different parts of the cerebellum, can be used for different behavioral purposes, for example, for motor control and cognitive processing, depending on where their outputs are directed (Ito, 1993; Middleton & Strick, 1996; Wolpert, Miall & Kawato, 1998).
+In Section 2, the goals and the algorithms of supervised, reinforcement and unsupervised learning paradigms are summarized. Section 3 summarizes the anatomical, physiological and theoretical evidence that suggests that the cerebellum, the basal ganglia and the cerebral cortex are specialized, respectively, in the three learning paradigms reviewed in Section 3. In Section 4, a number of global architectures are considered in which supervised, reinforcement, and unsupervised learning modules are assembled for goal-directed behaviors. It is also investigated whether these architectures can be implemented within the anatomical and physiological constraints. In Section 5, experimental data on the brain activity during procedural learning tasks are considered in light of the behavioral architectures considered in Section 4. Finally, Section 6 provides discussions on the issues concerning the learning of global architectures and the regulation of global parameters.
+
+In the supervised learning paradigm (Fig. 2(a)), the goal is to construct an input–output mapping
+
+y  Fx
+
+1
+
+that predicts the output y  y1; …; ymH for an input data point x  x1; …; xnH. The mapping is found from the examples of the desired output y^1; y^2; …;  at the input data points x1; x2; …;  in order to minimize the expected
+output error, such as that in a Euclid norm
+
+Exʈy^ Ϫ yʈ2:
+
+2
+
+Since the true distribution of the input px is usually
+
+unknown, it is approximated by minimizing the sum of
+
+squared errors at sample data points
+
+
+
+
+
+E  ʈy^t Ϫ ytʈ2  ʈy^t Ϫ Fxt; wʈ2
+
+3
+
+t
+
+t
+
+under a certain constraint on the mapping F, such as smoothness (see Bishop (1995) for more details).
+For example, when the input–output mapping is represented as
+
+n
+
+yit  wijxjt;
+
+4
+
+j1
+
+(A) Supervised Learning error
+
+target +
+-
+
+input
+
+output
+
+(B) Reinforcement Learning input
+
+reward output
+
+(C) Unsupervised Learning input
+
+output
+
+Fig. 2. Three basic learning paradigms. (a) Supervised learning by error vectors; (b) reinforcement learning by scalar reward signal; (c) unsupervised learning by statistics of input signal itself.
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+963
+
+where wij is a connection weight, the supervised learning algorithm is given by the gradient descent of the sample
+error
+
+Dwij
+
+G
+
+Ϫ
+
+2E 2wij
+
+ y^it Ϫ yitxjt;
+
+5
+
+where y^it Ϫ yit is the output error. In summary, supervised learning is characterized by the
+parameter update based on the correlation between the output error and the presynaptic input.
+
+2.2. Reinforcement learning
+
+In the reinforcement learning paradigm (Fig. 2(b)), a learning agent takes an action ut ʦ Rm in response to the state xt ʦ Rn of the environment, which results in
+the change of the state
+
+xt ϩ 1  Fxt; ut;
+
+6
+
+and the delivery of reinforcement signal, or a reward
+
+rt ϩ 1  Rxt; ut:
+
+7
+
+The goal is to ﬁnd a policy
+
+ut  Gxt;
+
+8
+
+where g is a gain function and mit is a noise term. The TD error dt as deﬁned in (10) then signals the unexpected delivery of the reward rt or the increase in the state value Vxt above expectation, possibly due to the previous choice of action uit Ϫ 1. The learning algorithm for the action weight wij is given by
+
+Dwij G dtuit Ϫ 1 Ϫ uixjt Ϫ 1;
+
+14
+
+where ui is the average level of the action output. Thus, the TD error dt, which signals the error in reward
+prediction, works as the main teaching signal in both learn-
+ing of the value function and the selection of actions,
+
+2.3. Unsupervised learning
+
+In the unsupervised learning paradigm (Fig. 2(c)), only a set of input data x1; x2; …;  ʦ Rn is given and the goal is to construct a mapping so that the output y1; y2; … ʦ Rm fully characterizes the statistical properties of the input.
+A typical formulation is a maximization of the mutual
+information between the input and the output
+
+Hx; y  Hx Ϫ Hxjy;
+
+15
+
+which maximizes the cumulative sum of the rewards. In general, current action ut affects all future states and
+accordingly all future rewards. The maximization is realized by the use of the value function of the states
+Vx  Ert ϩ 1 ϩ grt ϩ 2 ϩ g2rt ϩ 3 ϩ …; 9
+
+where the right-hand side is evaluated for the dynamics (6)– (8) with the initial condition xt  x and a discount factor 0 Յ g Յ 1. The two basic ingredients in reinforcement learning are, ﬁrst, the estimation of the value function, and then, the improvement of the policy using the value function (see Sutton and Barto (1998) for more information).
+The basic algorithm for learning the value function is to minimize the temporal difference (TD) error of the reward prediction
+
+dt  rt ϩ gVxt Ϫ Vxt Ϫ 1;
+
+10
+
+which signals the inconsistency of the current estimate of the value function. For example, when the value function is represented as
+
+n
+
+Vt  vjxjt;
+
+11
+
+j1
+
+the learning algorithm for the weight vj is given by
+
+Dvj G dtxjt Ϫ 1:
+
+12
+
+A simple way of improving the policy is to take a stochas-
+
+tic action
+
+H
+
+I
+
+uit  gdn wijxjt ϩ mite;
+
+13
+
+j1
+
+where H denotes the entropy Hx  EϪlog px. The mutual information quantiﬁes the decrease in uncertainty about input x by knowing output y (see Becker (1995) for more details).
+For example, a typical unsupervised learning algorithm is derived from an objective function
+
+E  ʈxt Ϫ W Hytʈ2 ϩ m ͉yit͉;
+
+16
+
+i1
+
+where W is the input–output weight matrix and WH denotes its transpose. The ﬁrst term represents the “input reconstruction error” that is minimized when the mutual information is maximized. The second term provides a sparseness constraint that encourages the majority of output units to stay close to zero (Harpur & Prager, 1995; Olshausen & Field, 1996).
+Output y is determined as the ﬁxed point solution of the relaxation dynamics
+
+y_
+
+G
+
+Ϫ
+
+2E 2y
+
+ Wx Ϫ WW Hy Ϫ signy:
+
+17
+
+The weights are updated by the gradient descent
+
+DW
+
+G
+
+Ϫ
+
+2E 2W
+
+ yx Ϫ W HyH  yxH Ϫ yyHW;
+
+18
+
+which is a Hebbian potentiation and activity-dependent synaptic decay.
+In summary, unsupervised learning is characterized by the relaxation dynamics for determining the output as well as the Hebbian synaptic rule under a certain regularization.
+
+964
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+parallel fiber
+
+climbing fiber
+
+GC
+
+PC
+
+mossy fiber CN
+
+IO
+Fig. 3. Diagram of cerebellar circuit. GC, granule cells; PC, Purkinje cells; CN, deep cerebellar nuclei; IO, inferior olive; W, excitatory connection; X, inhibitory connection.
+3. Learning paradigms of the cerebellum, the basal ganglia and the cerebral cortex
+This section summarizes the anatomical and physiological evidence supporting the hypothesis that the cerebellum, the basal ganglia and the cerebral cortex are specialized, respectively, in supervised, reinforcement and unsupervised learning.
+3.1. Supervised learning in the cerebellum
+
+which consists of approximately 3000 Purkinje cells. The outputs of the cerebellar nuclei are directed to the oculomotor system, the spinal motor pathway, and through the thalamus to certain areas in the cerebral cortex, depending on the locations within the cerebellar nuclei (Middleton & Strick, 1998).
+3.1.2. Physiology The responses of a Purkinje cell to parallel ﬁber inputs
+and climbing ﬁber input are discerned as two differently shaped spikes, which are called simple spikes and complex spikes. The simple spike response of the Purkinje cell, which is due to the parallel ﬁber input, encodes movement related signals, such as the acceleration and velocity components of eye movement command (Gomi, Shidara, Takemura, Inoue, Kawano & Kawato, 1998; Shidara, Kawano, Gomi & Kawato, 1993). The complex spike response, which is generated by a single spike of the climbing ﬁber, is characterized by its very low frequency, usually a few spikes per second. A statistical analysis has shown that the climbing ﬁber input best encodes the errors in movement, for example, the retinal slip signal in eye movement control (Kobayashi, Kawano, Takemura, Inoue, Kitama, Gomi & Kawato, 1998). The complex spikes are also related to movement errors in arm reaching movement, particularly toward the end of the movement (Kitazawa, Kimura & Yin, 1998).
+Coincident activation of the parallel ﬁber and climbing ﬁber inputs induces the long-term depression (LTD) of the parallel ﬁber synapse onto the Purkinje cell (Ito, Sakurai & Tongroach, 1982). The cellular and molecular mechanisms of the LTD have been studied in detail (Daniel, Levenes & Crepel, 1998).
+
+3.1.1. Anatomy The circuit of the cerebellum is characterized by the
+nearly feed-forward structure (Fig. 3) with massive synaptic convergence of granule cell axons (parallel ﬁbers) onto Purkinje cells. There are two major input pathways: the mossy ﬁber input and the climbing ﬁber input from the inferior olive (see DeZeeuw, Simpson, Hoogenraad, Galjart, Koekkoek and Ruigrok (1998) and Llinas and Walton (1998) for details). The mossy ﬁber input, which carries both sensory afferent and cerebral efferent signals, is relayed by a massive number of granule cells, each of which combines different mossy ﬁber inputs. The parallel ﬁber input and the climbing ﬁber input converge at the Purkinje cells. Each Purkinje cell receives approximately 200,000 parallel ﬁber inputs and only one climbing ﬁber input. The output neurons of the cerebellum, which are located in the deep cerebellar nuclei, receive inhibitory input from Purkinje cells as well as the excitatory mossy ﬁber input.
+The connection between the cerebellar cortex, the cerebellar nuclei and the inferior olive is highly topographic. There is a modular structure called “microzones”, each of
+
+3.1.3. Theoretical models The results of these studies suggest that the circuit of the
+cerebellum is capable of implementing the supervised learning paradigm (Albus, 1971; Ito, 1984; Marr, 1969). The massive number of granule cells can work as expansion encoders of the mossy ﬁber input signal. Their outputs are linearly combined by a Purkinje cell, as in (4), and the synaptic weights are updated by (5) with the error signal y^it Ϫ yit carried by the climbing ﬁber and the input xjt carried by the parallel ﬁbers (Kawato & Gomi, 1992a; Wolpert et al., 1998).
+The involvement of the cerebellum in error-driven learning behaviors, such as eye-movement control and conditioned eye-blinking, has been experimentally demonstrated (Ito, 1984; Thompson & Krupa, 1994), although there is still controversy about whether the LTD in the parallel ﬁber–Purkinje cell synapse is the single major substrate of learning (Raymond, Lisberger & Mauk, 1996). Houk, Buckingham and Barto (1996) have provided a review of models of the cerebellum at different levels of abstraction.
+A number of simulation and robotic experiments have
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+965
+
+cerebral cortex
+
+striosome
+
+matrix
+
+striatum
+
+GPe
+
+thalamus
+
+dopamine SNc
+
+SNr / GPi STN
+
+Fig. 4. Diagram of neural circuit of the basal ganglia. SNc, substantia nigra, pars compacta; SNr, substantia nigra, pars reticulata; GPi, internal segment of globus pallidus; GPe, external segment of globus pallidus; STN, subthalamic nucleus; W, excitatory connection; X, inhibitory connection.
+conﬁrmed the usefulness of supervised learning in cerebellum-like networks in motor control tasks (Fujita, 1982; Gomi & Kawato, 1992; Kawato, Furukawa & Suzuki, 1987; Kettner, Mahamud, Leung, Sitkoff & Houk, 1997; Schweighofer, Arbib & Kawato, 1998). An important issue in supervised learning is the time delay in the delivery of the error signal, which can be circumvented by introducing an “eligibility trace” for synaptic plasticity (Houk & Alford, 1996; Kettner et al., 1997; Schweighofer, Arbib & Dominey, 1996).
+3.2. Reinforcement learning in the basal ganglia
+3.2.1. Anatomy The circuit of the basal ganglia is characterized by multi-
+ple inhibitory pathways, as illustrated in Fig. 4. The striatum (the caudate nucleus and the putamen) receives the main input from the cerebral cortex. The striatum consists of two compartments: the striosome that sends output to the dopamine neurons in SNc and the matrix that sends output to GPi and SNr (see the legend in Fig. 4 for complete terms). There are both direct and indirect pathways that work in a complimentary manner. The dopamine neurons in SNc send projection back to both compartments of the striatum. Those dopaminergic terminal are found in the presynaptic terminals of the cortico-striatal connection. The outputs of GPi and SNr are directed through the thalamus to speciﬁc areas in the cerebral cortex. There are multiple loops starting from the cerebral cortex, through the basal ganglia and the thalamus, and back to the cerebral cortex (Alexander & Crutcher, 1990). It has recently been shown that the projection from the GPi through the thalamus to the cortex is highly topographic, and thus the basal ganglia are composed of multiple “output channels” (Middleton & Strick, 1994, 1996).
+3.2.2. Physiology Data from neuronal recording and lesion studies indicate
+that the basal ganglia are involved in learning and execution of goal-directed, sequential behavior (Graybiel, 1995;
+
+Miyachi, Hikosaka, Miyashita, Karadi & Rand, 1997). Neurons in the striatum and the global pallidus show activities at different timings for the sensory-motor behaviors (Schultz, Apicella, Romo & Scarnati, 1995). “Tonically active neurons” in the striatum show a phasic pause of spiking when an animal detects sensory cues that signals the delivery of a reward (Aosaki, Tsubokawa, Watanabe, Grabiel & Kimura, 1994). The dopamine neurons in SNc, which send output to the striatum, show phasic increase in ﬁring when an animal is given an unexpected reward or a sensory cue that signals the delivery of a reward in the near future (Schultz, 1998; Schultz, Apicella & Ljungberg, 1993).
+The plasticity of the cortical input to the striatum is known to be modulated by the dopamine. It was shown that the coincident cortical input and the depolarization in a striatal neuron induce long-term depression (LTD) of the cortico-striatal synapse, provided that there are enough level of dopamine (Calabresi, Pisani, Mercuri & Bernardi, 1996). Furthermore, long-term potentiation (LTP) instead of LTD is observed when the coincidence of cortical input and postsynaptic depolarization is also associated with a phasic dopamine release (Wickens, Begg & Barto, 1996).
+3.2.3. Theoretical models Based on the reward predicting activity of dopamine
+neurons and the change of behavior in the course of task learning, it has been suggested that the basal ganglia is involved in reinforcement learning, in which the dopamine neuron activity encoding the reward prediction error dt in (10) (Montague, Dayan & Sejnowski, 1996; Schultz et al., 1997). More speciﬁcally, it is suggested that the striosome compartment works as the value prediction mechanism while the matrix compartment works as the action selection mechanism (Barto, 1995; Houk, Adams & Barto, 1995).
+The capability of reinforcement learning models of the basal ganglia to replicate sequence learning behaviors has been demonstrated (Berns & Sejnowski, 1998; Dominey, Arbib& Joseph, 1995; Nakahara, Doya, Hikosaka & Nagano, 1997, 1998; Suri & Schultz, 1998).
+3.3. Unsupervised learning in the cerebral cortex
+3.3.1. Anatomy A remarkable anatomical feature of the cerebral neocor-
+tex is the layered organization and the massive recurrent connections (Fig. 5; see Douglas and Martin (1998) for details). The cerebral cortex is subdivided into many functional areas, where each area represents the sensory, motor or contextual information in different modalities and frames of references (Andersen, 1995; Graziano, Hu & Gross, 1997; van Essen & Maunsell, 1983).
+3.3.2. Physiology Neurons in the cortex are well characterized by their
+speciﬁc response tuning, for example, to the orientation
+
+966
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+layer 1-3 layer 4 layer 5,6
+
+IP IS IP
+
+thalamus
+Fig. 5. Diagrams of neural circuit of the cerebral cortex. P, pyramidal neurons; S, spiny stellate neurons; I, inhibitory interneurons; W, excitatory connection; X, inhibitory connection.
+
+and color of the visual stimuli in the visual cortex. The response tuning of the cortical neurons is highly dependent on the sensory experience (Blakemore & Cooper, 1970; Hirsch & Spinelli, 1970). The cortical synapses have been shown to follow a Hebbian-type plasticity rule: they are potentiated when the presynaptic input is associated with the postsynaptic response (e.g. calcium ion inﬂux) but depressed when it is not associated with postsynaptic response (Artola, Brocher & Singer, 1990; Tsumoto & Suda, 1979).
+3.3.3. Theoretical models These properties strongly suggest that the information
+coding in the cerebral cortical areas are established by the unsupervised learning paradigm in which the activity is determined by a relaxation dynamics (e.g. as in (17)) and the synapses are update by a Hebbian rule (e.g. as in (18)).
+There have been many learning and development models of response tuning in cortical neurons based on Hebbian synaptic mechanisms (Amari & Takeuchi, 1978; Fukushima, 1980; Grossberg, 1976; Kohonen, 1982; von der Malsburg, 1973). Other models have used information theoretic formulation of unsupervised learning (Bell & Sejnowski, 1997; Linsker, 1986; Olshausen & Field, 1996; Sanger, 1989).
+
+sensory cortex state: x
+
+motor cortex action: u
+
+4. Global architectures for adaptive behaviors
+The neural circuits of invertebrates can perform amazingly sophisticated functions despite their small size (Stein, Grillner, Selverston & Stuart, 1997), since they are highly optimized for speciﬁc behaviors as a result of evolutionary processes. In contrast, the most recently developed areas of the mammalian brain, namely, the cerebellum, the basal ganglia and the cerebral cortex, appear to be specialized for implementations of speciﬁc learning algorithms, namely, supervised, reinforcement, and unsupervised learning, rather than being genetically preprogrammed for a ﬁxed repertoire of behaviors. Each of the three structures has modular organization: microzones in the cerebellum, output channels in the basal ganglia, and cytoarchitectonically deﬁned areas and columnar organization in the cerebral cortex.
+This section explores the possible global architectures in which the modules specialized in supervised, reinforcement, and unsupervised learning are combined into a goal-directed behaving system. Candidates of such global architectures are found in the theories of dynamic programming (Bertsekas & Tsitsiklis, 1996), reinforcement learning (Sutton & Barto, 1998), adaptive control (Narendra & Parthasarathy, 1990) and adaptive signal processing (Haykin, 1996). It is also considered whether such global architectures can be implemented under the constraints of brain anatomy.
+The general construction principles are the following.
+1. Supervised learning modules in the cerebellum can be used as the internal model of the environment (Kawato & Gomi, 1992b; Wolpert et al., 1998) and short-cut models of input–output mappings that have been acquired elsewhere in the brain (Ito, 1993).
+2. Reinforcement learning modules in the basal ganglia are used to evaluate the given state and to select an action based on the evaluation.
+3. Unsupervised learning modules in the cerebral cortex work as the medium for representing the state of the external environment as well as the internal context. They also provide the common representational basis for the cerebellum and the basal ganglia, between which there are no direct anatomical connections.
+4.1. Reactive action selection
+
+striosome value: V
+
+δ : DA
+
+matrix policy: G
+
+sensory input
+
+reward: r environment
+
+motor output
+
+Fig. 6. Model-free, stochastic action selection.
+
+The most primitive adaptive action selection is implemented by the actor–critic architecture (Barto, Sutton & Anderson, 1983) illustrated in Fig. 6. A stochastic policy G is implemented in the actor network (13). The critic monitors the state of the environment and estimates the value function Vx for the current policy.
+This basic reinforcement learning architecture can be implemented in the network linking frontal cortical areas, such as the supplementary motor area and the basal ganglia, with the striatal striosome compartment implementing the
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+967
+
+lateral cerebellum model: F
+
+sensory cortex state: x(t)
+
+premotor cortex
+action: u*(t) state: x*(t+1)
+
+motor cortex action: u(t)
+
+consider a candidate action u‫ء‬t one at a time, predict the resulting future state x‫ء‬t ϩ 1 and its value Vx‫ء‬t ϩ 1, and accept it for execution if it is good enough. Fig. 7 illustrates a simple implementation of this serial action selection mechanism. In this case, whether the candidate action is good enough for execution is determined by
+
+x
+
+striosome
+
+striosome
+
+value: V
+
+reward: R
+
+value: V
+
+- ++
+
+δ *: DA
+
+environment
+
+Fig. 7. Action selection with a forward model.
+
+critic and the matrix compartment implementing the actor (Barto, Bradtke & Singh, 1995; Houk et al., 1995).
+It is essential that an appropriate encoding of the state x and the action u be available for such a simple reinforcement learning architecture to work efﬁciently. The cerebral cortical areas which send the input to and receive the output from the basal ganglia can subserve the function of state and action encoding based on the unsupervised learning paradigm.
+
+4.2. Predictive action selection
+
+Another action selection strategy based on the value function is to use it in conjunction with a model of the environmental dynamics. According to the theory of dynamic programming, the optimal action can be taken from the value function that satisﬁes the Bellman equation
+
+Vxt  max trt ϩ 1 ϩ gVxt ϩ 1:
+
+19
+
+u
+
+Here, the immediate future reward is predicted by a reward model
+
+rt ϩ 1  Rxt; ut
+
+20
+
+and the future state xt ϩ 1 is predicted by the environmental model
+
+d‫ء‬t ϩ 1  Rxt; ut ϩ gVx‫ء‬t ϩ 1 Ϫ Vxt; 22
+which has the same form as the TD error (10). It is possible for such an architecture to be implemented
+in the network linking the prefrontal and rostral premotor areas, the lateral cerebellum, and the basal ganglia as shown in Fig. 7. The prefrontal and the rostral premotor areas as well as the lateral cerebellum are known to be activated during imagery of body movement and during mental operations such as mathematical calculation (Deiber, Ibanez, Honda, Sadato, Raman & Hallett, 1998; Rueckert, Lange, Partiot, Appollonio, Litvan, Le Bihan & Grafman, 1996].
+Thus, the loop consisting of the lateral cerebellum and the prefrontal and rostral premotor cortex should be capable of predicting the outcome of a hypothetical action. These cortical areas also send projection to the anterior part of the basal ganglia, where the multiple inhibitory pathways should enable the computation of the predictive TD error (22) encoded in the activity of the dopamine neurons. In fact, the anterior basal ganglia, the pre-SMA, and the prefrontal cortex have been shown to be preferentially involved in learning a new sequential movement by trial and error in both animal lesion studies (Miyachi et al., 1997] and human imaging studies (Hikosaka, Miyachi, Miyashita & Karadi, 1995; Sakai, Hikosaka, Miyauchi, Takino, Sasaki & Putz, 1998).
+
+4.2.2. Differential model-based action selection When continuous actions are considered, action selection
+based on the Bellman equation (19) is achieved by differentiating the maximization term for action u and making it zero, namely
+
+2Rx; u 2u
+
+ϩ
+
+g
+
+2V x 2x
+
+2Fx; u 2u
+
+
+
+0
+
+23
+
+By assuming that the reward (cost) for the action u is quadratic, the term 2Rx; u=2u becomes a linear function of u and thus the optimal action is given by
+
+xt ϩ 1  Fxt; ut:
+
+21
+
+Given such a value function V, the best action can be selected as the one that maximizes the right-hand side of the Bellman equation (19), i.e. the action that maximizes the predicted sum of immediate and future rewards.
+
+4.2.1. Discrete model-based action selection In the tasks that involve the selection of discrete actions,
+it is possible to compare the right-hand side of (19) for each candidate action and then execute the action that maximizes it. One implementation of such an action selection is to
+
+uG
+
+2Fx; uH 2u
+
+2V x 2x
+
+H
+
+:
+
+24
+
+In this equation, 2VxH=2x represents the steepest ascent
+
+direction of the value function, which can be regarded as
+
+the “desired” movement direction. The input gain matrix
+
+2Fx; u=2u, which can be regarded as a local inverse
+
+dynamic model, converts this movement direction into
+
+action direction (Doya, 1996, 1999). The corresponding
+
+network architecture is illustrated in Fig. 8.
+
+Such a control architecture could possibly be implemen-
+
+ted in the global network linking the basal ganglia, the
+
+968
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+lateral cerebellum
+
+model:
+
+∂F ∂u
+
+sensory cortex state: x
+
+motor cortex
+
+direction: ^x
+
+action: u
+
+striosome value: V
+
+matrix
+
+gradient:
+
+∂V ∂x
+
+environment
+Fig. 8. Differential model-based action selection.
+primary motor cortex (M1), and the lateral cerebellum, as shown in Fig. 8. M1 is reciprocally connected to both the cerebellum and the basal ganglia. Georgopoulos (1995) and Scott (1997) have observed cellular responses encoding both movement direction and muscular activities.
+The input gain 2Fx; u=2u could possibly be implemented in the lateral cerebellum by supervised learning of state change x˙ for action ut Although there is support for the hypothesis that the value function Vx is learned in the basal ganglia (Barto et al., 1995), it is not certain whether the gradient 2Vx=2x of the value function can be calculated in the basal ganglia. However, it may be possible to learn to approximate such a quantity by way of the temporal differential formula V_  2Vx=2x x_.
+This architecture shares the same features with the previously proposed model of the limb premotor network (Houk, Keifer & Barto, 1993), in that there is no explicit desired trajectory calculation and the detailed motor command is generated in the reciprocal connection between the motor cortex and the cerebellum.
+
+lateral cerebellum model: F
+
+delay
+
+state: x(t)
+
+action: u(t)
+
+delay
+
+sensory input
+
+environment
+
+motor output
+
+Fig. 9. Compensation of sensory feedback delay with a forward model. The thick arrow represents either of the state-to-action mapping by the architectures shown in Figs. 6–8.
+
+4.3. Models for prediction, simulation and encapsulation
+Let us now consider several ways of utilizing cerebellar supervised learning modules in conjunction with any of the above action selection architectures.
+4.3.1. Model-based state estimation One big challenge in the control of movement is the
+existence of feedback delays and hidden states. The basic assumption in the above action architectures is that the information necessary for evaluation and action selection is readily available in the form of the state vector xt. One possible role of the cerebellum and the cerebral cortex is to provide the estimate of the current state despite the delayed, noisy, and/or degenerate sensory inputs.
+This could possibly be implemented by the network dynamics within the cortical areas or by the network linking the cerebral cortex and the cerebellum, which is supposed to provide the model of the environmental dynamics (Wolpert et al., 1998), as shown in Fig. 9. Typical examples of state estimation using dynamic models are the Smith predictor (Miall, Weir, Wolpert & Stein, 1993) and the Kalman ﬁlter (Paulin, 1993).
+Such model-based estimation of the external state is useful not only for motor execution, but also for sensory acquisition that involves a comparison of actual and expected sensory outcome, for example, somatosensory object recognition (Gao, Parsons, Bower, Xiong, Li & Fox, 1996) and judgment of precise timing (Ivry, 1996).
+4.3.2. Simulation in the virtual environment In the model-based, predictive action selection architec-
+ture above, we only considered a single-step planning of action. However, provided that the number of possible actions are small and that there is enough working memory capacity and time for decision making, it is possible to extend such mechanisms to multiple-step prediction and evaluation.
+It is also possible to use such an internal model of environment not only for on-line action selection but also for the improvement of the value function and the policy based on the simulated experiences, as illustrated in Fig. 10. Such offline learning could enable learning a behavior from a very limited number of actual experiences, although its success depends strongly on the accuracy of the environmental model.
+4.3.3. Encapsulating learned mappings Many of the discussed control and decision architectures
+involve global communication between the cerebellum, the basal ganglia and the cerebral cortex, and this can be quite costly in the hardware resources and processing time. These architectures are useful for learning a new task, but once it has been well learned, it is more advantageous to store the learned policy in a local circuit for compact storage, reliable execution, and quick reaction.
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+969
+
+lateral cerebellum model: F
+
+state: x(t)
+
+action: u(t)
+
+cerebellum, the basal ganglia and the cerebral cortex and their possible combinations as a global learning architecture might be useful in inferring the speciﬁc roles of the activated areas in brain imaging studies. The results of functional imaging experiments on sequence learning are investigated in view of the architectures listed above.
+
+sensory input
+
+environment
+
+motor output
+
+Fig. 10. Simulation of behavior using a forward model instead of the real environment.
+
+For example, supervised learning modules in the medial part of the cerebellum, which receives the spinal sensory afferents and sends out motor commands to the spinal cord and primary motor cortex, are a candidate for a repository of learned sensory-motor mapping (Fig. 11). For example, in arm movement control, the output the cortical feedback pathway could be used as the teacher signal for the cerebellum. In this case, the cerebellum serves as a direct controller (Barto et al., 1996) or an inverse model of the arm dynamics (Kawato et al., 1987; Schweighofer et al., 1998).
+Similarly, supervised learning modules in the lateral part of the cerebellum, which are reciprocally connected to different parts of the frontal cortex including the prefrontal cortex, are a candidate for the repository of more abstract state–action mappings that was originally acquired using the global network, as illustrated in Fig. 7.
+Such encapsulation of learned mapping is useful for robust storage and quick reaction, and it frees a large portion of the brain from the task already learned so that these portions of the brain can be used to learn new tasks.
+
+5. Brain activation in sequence learning
+The characterization of speciﬁc computations for the
+medial cerebellum model: F-1
+
+5.1. Implicit learning
+In an implicit sequence learning task paradigm, subjects were asked to perform simple actions (usually press buttons), initially by following cues shown in random order. Then the order of cues (thus the actions) was ﬁxed in a particular sequence or generated according to a certain grammar. As a subject repeated the regular sequence, the reaction time for pressing buttons became shorter even when the subject was not aware of any particular order or grammar.
+Table 1A summarizes the activation in the cerebellum, the basal ganglia and the frontal cortex during such implicit sequence learning. The most consistent activity was found in the basal ganglia. In view of the global architectures, the result is compatible with the reactive architecture shown in Fig. 6, which does not use an explicit model of the environmental dynamics, in this case the button sequence.
+5.2. Sequence learning by exploration
+Let us now focus on sequence learning by trial and error. Subjects were asked to learn the right sequential movements (usually pressing buttons with ﬁngers) by actively searching for the right order. Although such a task can be learned with the simple stochastic learning architecture shown in Fig. 6, more efﬁcient learning is possible with the predictive model of the task, as shown in Fig. 7. For example, it is possible to avoid making the same errors with the ability to predict the outcome of the action taken previously. Such predictive action selection is particularly useful early in the learning process before a stereotyped reaction is established.
+Table 1B summarizes the areas activated during such exploratory sequence learning. Prominent activations were found in the prefrontal cortex and the rostral premotor areas. This is compatible with the predictive action selection architecture shown in Fig. 7, which relies on the state prediction presented in the prefrontal and premotor cortex.
+
+state: x(t)
+
+action: u(t)
+
+sensory input
+
+environment
+
+motor output
+
+Fig. 11. Encapsulation of complex decision process in a simple reactive mapping.
+
+6. Discussion
+This paper presented a hypothesis that the cerebellum, the basal ganglia and the cerebral cortex are, respectively, specialized in supervised, reinforcement and unsupervised learning paradigms. First, the anatomical, physiological and theoretical support for the hypothesis was outlined. Then a number of global architectures for goal-oriented behaviors were considered with the combination of those learning modules within biological constraints.
+
+970
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+Table 1 Activations of prefrontal cortex, premotor cortex, basal ganglia and cerebellum in sequence learning tasks. Abbreviations: r., right; l., left; b., bilateral; a., anterior; v., ventral., DLPF, dorsolateral prefrontal cortex; PM, premotor area; SMA, supplementary motor area, GP, global pallidus
+
+Prefrontal
+
+Premotor
+
+Basal ganglia
+
+Cerebellum
+
+A. Implicit learning Grafton, Hazeltine and Ivry (1995) Rauch, Savage, Brown, Curran, Alpert Kendrick, Fischman and Kosslyn (1995) Doyon, Owen, Petrides, Sziklas and Evans (1996) Berns, Cohen and Mintun (1997) Grafton, Hazeltine and Ivry (1998) B. Exploratory learning Jenkins, Brooks, Nixon, Frackowiak and Passingham (1994)
+Hikosaka, Sakai, Miyauchi, Takino, Sasaki and Putz (1996) Jeuptner, Stephan, Frith, Brooks, Frackowiak and Passingham (1997)
+Sakai et al. (1998)
+
+b.
+b. l.DLPF
+
+b. SMA r. PM
+l.PM r.SMA
+b.PM
+preSMA b.PM
+preSMA
+
+b. putamen r. striatum r.v. striatum r.v.striatum
+b.caudate b.GP
+
+r. dentate r.dentate
+b.cortex b.cortex b.cortex b.nuclei
+
+6.1. Previous models
+Despite the wealth of the models for the cerebellum, the basal ganglia and the cerebral cortex, there have been few attempts at characterizing the speciﬁc computations in these three brain areas in a uniﬁed framework.
+Thach, Mink, Goodkin & Keating, (1993) compared the roles the cerebellum and the basal ganglia and concluded that the cerebellum is involved in combining primitive movements and that the basal ganglia is involved in the inhibition and disinhibition of primitive or complex movements. Mushiake (1995) gave a nice review of anatomical and physiological ﬁndings that point to different functions of the cerebellum, the basal ganglia and the cerebral cortex.
+Houk and Wise (1995) emphasized the distributed nature of the operation of the networks liking the basal ganglia, the cerebellum and the cerebral cortex and characterized their major functions as “context recognition” for the basal ganglia, “pattern generation” for the cerebellum, and “information stores” for the cerebral cortex. However, they mentioned differences in the nature of computations for the evidence in support of their ideas: supervised learning in the cerebellum, reinforcement learning in the basal ganglia and attractor dynamics in the cerebral cortex.
+The novel features in the current proposal are: (1) the differences in the computational paradigms are the primary differences in the three structures and (2) the theory is based on sound mathematical frameworks, including dynamic programming, reinforcement learning, and adaptive control.
+The ﬁrst point enables a very simple and coherent characterization of the three structures. The second point enables a systematic exploration of the possible ways of their interactions. These models are useful both in interpreting the existing experimental data and in planning new behavioral experiments. Furthermore, it is possible to test the performance of those architectures in a realistic simulation of experimental paradigms.
+One such example is seen in the model of sequence
+
+learning by Nakahara et al. (1998). They succeeded in replicating the experimental results from a “2 × 5 task” based on the assumption that the loops connecting the basal ganglia and the cerebral cortex work as the “actor–critic” architecture (Fig. 6) and that different cortical areas provide the sensory and contextual information in different frames of reference.
+6.2. Cerebral and cerebellar mappings
+One of the major functions of the cerebellum is to provide a model or mapping between sensory-motor representations. However, it is well known that different cortical areas have different maps that capture different aspects of the sensory and motor state, for example, a visuo-motor target in different frames of references (Snyder, Grieve, Brotchie & Andersen, 1998; Graziano et al., 1997). Thus, the connection between different cortical areas can work as a coordinate transformation system. What are the essential difference between cortical and cerebellar mapping?
+As described in Section 2, unsupervised learning is based on the statistical properties of the signals and a solution depends on iterative network dynamics and is quite context dependent. On the other hand, a deterministic function of the current input is learned in the feed-forward cerebellar circuit. Thus, a cerebellar mapping can work as a short-cut circuit or a look-up table for a mapping that was originally developed by the time-consuming cortico-cortical processing. Such a mechanism is especially useful when the same mapping is used repeatedly for time critical tasks, for example, inverse kinematic and inverse dynamic mappings for arm movement.
+6.3. Cognitive tasks
+In this paper, the considerations were mainly made in the context of motor control, but similar architectures could also be utilized for cognitive functions including logical inference and communication. For example, in mathematical
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+971
+
+problem-solving, sequential selection of arithmetic operations on symbolic representations can be implemented by the predictive decision architecture shown in Fig. 7. After repeated problem solving, the search process can be skipped by using the problem–solution mapping learned in the cerebellum, as shown in Fig. 11.
+In the context of communication, the “environment” is the partner of communication and the goal is to bring the physical or internal state of the partner into a desired state. This involves sequential selection of actions, i.e. words or gestures, in an appropriate sequence, in the same way as in the case of many control tasks. When the model of the partner is available, the goal can be achieved more readily and quickly. If the internal models of the speaker and listener are similar, communication is made efﬁcient.
+Actually, the brain areas that are activated in complex motor tasks are also activated in cognitive or verbal tasks (Mellet, Tzourio, Crivello, Joliot, Denis & Mazoyer, 1996; Rueckert et al., 1996). Thus, we postulate that the current investigation of behavioral architectures and their brain implementation is not only applicable to motor tasks but also to cognitive tasks including communication.
+Predictive action selection architecture (Fig. 7) has been extensively used in traditional artiﬁcial intelligence (AI) research. Classical AI approaches to an understanding of human cognitive functions failed because these approaches usually took into account only a single or a few possible architectures for problem solving. The massively parallel organization of the brain enables the use of many different strategies for the same task. It is essential to consider the process in which a deliberate, intensive task turns into a trivial, automatic task after repeated training.
+6.4. Who decides the architecture?
+This paper has presented useful module combinations but has not considered “how” such appropriate modules are picked up from the cerebellum, the basal ganglia and the cerebral cortex and are assembled into a global network. The genetic information of area to area connections is certainly important, but it does not explain how the exact networks for novel, learned behaviors is set up.
+Traditionally, the central executive was supposed to undertake the task of activating and connecting appropriate processing modules (Baddeley, 1992). However, its computational principle and biological substrate is unknown. Proponents of subsumption architectures would reject the need for such a centralized process. They have demonstrated the recruitment of appropriate modules by simple rules (Brooks, 1991). However, the way different modules are activated and preceded is usually pre-wired in many robotic demonstrations.
+An alternative possibility is that the competitive learning mechanism in the cerebral cortex is utilized for the selection of appropriate modules for the environmental state and the goal of the task (Houk & Wise, 1995). Recently, a
+
+computational framework of selecting and combining multiple control modules based on the performances of the multiple predictive models has been proposed (Wolpert & Kawato, 1998; Wolpert et al., 1998). Such a modular architecture could possibly be implemented by a network linking the cerebellum and the prefrontal and rostral premotor cortex. An activation of the preSMA and the rostral cingulate motor area (CMAr) at the time of change in the motor plan is in accordance with such a possibility (Shima & Tanji, 1998; Shima, Mushiake, Saito & Tanji, 1996).
+6.5. Who sets the parameters?
+The performance of any learning algorithm depends on the setting of some global parameters, such as the learning rates. The appropriate values of such parameters are usually task dependent and therefore have to be under active regulation. In the framework of reinforcement learning, such global parameters include the time scale of an evaluation (discount factor), the size of the noise for exploration (temperature), the magnitude of cost for action and the learning rates. How does the brain appropriately set such parameters?
+This is still an open problem, but the likely candidates are the diffuse ascending projections from the midbrain nuclei to the cerebellum, the basal ganglia, and the cerebral cortex. For example, the noradrenergic system is known to modulate the sharpness of neural responses (Usher, Cohen, Servan-Schreiber, Rajkowski & Aston-Jones, 1999), which is similar to the role of temperature in many learning algorithms. The level of serotonin affects the subject’s activeness, which is reminiscent of the role of the action cost parameter. The cholinergic and noradrenergic input is known to regulate the synaptic plasticity of the cortical neurons (Brocher, Artola & Singer, 1992). Computational studies of regulatory mechanisms for learning systems, or meta-learning, would provide a theoretical basis for understanding the roles of emotional systems in regulating behavioral learning.
+Acknowledgements
+I thank Mitsuo Kawato, Takashi Omori, and two anonymous reviewers for their comments on the manuscript. I am grateful to Minoru Kimura, James Houk, Okihide Hikosaka, Hiro Nakahara, Ann Graybiel, Jun Tanji and Manabu Honda for their helpful discussions.
+References
+Albus, J. S. (1971). A theory of cerebellar function. Mathematical Bioscience, 10, 25–61.
+Alexander, G. E., & Crutcher, M. D. (1990). Functional architecture of basal ganglia circuits: neural substrates of parallel processing. Trends in Neuroscience, 13, 266–271.
+
+972
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+Amari, S., & Takeuchi, A. (1978). Mathematical theory on formation of category detecting nerve cells. Biological Cybernetics, 29, 127–136.
+Andersen, R. A. (1995). Encoding of intention and spatial location in the posterior parietal cortex. Cerebral Cortex, 5, 457–469.
+Aosaki, T., Tsubokawa, H., Watanabe, K., Graybiel, A. M., & Kimura, M. (1994). Responses of tonically active neurons in the primate’s striatum undergo systematic changes during behavioral sensory-motor conditioning. Journal of Neuroscience, 14, 3969–3984.
+Artola, A., Brocher, S., & Singer, W. (1990). Different voltage-dependent thresholds for inducing long-term depression and long-term potentiation in slices of rat visual cortex. Nature, 347, 69–72.
+Baddeley, A. D. (1992). Working memory. Science, 255, 556–559. Barto, A. G. (1995). Adaptive critics and the basal ganglia. In J. C. Houk &
+J. L. Davis & D. G. Beiser (Eds.), Models of information processing in the basal ganglia, (pp. 215–232). Cambridge, MA: MIT Press. Barto, A. G., Sutton, R. S., & Anderson, C. W. (1983). Neuronlike adaptive elements that can solve difﬁcult learning control problems. IEEE Transactions on Systems Man and Cybernetics, 13, 834–846. Barto, A. G., Buckingham, J. T., & Houk, J. C. (1996). A predictive switching model of cerebellar movement control. In D. S. Touretzky & M. C. Mozer & M. E. Hasselmo (Eds.), (pp. 138–144). Advances in neural information processing systems, 8. Cambridge, MA: MIT Press. Becker, S. (1995). Unsupervised learning with global objective functions. In M. A. Arbib (Ed.), The handbook of brain theory and neural networks, (pp. 997–1000). Cambridge, MA: MIT Press. Bell, A. J., & Sejnowski, T. J. (1997). The independent components of natural scenes are edge ﬁlters. Vision Research, 37, 3327–3338. Berns, G. S., & Sejnowski, T. J. (1998). A computational model of how the basal ganglia produces sequences. Journal of Cognitive Neuroscience, 10, 108–121. Berns, G., Cohen, J. D., & Mintun, M. A. (1997). Brain regions responsive to novelty in the absence of awareness. Science, 276, 1272–1275. Bertsekas, D. P., & Tsitsiklis, J. N. (1996). Neuro-dynamic programming, Belmont, MA: Athena Scientiﬁc. Bishop, C. M. (1995). Neural networks for pattern recognition, Oxford, UK: Oxford University Press. Blakemore, C., & Cooper, G. F. (1970). Development of the brain depends on the visual environment. Nature, 228, 477–478. Bower, J. M. (1997). Is the cerebellum sensory for motor’s sake, or motor for sensory’s sake: the view from the whisker of a rat?. Progress in Brain Research, 114, 463–496. Brocher, S., Artola, A., & Singer, W. (1992). Agonists of cholinergic and noradrenergic receptors facilitate synergistically the induction of longterm potentiation in slices of rat visual cortex. Brain Research, 573, 27– 36. Brooks, R. (1991). Intelligence without representation. Artiﬁcial Intelligence, 47, 139–159. Brown, L. L., Schneider, J. S., & Lidsky, T. I. (1997). Sensory and cognitive functions of the basal ganglia. Current Opinion in Neurobiology, 7, 157–163. Calabresi, P., Pisani, A., Mercuri, N. B., & Bernardi, G. (1996). The corticostriatal projection: from synaptic plasticity to dysfunctions of the basal ganglia. Trends in Neurosciences, 19, 19–24. Daniel, H., Levenes, C., & Cre´pel, F. (1998). Cellular mechanisms of cerebellar ltd. Trends in Cognitive Sciences, 2, 401–407. Deiber, M. P., Ibanez, V., Honda, M., Sadato, N., Raman, R., & Hallett, M. (1998). Cerebral processes related to visuomotor imagery and generation of simple ﬁnger movements studied with positron emission tomography. Neuroimage, 7, 73–85. Desmond, J. E., & Fiez, J. A. (1998). Neuroimaging studies of the cerebellum: language learning and memory. Trends in Cognitive Sciences, 2, 355–362. DeZeeuw, C. I., Simpson, J. I., Hoogenraad, C. C., Galjart, N., Koekkoek, S. K. E., & Ruigrok, T. J. H. (1998). Microcircuitry and function of the inferior olive. Trends in Cognitive Sciences, 2, 391–400. Dominey, P., Arbib, M., & Joseph, J. P. (1995). A model of corticostriatal
+
+plasticity for learning oculomotor associations and sequences. Journal of Cognitive Neurosciences, 7, 311–336. Douglas, R., & Martin, K. (1998). Neocortex. In G. M. Shepherd (Ed.), The synaptic organization of the brain, 4. (pp. 459–509). New York: Oxford University Press. Doya, K. (1996). Temporal difference learning in continuous time and space. In D. S. Touretzky & M. C. Mozer & M. E. Hasselmo (Eds.), (pp. 1073–1079). Advances in neural information processing systems, 8. Cambridge, MA: MIT Press. Doya, K. (1999). Reinforcement learning in continuous time and space. Neural Computation (in press). Doyon, J., Owen, A. M., Petrides, M., Sziklas, B., & Evans, A. C. (1996). Functional anatomy of visuomotor skill learning in human subjects examined with positron emission tomography. European Journal of Neuroscience, 8, 637–648. Fujita, M. (1982). Adaptive ﬁlter model of the cerebellum. Biological Cybernetics, 45, 195–206. Fukushima, K. (1980). Neocognitron: A self-organizing neural network model for a mechanism of pattern recognition unaffected by shift in position. Biological Cybernetics, 36, 193–202. Gao, J. H., Parsons, L. M., Bower, J. M., Xiong, J., Li, J., & Fox, P. T. (1996). Cerebellum implicated in sensory acquisition and discrimination rather than motor control. Science, 272, 545–547. Georgopoulos, A. P. (1995). Current issues in directional motor control. Trends in Neurosciences, 18, 506–510. Gomi, H., & Kawato, M. (1992). Adaptive feedback control models of the vestibulocerebellum and spinocerebellum. Biological Cybernetics, 68, 105–114. Gomi, H., Shidara, M., Takemura, A., Inoue, Y., Kawano, K., & Kawato, M. (1998). Temporal ﬁring patterns of Purkinje cells in the cerebellar ventral paraﬂocculus during ocular following responses in monkeys. I. Simple spikes, Journal of Neurophysiology, 80, 818–831. Grafton, S. T., Hazeltine, E., & Ivry, R. (1995). Functional mapping of sequence learning in normal humans. Journal of Cognitive Neuroscience, 7, 497–510. Grafton, S. T., Hazeltine, E., & Ivry, R. (1998). Abstract and effectorspeciﬁc representations of motor sequences identiﬁed with PET. Journal of Neuroscience, 18, 9420–9428. Graybiel, A. M. (1995). Building action repertories: memory and learning functions of the basal ganglia. Current Opinion in Neurobiology, 5, 733–741. Graziano, M. S. A., Hu, X. T., & Gross, C. G. (1997). Visuo-spatial properties of ventral premotor cortex. Journal of Neurophysiology, 77, 2268– 2292. Grossberg, S. (1976). On the development of detectors is the visual cortex with applications to learning and reaction-diffusion systems. Biological Cybernetics, 21, 145–159. Harpur, G. F., & Prager, R. W., (1995). Techniques in low entropy coding with neural networks. CUED/F-INFENG/TR 197, Cambridge University Engineering Department, Cambridge, England. Haykin, S. (1996). Adaptive ﬁlter theory, 3. Upper Saddle River, NJ: Prentice Hall. Hikosaka, O., Miyachi, S., Miyashita, K., & Karadi, Z., (1995). Possible roles of the basal ganglia in procedural learning. In Fourth IBRO World Congress of Neuroscience Abstracts, p. 55, Oxford. IBRO, Rapid Communications. Hikosaka, O., Sakai, K., Miyauchi, S., Takino, R., Sasaki, Y., & Pu¨tz, B. (1996). Activation of human presupplementary motor area in learning of sequential procedures: a functional MRI study. Journal of Neurophysiology, 76, 617–621. Hirsch, H. V. B., & Spinelli, D. N. (1970). Visual experience modiﬁes distribution of horizontally and vertically oriented receptive ﬁeld in cat. Science, 168, 869–871. Houk, J. C. (1997). On the role of the cerebellum and basal ganglia in cognitive signal processing. Progress in Brain Research, 114, 545– 554. Houk, J. C., & Alford, S. (1996). Computational signiﬁcance of the cellular
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+973
+
+mechanisms for synaptic plasticity in Purkinje cells. Behavioral and Brain Sciences, 19, 457–461. Houk, J. C., & Wise, S. P. (1995). Distributed modular architectures linking basal ganglia, cerebellum, and cerebral cortex: their role in planning and controlling action. Cerebral Cortex, 2, 95–110. Houk, J. C., Keifer, J., & Barto, A. G. (1993). Distributed motor commands in the limb premotor networks. Trends in Neuroscience, 16, 27–33. Houk, J. C., Adams, J. L., & Barto, A. G. (1995). A model of how the basal ganglia generate and use neural signals that predict reinforcement. In J. C. Houk & J. L. Davis & D. G. Beiser (Eds.), Models of information processing in the basal ganglia, (pp. 249–270). Cambridge, MA: MIT Press. Houk, J. C., Buckingham, J. T., & Barto, A. G. (1996). Models of the cerebellum and motor learning. Behavioral and Brain Sciences, 19, 368–383. Ito, M. (1984). The cerebellum and neural control, New York: Raven Press. Ito, M. (1993). Movement and thought: identical control mechanisms by the cerebellum. Trends in Neurosciences, 16, 448–450. Ito, M., Sakurai, M., & Tongroach, P. (1982). Climbing ﬁbre induced depression of both mossy ﬁbre reponsiveness and gultamate sensitivity of cerebellar Purkinje cells. Journal of Physiology, 324, 113–134. Ivry, R. B. (1996). The representation of temporal information in perception and motor control. Current Opinion in Neurobiology, 6, 851–857. Jenkins, I. H., Brooks, D. J., Nixon, P. D., Frackowiak, R. S. J., & Passingham, R. E. (1994). Motor sequence learning: a study with positron emission tomography. Journal of Neuroscience, 14, 3775–3790. Jeuptner, M., Stephan, K. M., Frith, C. D., Brooks, D. J., Frackowiak, R. S. J., & Passingham, R. E. (1997). Anatomy of motor learning. I. Frontal cortex and attention to action. Journal of Neurophysiology, 77, 1313– 1324. Kawato, M., & Gomi, H. (1992). The cerebellum and VOR/OKR learning models. Trends in Neurosciences, 15, 445–453. Kawato, M., & Gomi, H. (1992). A computational model of four regions of the cerebellum based on feedback-error learning. Biological Cybernetics, 68, 95–103. Kawato, M., Furukawa, K., & Suzuki, R. (1987). A hierarchical neural network model for control and learning of voluntary movement. Biological Cybernetics, 57, 169–185. Kettner, R. E., Mahamud, S., Leung, H. C., Sitkoff, N., & Houk, J. C. (1997). Prediction of complex two-dimensional trajectories by a cerebellar model of smooth pursuit eye movement. Journal of Neurophysiology, 77, 2115–2130. Kitazawa, S., Kimura, T., & Yin, P. B. (1998). Cerebellar complex spikes encode both destinations and errors in arm movements. Nature, 392, 494–497. Kobayashi, Y., Kawano, K., Takemura, A., Inoue, Y., Kitama, T., Gomi, H., & Kawato, M. (1998). Temporal ﬁring patterns of Purkinje cells in the cerebellar ventral paraﬂocculus during ocular following responses in monkeys. II. Complex spikes. Journal of Neurophysiology, 80, 832– 848. Kohonen, T. (1982). Self-organized formation of topologically correct feature maps. Biological Cybernetics, 43, 59–69. Lawrence, A. D., Sahakian, B. J., & Robbins, T. W. (1998). Cognitive functions and corti-costriatal circuits: insights from Huntington’s disease. Trends in Cognitive Sciences, 2, 379–388. Leiner, J. C., Leiner, A. L., & Dow, R. S. (1993). Cognitive and language functions of the cerebellum. Trends in Neurosciences, 16, 444–447. Linsker, R. (1986). From basic network principles to neural architecture. Proceedings of the National Academy of Sciences USA, 83, 7508–7512 also pp. 8309–8394, 8779–8983. Llinas, R. R., & Walton, K. D. (1998). Cerebellum. In G. M. Shepherd (Ed.), The synaptic organization of the brain, 4. (pp. 255–288). New York: Oxford University Press. Marr, D. (1969). A theory of cerebellar cortex. Journal of Physiology, 202, 437–470. Mellet, E., Tzourio, N., Crivello, F., Joliot, M., Denis, M., & Mazoyer, B.
+
+(1996). Functional anatomy of spatial mental imagery generated from verbal instructions. Journal of Neuroscience, 16, 6504–6512. Miall, R. C., Weir, D. J., Wolpert, D. M., & Stein, J. F. (1993). Is the cerebellum a Smith predictor? Journal of Motor Behaviour, 25, 203– 216. Middleton, F. A., & Strick, P. L. (1994). Anatomical evidence for cerebellar and basal ganglia involvement in higher cognitive function. Science, 266, 458–461. Middleton, F. A., & Strick, P. L. (1996). New concepts regarding the organization of basal ganglia and cerebellar output. In M. Ito & Y. Miyashita (Eds.), Integrative and molecular approach to brain function, (pp. 253–269). Amsterdam: Elsevier Science. Middleton, F. A., & Strick, P. L. (1998). Cerebellar output: motor and cognitive channels. Trends in Cognitive Sciences, 2, 348–354. Miyachi, S., Hikosaka, O., Miyashita, K., Karadi, Z., & Rand, M. K. (1997). Differential roles of monkey striatum in learning of sequential hand movement. Experimental Brain Research, 151, 1–5. Montague, P. R., Dayan, P., & Sejnowski, T. J. (1996). A framework for mesencephalic dopamine systems based on predictive Hebbian learning. Journal of Neuroscience, 16, 1936–1947. Mushiake, H. (1995). Functional relationship of the basal ganglia and cerebellum with motor cortices. Advances in Neurological Sciences, 39, 277–289 in Japanese. Nakahara, H., Doya, K., Hikosaka, O., & Nagano, S. (1997). Multiple representations in the basal ganglia loops for acquisition and execution of sequential motor control. Society for Neuroscience Abstracts, 23, 778. Nakahara, H., Doya, K., Hikosaka, O., & Nagano, S., (1998). Reinforcement learning with multiple representations in the basal ganglia loops for sequential motor control. In International joint conference on neural networks, pp. 1553–1558. Narendra, K., & Parthasarathy, K. (1990). Identiﬁcation and control of dynamical systems using neural networks. IEEE Transactions on Neural Networks, 1, 4–27. Olshausen, B. A., & Field, D. J. (1996). Emergence of simple-cell receptive ﬁeld properties by learning sparse code for natural images. Nature, 381, 607–609. Paulin, M. G. (1993). The role of the cerebellum in motor control and perception. Brain, Behaviour and Evolution, 41, 39–50. Rauch, S. L., Savage, C. R., Brown, H. D., Curran, T., Alpert, N. M., Kendrick, A., Fischman, A. J., & Kosslyn, S. M. (1995). A PET investigation of implict and explicit sequence learning. Human Brain Mapping, 3, 271–286. Raymond, J. L., Lisberger, S. G., & Mauk, M. D. (1996). The cerebellum: a neuronal learning machine?. Science, 272, 1126–1131. Rueckert, L., Lange, N., Partiot, A., Appollonio, I., Litvan, I., Le Bihan, D., & Grafman, J. (1996). Visualizing cortical activation during mental calculation with functional MRI. Neuroimage, 3, 97–103. Sakai, K., Hikosaka, O., Miyauchi, S., Takino, R., Sasaki, Y., & Putz, B. (1998). Transition of brain activation from frontal to parietal areas in visuomotor sequence learning. Journal of Neuroscience, 18, 1827– 1840. Sanger, T. D. (1989). Optimal unsupervised learning in a single-layer linear feedforward neural network. Neural Networks, 2, 459–473. Schultz, W. (1998). Predictive reward signal of dopamine neurons. Journal of Neurophysiology, 80, 1–27. Schultz, W., Apicella, P., & Ljungberg, T. (1993). Responses of monkey dopamine neurons to reward and conditioned stimuli during successive steps of learning a delayed response task. Journal of Neuroscience, 13, 900–913. Schultz, W., Apicella, P., Romo, R., & Scarnati, E. (1995). Context-dependent activity in primate striatum reﬂecting past and future behavioral events. In J. C. Houk & J. L. Davis & D. G. Beiser (Eds.), Models of information processing in the basal ganglia, (pp. 11–27). Cambridge, MA: MIT Press. Schultz, W., Dayan, P., & Montague, P. R. (1997). A neural substrate of prediction and reward. Nature, 275, 1593–1599.
+
+974
+
+K. Doya / Neural Networks 12 (1999) 961–974
+
+Schweighofer, N., Arbib, M. A., & Dominey, P. F. (1996). A model of the cerebellum in adaptive control of saccadic gain. I. The model and its biological substrate. Biological Cybernetics, 75, 19–28.
+Schweighofer, N., Arbib, M. A., & Kawato, M. (1998). Role of the cerebellum in reaching movements in humans. II. A neural model of the intermediate cerebellum. European Journal of Neuroscience, 10, 86– 94.
+Scott, S. H. (1997). Comparison of onset time and magnitude of activity for proximal arm muscles and motor cortical cells before reaching movements. Journal of Neurophysiology, 77, 1016–1022.
+Shidara, M., kawano, K., Gomi, H., & Kawato, M. (1993). Inversedynamics model eye movement control by Purkinje cells in the cerebellum. Nature, 365, 50–52.
+Shima, K., & Tanji, J. (1998). Role for cingulate motor area cells in voluntary movement selection based on reward. Science, 282, 1335–1338.
+Shima, K., Mushiake, H., Saito, N., & Tanji, J. (1996). Role for cells in the presupplementary motor area in updating motor plans. Proceedings of National Academy of Sciences USA, 93, 8694–8698.
+Snyder, L. H., Grieve, K. L., Brotchie, P., & Andersen, R. A. (1998). Separate body-and world-referenced representation of visual space in parietal cortex. Nature, 394, 887–891.
+Stein, P. S. G., Grillner, S., Selverston, A. I., & Stuart, D. G. (1997). Neurons, networks, and motor behaviours, Cambridge, MA: MIT Press.
+Suri, R. E., & Schultz, W. (1998). Learning of sequential movements by neural network model with dopamine-like reinforcement signal. Experimental Brain Research, 121, 350–354.
+Sutton, R. S., & Barto, A. G. (1998). Reinforcement learning, Cambridge, MA: MIT Press.
+
+Thach, W. T., Mink, J. W., Goodkin, H. P., & Keating, J. G. (1993). Combining versus gating motor programs: Differential roles for cerebellum and basal ganglia?. In M. Mano & I. Hamada & M. R. DeLong (Eds.), Roles of cerebellum and basal ganglia in voluntary movement, (pp. 235–245). Amsterdam: Elsevier.
+Thompson, R. F., & Krupa, D. J. (1994). Organization of memory traces in the mammalian brain. Annual Review of Neuroscience, 17, 519–549.
+Tsumoto, T., & Suda, K. (1979). Cross-depression: an electrophysiological manifestation of binocular competition in developing visual cortex. Brain Research, 168, 190–194.
+Usher, M., Cohen, J. D., Servan-Schreiber, D., Rajkowski, J., & AstonJones, G. (1999). The role of locus coeruleus in the regulation of cognitive performance. Science, 283, 549–554.
+van Essen, D., & Maunsell, J. H. R. (1983). Hierarchical organization and functional streams in the visual cortex. Trends in Neurosciences, 6, 370–375.
+von der Malsburg, C. (1973). Self-organization of orientation sensitive cells in the striate cortex. Kybernetik, 14, 85–100.
+Wickens, J. R., Begg, A. J., & Barto, A. G. (1996). Dopamine reverses the depression of rat corticostriatal synapses which normally follows highfrequency stimulation of cortex in vitro. Neuroscience, 70, 1–5.
+Wilson, C. W. (1998). Basal ganglia. In G. M. Shepherd (Ed.), The synaptic organization of the brain, 3. (pp. 329–375). New York: Oxford University Press.
+Wolpert, D. M., & Kawato, M. (1998). Multiple paired forward and inverse models for motor control. Neural Networks, 11, 1317–1329.
+Wolpert, D. M., Miall, R. C., & Kawato, M. (1998). Internal models in the cerebellum. Trends in Cognitive Sciences, 2, 338–347.
+

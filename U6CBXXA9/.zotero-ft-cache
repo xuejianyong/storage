@@ -1,0 +1,303 @@
+Artif Life Robotics (2013) 18:104–108 DOI 10.1007/s10015-013-0106-0
+ORIGINAL ARTICLE
+Reinforcement learning for dynamic environment: a classiﬁcation of dynamic environments and a detection method of environmental changes
+Masato Nagayoshi • Hajime Murao • H. Tamaki
+
+Received: 11 March 2013 / Accepted: 30 August 2013 / Published online: 19 September 2013 Ó ISAROB 2013
+
+Abstract Engineers and researchers are paying more attention to reinforcement learning (RL) as a key technique for realizing computational intelligence such as adaptive and autonomous decentralized systems. In general, it is not easy to put RL into practical use. In prior research our approach mainly dealt with the problem of designing state and action spaces and we have proposed an adaptive coconstruction method of state and action spaces. However, it is more difﬁcult to design state and action spaces in dynamic environments than in static ones. Therefore, it is even more effective to use an adaptive co-construction method of state and action spaces in dynamic environments. In this paper, our approach mainly deals with a problem of adaptation in dynamic environments. First, we classify tasks of dynamic environments and propose a detection method of environmental changes to adapt to dynamic environments. Next, we conducted computational experiments using a so-called ‘‘path planning problem’’ with a slowly changing environment where the aging of the system is assumed. The performances of a conventional RL
+This work was presentedin part at the 18th International Symposium on Artiﬁcial Life and Robotics, Daejeon, Korea, January 30–February 1, 2013.
+M. Nagayoshi (&) Niigata College of Nursing, 240 Shinnan, Joetsu 943-0147, Japan e-mail: nagayosi@niigata-cn.ac.jp
+H. Murao Faculty of Cross-Cultural Studies, Kobe University, 1-2-1 Tsurukabuto, Nada-ku, Kobe 657-8501, Japan
+H. Tamaki Graduate School of Engineering, Kobe University, Rokko-dai, Nada-ku, Kobe 657-8501, Japan
+
+method and the proposed detection method were conﬁrmed.
+Keywords Reinforcement learning Á Dynamic environment Á Slowly changing environment Á Detection of environmental changes Á Entropy
+1 Introduction
+In recent years, artiﬁcial systems have become more complicated and large-scaled. The conventional way, in which systems are controlled in a top-down manner mainly by humans, is facing up to the difﬁculties of not only optimality but also adaptability and ﬂexibility. One of the solutions to this issue is to develop an autonomously adaptive system.
+Engineers and researchers are paying more attention to reinforcement learning(RL) [1] as a key technique of realizing autonomous systems. In general, however, it is not easy to put RL into practical use. Such issues as satisfying the requirement of learning speed, resolving the perceptual aliasing problem, designing reasonable state and action spaces of an agent and adapting dynamic environments must be resolved. In prior research, our approach mainly dealt with the problem of designing state and action spaces and we have proposed a co-construction method of state and action spaces [2]. However, it is more difﬁcult to design state and action spaces in dynamic environments than in static ones. Thus, it may be even more effective to use an adaptive co-construction method of state and action spaces in dynamic environments.
+In this paper, our approach deals with problems of adaptation in dynamic environments. Previously, many methods for dynamic environments have been proposed.
+
+123
+
+Artif Life Robotics (2013) 18:104–108
+
+105
+
+However the researchers have only referred to the dynamic environment, without focusing on the speciﬁc problems that are inherent in a dynamic environment. We make a classiﬁcation of dynamic environments and propose a detection method of environmental changes to adapt a dynamic environment. In addition, computational experiments are conducted by using a so-called ‘‘path planning problem’’ with a slowly changing environment where the aging of the system is assumed. The performances of a conventional RL method and the proposed detection method are conﬁrmed.
+
+2 Q-learning
+
+Q-learning works by calculating the quality of a stateaction combination, namely the Q-value, that gives the expected utility of performing a given action in a given state. By performing an action a 2 AQ; where AQ & A is the set of available actions in Q-learning and A is the action space of the agent. The agent can move from state to state. Each state provides the agent with a reward r. The goal of the agent is to maximize its total reward.
+The Q-value is updated according to the following formula, when the agent is provided with the reward:
+QðsðtÀ1Þ; aðtÀ1ÞÞ QðsðtÀ1Þ; aðtÀ1ÞÞ
+þ aQfrðtÀ1Þ þ c max QðsðtÞ; bÞ À QðsðtÀ1Þ; aðtÀ1ÞÞg
+b2 AQ
+ð1Þ
+
+where Q(s (t-1), a(t - 1)) is the Q-value for the state and the action at the time step tÀ1; aQ 2 ½0; 1 is the learning rate of Q-learning, c [ [0,1] is the discount factor.
+The agent selects an action according to the stochastic policy p (a|s), which is based on the Q-value. p (a|s) speciﬁes the probabilities of taking each action a in each state s. Boltzmann selection, which is one of the typical action selection methods, is used in this research. Therefore, the policy p(a|s) is calculated as
+
+pðajsÞ
+
+¼
+
+P expðQðs; aÞ=sÞ b2 A expðQðs; bÞ=sÞ
+
+ð2Þ
+
+where s is a positive parameter labeled temperature.
+
+3 Dynamic environments
+Dynamic environments are time-varying environments, i.e. when the state transition probability T (s(t), a (t), s(t + 1)), which is the probability of transition from s(t) to s(t + 1) under a(t), changes, or the return function R (s, a), which is the reward at s under a, changes, an ‘‘environmental change’’ has occurred and the environment
+
+is a dynamic environment. Hereafter on the premise of time-variance, the state transition probability and the reward function including time t are shown Tt (s(t), a (t), s (t ? 1)) and Rt (s, a) respectively.
+The learning becomes difﬁcult when environmental changes occur as in the following formula:
+
+arg max RtðsðtÞ; aÞ 6¼ arg max Rtþ1ðsðtÞ; aÞ
+
+ð3Þ
+
+a2 A
+
+a2 A
+
+where the best action changes over time in the states
+
+where the agent transits. In particular, in the course of
+
+making the action selection probability of the best
+
+action larger, environmental changes occur. After such
+
+an occurrence, the agent ﬁrst needs to make the action
+
+selection probability of the action smaller, for example
+
+if the learning module is Q-learning, in the course of
+
+making the entropy of action selection probability
+
+H (s):
+
+X
+
+HðsÞ ¼ Àð1= log j AQjÞ pðajsÞ log pðajsÞ;
+
+ð4Þ
+
+a2 AQ
+
+the agent needs a process for ﬁnding the best action again. This process is the reason for learning difﬁculties in dynamic environments.
+
+4 Classiﬁcation of dynamic environments
+
+Until now, Simada et.al. [3] divide ‘share states’ into 2 types: if the following equation is satisﬁed, then the state is the ‘share state’ of type1, and if not, the state is the ‘share state’ of type 2.
+
+arg max Riðs; aÞ ¼ arg max Rjðs; aÞ
+
+ð5Þ
+
+a2 A
+
+a2 A
+
+Also, they indicate that determining adaptability to dynamic environments is dependent on the abilities of the ‘‘detection of the states of type 1 and type 2’’ and ‘‘reusing and re-studying of learning results’’.
+In this section, previous works are organized by classifying this tasks of dynamic environments more ﬁnely.
+For the sake of ease, we limit to episodic tasks such as acquiring a series of actions from start states to goal states. In our classiﬁcation of dynamic environments we use the Boltzmann selection method [Eq. (2)], that is, the agent selects an action with a larger value based on a higher probability.
+Here we assume that each differential value of the entropy of the action selection probability H_ CðT; M; tEÞ is given and is caused by environmental changes, where tE is the episode number, i.e. 1 episode is deﬁned as the period from when the agent is located at a start state to when the agent arrives at a goal state, M is the method used, and T is the task.
+
+123
+
+106
+
+Artif Life Robotics (2013) 18:104–108
+
+1. The (a) presence or (b) absence of the inﬂuence of environmental changes: If the following formula is satisﬁed, then the agent can adapt to environmental changes by the learning performance of the method M even if environmental changes occurred.
+
+8tE ðH_ CðT; M; tEÞ 0Þ
+
+ð6Þ
+
+2. The process of environmental changes: In almost all previous works, it is assumed that the cases of (1) 91tE ðH_ C ðT; M; tEÞ [ 0Þ or H_ C ðT; M; tEÞ is a repetition of a shape similar to an impulse function. In particular, those tasks in which the characteristic changes momentarily or stages are switched are assumed. On the other hand, (2) H_ CðT; M; tEÞ is a continuously small positive value, if the aging of the system or a change of human characteristics is assumed.
+3. The timing of the appearance of environmental changes in relation to learning progress: It is known that the entropy of the action selection probability approaches 0 in tasks without environmental changes [4]. Here, if the task has no environmental changes, it could be divided into 3 phases based on the entropy of the action selection probability. Using terms borrowed from biological cell division, we have labeled these 3 phases a prophase tEB; a metaphase tEM; and a anaphase of learning tEL: The task can be classiﬁed according to when the appearance of environmental changes, tEC ¼ minftEjH_ CðT; M; tEÞ [ 0g occurs: (i) tEB (ii) tEM or (iii) tEL: Normally, in the case of the task having tEC 2 tEB; it is easy to adapt to environmental changes since the entropy of the action selection probability is large. In the case of the task having tEC 2 tEL; inﬂuences of environmental changes become large since the entropy is small.
+
+Except in (b) the absence of inﬂuences of environmental changes, it is necessary for researchers to take the remaining 2 9 3 = 6 types into consideration. In this paper, we focus on the above six types.
+In viewing of previous works organized in consideration of the above classiﬁcation of tasks of dynamic environments, Takahashi et al. [5] deal with 3 types: (i), (ii), and (iii) in the case of (a) (1) above by introducing an evaluation index of learning progress in a detection method of environmental changes. Other works deal with the types (a) (1) (ii) and (a) (1) (iii) [3] as above. Thus, it is necessary for researchers to consider tasks of dynamic environments regarding the types other than these above.
+
+5 Detection method of environmental changes
+The entropy of the action selection probability H (s), shown in Eq. 4, becomes smaller in tasks without
+
+environmental changes. In contrast, when an environmental change occurs, the entropy becomes larger from the time of the occurrence. Hence, when the entropy H (s) begins to increase, the agent is able to detect the environmental change.
+However, Preliminary computational experiments indicate that the entropy of the action selection probability in the state s (Eq. 4) shows a range of ﬂuctuations even if in a static environment. In order to decrease false-detections of environmental changes by the inﬂuence of the ﬂuctuations, the agent detects the time of the occurrence of the reversal of a downward trend using MACD (moving average convergence/divergence) [6], which is one of the most popular tools in technical analysis trading. The entropy HDþðsÞ; after updating the Q-value, is used to reﬁne the detection only when the agent selects an action with the maximal Q-value, if the learning module is Q-learning. Then, a short-term (n ¼ hEMAS) EMA (exponential moving average) value and a long-term (n ¼ hEMAL) EMA value of the entropy are calculated according to the following equation at a rate of once every ht update of HDþðsÞ: If ht is set at a large value, then the accuracy is ﬁne but the speed of the detection from the occurrence time of the environmental change is slow. On the other hand, if ht is set at a small value, then the speed is fast but the accuracy is disrupted.
+EMAn ðsðtÞÞ ¼ ð1 À aÞ Â EMAnoldðsðtÞÞ þ a Â HDþ ðsðtÞÞ ð7Þ
+
+where EMAn is a n-term EMA value, EMAnold ðsðtÞÞ is the latest known value of EMA in s (t), a = 2/(n ? 1) and n are constant numbers expressing the smoothing constant and the average amount of time respectively.
+A MACD (moving average convergence/divergence) value is calculated according to the following equation, after updating the short-term and the long-term EMA values.
+
+MACDðsÞ ¼ EMAhEMAS ðsÞ À EMAhEMAL ðsÞ
+
+ð8Þ
+
+In addition, a ‘signal’ value is a moving average for the latest series of hMACD values of MACDðsÞ: In particular, when MACDðsÞ becomes larger than the signal value and MACDðsÞ\0 and the following formula is satisﬁed from the condition of MACDðsÞ being smaller than the signal value, the agent detects the environmental change.
+
+MACD ðsÞ À MACDold ðsÞ [ hM
+
+ð9Þ
+
+where, MACDoldðsÞ is the latest known value of MACD (s). The differential value hM of MACD becomes inﬁnitesimally small as the learning progresses, without environmental changes. Here, the above formula has been added in order to detect environmental changes only when a rapidly increasing trend occurs.
+
+123
+
+Artif Life Robotics (2013) 18:104–108
+
+107
+
+Table 1 Usual parameters of MACD
+
+Parameter
+
+Value
+
+Parameter
+
+hEMAS
+
+12
+
+hEMAL
+
+hMACD
+
+9
+
+Value 26
+
+Usual parameters of MACD shown in Table 1 to detect environmental changes are used in the following experiments.
+When the environmental change is detected, all Qvalues in the detected state are set to the average value of the Q-values in the detected state.
+
+6 Computational examples
+Q-learning (hereafter called ‘‘QL’’) and the proposed detection method (hereafter called ‘‘PD’’) are applied to a so-called ‘‘path planning problem’’ with a slowly changing environment where the aging of the system is assumed in a continuous state and action spaces, as shown in Fig. 1. Here, the agent has a circular shape [diameter 50 (mm)], and the continuous space is 500 9 500 (mm) bounded by the external wall, with internal walls as shown in black. One of internal walls is slowly extended to the right from an episode tES to an episode tEE as shown in the continuous space pictured on the right of Fig. 1. The agent can observe the center position of itself ðxA; yAÞ as the input, and decide the direction hA as the output. The agent moves 25 (mm) in a direction deﬁned by hA to which gaussian noise has been added.
+The positive reinforcement signal rt = 10 (reward) is given to the agent only when the center of the agent arrives in the goal area, and the reinforcement signal is rt = 0 at
+
+all other steps. The period from when the agent is located at the starting point to when the agent is given a reward, labeled as 1 episode, is repeated.
+After dividing the state space evenly into 20 9 20 spaces, and the action space evenly into 8 spaces, QL and PD based on QL are compared with 3 occurrence times of the environmental change: tEB ¼ 50; tEM ¼ 500; and tEL ¼ 1;500 (episode). The internal wall is extended to x = 500 during 175 (episodes) from the occurrence of the environmental change.
+Computer experiments have been carried out with the parameters of Q-learning: aQ ¼ 0:1; s ¼ 0:1; and c = 0.9. In addition, the rating number ht of the detection method is set at 5 by trial and error, the differential value hM of MACD is set at 0.01 by trial and error between greater than 0 and less than 0.1. All initial Q-values are set at 5.0 as the optimistic initial values [1].
+The average number of steps required to accomplish the task was observed during learning over 20 simulations with QL and PD, as described in Figs. 2 and 3 respectively. The average number of detections, that is the average number of states where the environmental change is detected, was observed during learning over 20 simulations with PD, as described in Fig. 4.
+It can be seen from Figs. 2 and 3 that, (1) when the environmental change occurs later, that is, as the learning progresses, the inﬂuence of the environmental change becomes larger, (2) PD has better performances than QL with regard to the inﬂuences of the environmental change. It can be seen from Fig. 4 that, (3) PD has better performances to detect the environmental change as the learning progresses, (4) but PD has few false-detections, which are detections before the environmental change. Then, we have conﬁrmed that (5) the average number of detections became gradually larger after episode 3,000.
+
+Fig. 1 Dynamic path planning
+
+(0,0)
+
+problem
+
+start
+
+start
+
+450 goal
+450 (500,500)
+
+goal
+123
+
+108
+
+Artif Life Robotics (2013) 18:104–108
+
+average number of detections
+
+10000
+
+3
+
+1500
+
+500
+
+2.5
+
+50
+
+1000
+
+2
+
+1500
+
+average steps
+
+100
+
+10
+
+0
+
+500 1000 1500 2000 2500 3000
+
+episodes
+
+Fig. 2 Required steps of 3 occurrence times of the environmental change by Q-learning
+
+1.5
+
+1
+
+50
+
+500
+
+0.5
+
+0
+
+0
+
+500 1000 1500 2000 2500 3000
+
+episodes
+
+Fig. 4 Number of detections of 3 occurrence times of the environmental change
+
+average steps
+
+10000
+
+50
+
+500
+
+1000
+
+100
+
+1500
+
+number of detections becomes larger without environmental changes.
+Our future projects include (1) to upgrade the detection method to consider 3 occurrence times of the environmental change, and (2) to apply the adaptive co-construction method of state and action spaces in dynamic environments.
+
+10
+
+0
+
+500 1000 1500 2000 2500 3000
+
+episodes
+
+Fig. 3 Required steps of 3 occurrence times of the environmental change by the proposed method
+
+7 Conclusion
+
+We have classiﬁed tasks of dynamic environments and proposed the detection method of environmental changes to adapt to dynamic environments. Then, with computational experiments we conﬁrmed that the proposed method has better performances than Q-learning with regard to the inﬂuences of the environmental change, and as the learning progresses, detection of the environmental changes improves when the environmental change occurs, but the
+
+References
+1. Sutton RS, Barto AG (1998) Reinforcement learning, a Bradford book. MIT Press, London
+2. Nagayoshi M, Murao H, Tamaki H (2012) Developing reinforcement learning for adaptive co-construction of continuous highdimensional state and action spaces. Artif Life Robot 17(2):204–210
+3. Shimada S, Anzai Y (2001) Improving adaptability of reinforcement learning system to dynamic environment by decomposing and reusing macro-operators. J IEICE J84-D-I(7):1076-1088 (in Japanese)
+4. Nagayoshi M, Murao H, Tamaki H (2006) A state space ﬁlter for reinforcement learning. In: Proceedings of AROB 11th’06, pp 615–618 (GS1-3)
+5. Takahashi T, Adachi M (2006) Evaluating progress of reinforcement learning using recurrence plots. In: IEICE Technical Reports, NLP2005-155, pp 25–30 (in Japanese)
+6. Appel G (2005) Technical analysis power tools for active investors. Financial Times Prentice Hall, London
+
+123
+

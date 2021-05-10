@@ -1,0 +1,479 @@
+Machine Learning, 8, 279-292 (1992) © 1992 Kluwer Academic Publishers, Boston. Manufactured in The Netherlands.
+Technical Note
+Q-Learning
+CHRISTOPHER J.C.H. WATKINS 25b Framfield Road, Highbury, London N5 1UU, England PETER DAYAN Centre for Cognitive Science, University of Edinburgh, 2 Buccleuch Place, Edinburgh EH8 9EH, Scotland
+Abstract. ~-learning(Watkins,1989)is a simplewayfor agentsto learnhow to act optimallyin controlledMarkovian domains. It amounts to an incremental method for dynamic programming which imposes limited computational demands. It worksby successivelyimprovingits evaluationsof the qualityof particular actionsat particular states.
+This paper presentsand provesin detaila convergencetheorem for ~-learning based on that outlinedin Watkins (1989). We show that 0~-learningconvergesto the optimumaction-valueswith probability 1 so long as all actions are repeatedly sampled in all states and the action-valuesare represented discretely.We also sketch extensions to the cases of non-discounted,but absorbing, Markov environments,and where many O~values can be changed each iteration, rather than just one.
+Keywords. 0~-learning,reinforcement learning, temporal differences, asynchronous dynamic programming
+1. Introduction
+O~-learning (Watkins, 1989) is a form of model-free reinforcement learning. It can also be viewed as a method of asynchronous dynamic programming (DP). It provides agents with the capability of learning to act optimally in Markovian domains by experiencing the consequences of actions, without requiring them to build maps of the domains.
+Learning proceeds similarly to Sutton's (1984; 1988) method of temporal differences (TD): an agent tries an action at a particular state, and evaluates its consequences in terms of the immediate reward or penalty it receives and its estimate of the value of the state to which it is taken. By trying all actions in all states repeatedly, it learns which are best overall, judged by long-term discounted reward. O~-learning is a primitive (Watkins, 1989) form of learning, but, as such, it can operate as the basis of far more sophisticated devices. Examples of its use include Barto and Singh (1990), Sutton (1990), Chapman and Kaelbling (1991), Mahadevan and Connell (1991), and Lin (1992), who developed it independently. There are also various industrial applications.
+This paper presents the proof outlined by Watkins (1989) that 0~-learning converges. Section 2 describes the problem, the method, and the notation, section 3 gives an overview of the proof, and section 4 discusses two extensions. Formal details are left as far as possible to the appendix. Watkins (1989) should be consulted for a more extensive discussion of O~-learning, including its relationship with dynamic programming and TD. See also Werbos (1977).
+55
+
+280
+
+c. WATKINS AND E DAYAN
+
+2. The task for ~-learning
+Consider a computational agent moving around some discrete, finite world, choosing one from a finite collection of actions at every time step. The world constitutes a controlled Markov process with the agent as a controller. At step n, the agent is equipped to register
+an the state xn (~ X) of the world, an can choose its action (~ 0~) 1 accordingly. The agent receives a probabilistic reward rn, whose mean value ~n (an) depends only on the state
+and action, and the state of the world changes probabilistically to y~ according to the law:
+Prob [Yn = yIXn, a,,] = exny[an].
+The task facing the agent is that of determining an optimal policy, one that maximizes total discounted expected reward. By discounted reward, we mean that rewards received s steps hence are worth less than rewards received now, by a factor of 3"~ (0 < 3' < 1). Under a policy 7r, the value of state x is
+W(x) = ~A~(x)) + ~ ~]/%[~(x)]V~(y
+Y
+because the agent expects to receive 6~x(Tr(x))immediately for performing the action 7r recommends, and then moves to a state that is 'worth' W(y) to it, with probability
+Pxy[~r(x)]. The theory of DP (Bellman & Dreyfus, 1962; Ross, 1983) assures us that there is at least one optimal stationary policy 7r* which is such that
+
+V*(x) =- v~*(x) =max(6tx(a)+q/~--~PY ~[a]V~*(y)
+
+is as well as an agent can do from state x. Although this might look circular, it is actually well defined, and DP provides a number of methods for calculating V* and one ~r*, assum-
+ing that 6~x(a ) and P~y[a]are known. The task facing a ~ learner is that of determining
+a 7r* without initially knowing these values. There are traditional methods (e.g., Sato, Abe
+& Takeda, 1988) for learning (Rx(a) and Pxy[a] while concurrently performing DP, but
+any assumption of certainty equivalence, i.e., calculating actions as if the current model were accurate, costs dearly in the early stages of learning (Barto & Singh, 1990). Watkins (1989) classes ~-learning as incremental dynamic programming, because of the step-bystep manner in which it determines the optimal policy.
+For a policy 7r, define ~ values (or action-values) as:
+~ ( x , a) = (Rx(a) + V ~_~Pxy[Tr(x)] V~-(y).
+Y
+In other words, the ~ value is the expected discounted reward for executing action a at state x and following policy 7r thereafter. The object in ~-learning is to estimate the ~
+
+56
+
+~-LEARNING
+
+281
+
+values for an optimal policy. For convenience, define these as O~*(x, a) = O~*(x, a), vx, a. It is straightforward to show that V*(x) = maxa O~*(x, a) and that if a* is an action at which the maximum is attained, then an optimal policy can be formed as &(x) =- a*. Herein lies the utility of the O~ values--if an agent can learn them, it can easily decide what it is optimal to do. Although there may be more than one optimal policy or a*, the 0~* values are unique.
+In O~-learning, the agent's experience consists of a sequence of distinct stages or episodes. In the n th episode, the agent:
+
+* observes its current state xn, ® selects and performs an action an, * observes the subsequent state Yn, ® receives an immediate payoff r,,, and * adjusts its O~n_1 values using a learning factor o~n, according to:
+
+O~.(x, a)
+
+S (1 - O~n)~n_l(X , a) -'}- OZn[Fn + ~'gn_l(Yn) ] i f x = xn and a = an,
+
+(1)
+
+O~n-l(x, a)
+
+otherwise,
+
+where
+
+Vn_l(y ) -= max {O~n_l(y, b)}
+
+(2)
+
+b
+
+is the best the agent thinks it can do from state y. Of course, in the early stages of learning, the O~values may not accurately reflect the policy they implicitly define (the maximizing actions in equation 2). The initial O~values, O~o(X, a), for all states and actions are assumed given.
+
+Note that this description assumes a look-up table representation tbr the O~n(x, a). Watkins (1989) shows that O~-learning may not converge correctly for other representations.
+The most important condition implicit in the convergence theorem given below is that the sequence of episodes that forms the basis of learning must include an infinite number of episodes for each starting state and action. This may be considered a strong condition on the way states and actions are selected--however, under the stochastic conditions of the theorem, no method could be guaranteed to find an optimal policy under weaker conditions. Note, however, that the episodes need not form a continuous sequence--that is the y of one episode need not be the x of the next episode.
+The following theorem defines a set of conditions under which O~n(x, a) --' O~*(x, a)
+as n ~ oo. Define ni(x, a) as the index of the ith time that action a is tried in state x.
+
+57
+
+282
+
+C. WATFdNS A N D P. DAYAN
+
+Theorem Given bounded rewards Irn [ -< (R, learning rates 0 < c~n < 1, and
+
+~ Otni(x,a) : 0o, ~11 [~ni(x,a)]2 < 0o, ~tX, a,
+
+(3)
+
+i=1
+
+i=1
+
+then l~,,,(x, a) ~ ~.*(X , a) as n ~ oo, Vx, a, with probability 1.
+
+3. The convergence proof
+The key to the convergence proof is an artificial controlled Markov process called the actionreplay process AF1P, which is constructed from the episode sequence and the learning rate sequence C~n.
+A formal description of the AFIP is given in the appendix, but the easiest way to think of it is in terms of a card game. Imagine each episode (xt, at, Yt, rt, °~t) written on a card. All the cards together form an infinite deck, with the first episode-card next-to-bottom and stretching infinitely upwards, in order. The bottom card (numbered O) has written on it the agent's initial values Q0(x, a) for all pairs o f x and a. A state of the AFI~, (x, n), consists of a card number (or level) n, together with a state x from the real process. The actions permitted in the AFIP are the same as those permitted in the real process.
+The next state of the AFII~, given current state (x, n) and action a, is determined as follows. First, all the cards for episodes later than n are eliminated, leaving just a finite deck. Cards are then removed one at a time from top of this deck and examined until one is found whose starting state and action match x and a, say at episode t. Then a biased coin is flipped, with probability at of coming out heads, and 1 - ~t of tails. If the coin turns up heads, the episode recorded on this card is replayed, a process described below; if the coin turns up tails, this card too is thrown away and the search continues for another card ma~ching x and a. If the bottom card is reached, the game stops in a special, absorbing, state, and just provides the reward written on this card for x, a, namely Q0(x, a).
+Replaying the episode on card t consists of emitting the reward, rt, written on the card, and then moving to the next state (Yt, t - 1) in the AFIP, where Yt is the state to which the real process went on that episode. Card t itself is thrown away. The next state transition of the AFIP will be taken based on just the remaining deck.
+The above completely specifies how state transitions and rewards are determined in the AFIP. Define ~)tD(x,An),F(y,Imp [a] and (Rx(n)(a) as the transition-probability matrices and expected rewards of the AFtP. Also define:
+n 1
+P ~ [ a ] = ~a P(Ax,an~}",(y,m)[a]
+m=l
+as the probabilities that, for each x, n and a, executing action a at state Ix,n) in the AFIP leads to state y of the real process at some lower level in the deck.
+
+58
+
+Q-LEARNING
+
+283
+
+As defined above, the AFtP is as much a controlled Markov process as is the real process. One can therefore consider sequences of states and controls, and also optimal discounted O~*values for the AFIP.2 Note that during such a sequence, episode cards are only removed from the deck, and are never replaced. Therefore, after a finite number of actions, the bottom card will always be reached.
+3.1. Lemmas
+Two lemmas form the heart of the proof. One shows that, effectively by construction, the optimal O~value for AFIP state (x, n) and action a is just O~n(x, a). The next shows that
+for almost all possible decks, P~)[a] converge to Pxy[a] and 6l~(n~(a) converge to 6lx(a)
+as n --' ~o. Informal statements of the lemmas and outlines of their proofs are given below; consult the appendix for the formal statements.
+Lemma A
+O~n(x, a) are the optimal action values for AFIP states (x, n) and AFIP actions a.
+The AFIP was directly constructed to have this property. The proof proceeds by backwards induction, following the AFIP down through the stack of past episodes.
+Lemma B
+Lemma B concerns the convergence of the AFIP to the real process. The first two steps are preparatory; the next two specify the form of the convergence and provide foundations for proving that it occurs.
+B.1
+Consider a discounted, bounded-reward, finite Markov process. From any starting state
+x, the difference between the value of that state under the finite sequence of s actions and
+its value under that same sequence followed by any other actions tends to 0 as s ~ oo.
+This follows from the presence of the discount factor which weighs the (s + 1)th state by3, s ~ Oass --' ~,.
+B.2
+Given any level 1, there exists another yet higher level, h, such that the probability can be made arbitrarily small of straying below 1 after taking s actions in the AFIP, starting from above h.
+The probability, starting at level h of the AFIP of straying below any fixed level I tends to 0 as h ~ ~. Therefore there is some sufficiently high level for which s actions can be safely accommodated, with an arbitrarily high probability of leaving the AFtP above l.
+
+59
+
+284
+
+C. WATKINS A N D P. DAYAN
+
+B.3
+With probability 1, the probabilities P~[a] and expected rewards 61}n)(a) in the AFIP con-
+verge and tend to the transition matrices and expected rewards in the real process as the level n increases to infinity. This, together with B.2, makes it appropriate to consider
+P~[a] rather than the AFIP transition matrices P(ax,mn),@,m)[a], i.e., essentially ignoring the
+level at which the AFiP enters state y.
+The AFIP effectively estimates the mean rewards and transitions of the real process over all the episodes. Since its raw data are unbiased, the conditions on the sums and sums of squares of the learning rates O/ni(x,a ) e n s u r e the convergence with probability one.
+BA
+Consider executing a series of s actions in the AFIP and in the real process. If the proba-
+bilities Px~[a] and expected rewards 61(~n~(a)at appropriate levels of the AFIP for each
+of the actions, are close to Pxy [a] and 6ix(a), Ya, x, y, respectively, then the value of the series of actions in the AFIP will be close to its value in the real process.
+The discrepancy in the action values over a finite number s of actions between the values of two approximately equal Markov processes grows at most quadratically with s. So, if the transition probabilities and rewards are close, then the values of the actions must be close too.
+3.2. The theorem
+Putting these together, the AFIP tends towards the real process, and so its optimal O~values
+do too. But ~n(a, x) are the optimal ~ values for the n th level of the AFIP (by Lemma A),
+and so tend to ~*(x, a).
+Assume, without loss of generality, that O~0(x, a) < 61/(1 - 3') and that 61 __. 1.
+Given e > O, choose s such that
+
+.ys__ <
+1-3` T
+By B.3, with probability 1, it is possible to choose l sufficiently large such that for
+n > l, and Ya, x, y,
+
+IP~)[a]
+
+-
+
+Pxyl <
+
+~
+3s(s + 1)61' and 161(xn)(a) -
+
+61x(a)l <
+
+6
+3s(s + 1)'
+
+By B.2, choose h sufficiently large such that for n > h, the probability, after taking s actions, of ending up at a level lower than l is less than min{(e(1 - 3`)/6s61),
+(e/3s(s + 1)6l)}. This means that
+
+60
+
+(~-LEARNING
+
+285
+
+2e
+
+2e
+
+i, ,i,r,#~) t,a j _ I,r~xyl < 3s(s + 1)(R' and 16~'(n)(a) - (Rx(a)[ < 3s(s + 1 ) '
+
+where the primes on p,(n) and 61 '(n) indicate that these are conditional on the level in the A R P after the s th step being greater than l.
+
+_~ARp(IX, Then, for n > h, by B.4, compare the value
+
+n), a t..... as) of taking ac-
+
+tions at, . . . , as at state x in the ARP, with Q(x, at . . . . . as) of taking them in the
+
+real process: 3
+
+I~,ARp((X, n/, al, . . . . as) - (~(x, at . . . . . a~.)l <
+
+e(1 - 3") 2s(R
+
+2e
+
+s(s + 1) 2e
+
+6stl 1 - 3" + 3s(s + 1)
+
+2
+
+- 3"
+
+(4)
+
+Where, in equation 4, the first term counts the cost of conditions for B.2 not holding, as the cost of straying below l is bounded by 2s(R/(1 - 3'). The second term is the cost, from B.4, of the incorrect rewards and transition probabilities.
+
+However, by B.1, the effect of taking only s actions makes a difference of less than e/6 for both the ARP and the real process. Also since equation 4 applies to any set of actions, it applies perforce to a set of actions optimal for either the AFIP or the real process. Therefore
+
+I¢~Rp((x, n), a) - Q*(x, a)l < e.
+
+So, with probability 1, Qn(x, a) --* Q*(x, a) as n ~ oo as required.
+
+4. Discussions and conclusions
+For the sake of clarity, the theorem proved above was somewhat restricted. Two particular extensions to the version of Q-learning described above have been used in practice. One is the non-discounted case (3' = 1), but for a Markov process with absorbing goal states, and the other is to the case where many of the O~values are updated in each iteration rather than just one (Barto, Bradtke & Singh, 1991). The convergence result holds for both of these, and this section sketches the modifications to the proof that are necessary.
+A process with absorbing goal states has one or more states which are bound in the end to trap the agent. This ultimate certainty of being trapped plays the r(31ethat 3" < 1 played in the earlier proof, in ensuring that the value of state x under any policy 7r, V~(x), is bounded, and that lemma B.1 holds, i.e., that the difference between considering infinite and finite (s) numbers of actions tends to 0 as s --* oo.
+Since the process would always get trapped were it allowed to run, for every state x there is some number of actions u(x) such that no matter what they are, there is a probability p (x) > 0 of having reached one of the goal states after executing those actions. Take
+
+61
+
+286
+
+C. WATKINSAND R DAYAN
+
+u* = maxx {u(x)}, and p * = minx {p(x)} > 0 (since there is only a finite number of states). Then a crude upper bound for W(x) is
+IVY(x)[ _< u*6:l + (1 - p * ) u * 6 t + (1 -p*)Zu*(R + . . .
+u*6l p*
+since in each u * steps the agent earns a reward of less than u "6~, and has probability less than (1 - p *) of not having been trapped. Similarly, the effect of measuring the reward after only ~bu* steps is less than (1 - p*)e~u*6l ~ 0 as ~b ~ 0% and so an equivalent of lemma B.1 does hold.
+Changing more than one Q value on each iteration requires a minor modification to the action replay process AI:lP such that an action can be taken at any level at which it was executed in the real process--i.e., more than one action can be taken at each level. As long as the stochastic convergence conditions in equation 3 are still satisfied, the proof requires no non-trivial modification. The Qn(x, a) values are still optimal for the modified AFIP, and this still tends to the real process in the original manner. Intuitively, the proof relies on the AFIP estimating rewards and transition functions based on many episodes, and this is just speeded up by changing more than one Q value per iteration.
+Although the paper has so far presented an apparent dichotomy between Q-learning and methods based on certainty equivalence, such as Sato, Abe and Takeda (1988), in fact there is more of a continuum. If the agent can remember the details of its learning episodes, then, after altering the learning rates, it can use each of them more than once (which is equivalent to putting cards that were thrown away, back in, lower down on the AFIP stack). This biases the Q-learning process towards the particular sample of the rewards and transitions that it has experienced. In the limit of re-presenting 'old' cards infinitely often, this reuse amounts to the certainty equivalence step of calculating the optimal actions for the observed sample of the Markovian environment rather than the actual environment itself.
+The theorem above only proves the convergence of a restricted version of Watkins' (1989) comprehensive Q-learning algorithm, since it does not permit updates based on the rewards from more than one iteration. This addition was pioneered by Sutton (1984; 1988) in his TD(X) algorithm, in which a reward from a step taken r iterations previously is weighted by Xr, where X < 1. Unfortunately, the theorem does not extend trivially to this case, and alternative proof methods such as those in Kushner and Clark (1978) may be required.
+This paper has presented the proof outlined by Watkins (1989) that Q-learning converges with probability one under reasonable conditions on the learning rates and the Markovian environment. Such a guarantee has previously eluded most methods of reinforcement learning.
+Acknowledgments
+We are very grateful to Andy Barto, Graeme Mitchison, Steve Nowlan, Satinder Singh, Rich Sutton and three anonymous reviewers for their valuable comments on multifarious aspects of Q-learning and this paper. Such clarity as it possesses owes to Rich Sutton's
+
+62
+
+~-LEARNING
+
+287
+
+tireless efforts. Support was from Philips Research Laboratories and SERC. PD's current address is CNL, The Salk Institute, PO Box 85800, San Diego, CA 92186-5800, USA.
+
+Notes
+1. In general, the set of available actions may differ from state to state. Here we assume it does not, to simplify the notation. The theorem we present can straightfowardly be extended to the general case.
+2. The discount factor for the ARIa will be taken to be 3', the same as for the real process. 3. The bars over the O~indicate that the sum is over only a finite number of actions, with 0 terminal reward.
+
+Appendix
+
+The action-replay process
+
+The definition of the AFlP is contingent on a particular sequence of episodes observed in the real process. The state space of the AFIP is {Ix, n)}, for x a state of the real process and n _> 1, together with one, special, absorbing state, and the action space is {a} for a an action from the real process.
+The stochastic reward and state transition consequent on performing action a at state Ix, n) is given as follows. For convenience, define ni =_ n i ( x , a), as the index of the ith time action a was tried at state x. Define
+
+if x, a has been executed before episode n
+:
+otherwise
+
+such that n i* is the last t i m e before e p i s o d e n that x, a was exeucted in the real process. If i. = 0, the reward is set as O~0(x, a ) , and the AFIP absorbs. Otherwise, let
+
+r i.
+
+with probablity %i.
+
+i. - 1 with probability (1 - c~i.)c~d. 1
+
+ie = i. -- 2 with probability (1 - c~i.)(1 - O~ni. l)C~ni.-2,
+
+i,
+
+~ 0
+
+with probability I ' I (1 - % 0
+
+i=1
+
+be the index of the episode that is replayed or taken, chosen probabilistically from the collection of existing samples from the real process. If ie = 0, then the reward is set at O~0(x, a ) and the AFIP absorbs, as above, Otherwise, taking ie provides reward rnie, and causes a state transition to (Ynie, nie -- 1) which is at level nie -- 1. This last point is crucial, taking an action in the AFlP always causes a state transition to a lower level--so it ultimately terminates. The discount factor in the AFIP is % the same as in the real process.
+
+63
+
+288
+
+C. WATKINS AND R DAYAN
+
+[.emma A: ~n are optimal for the/~,FIP
+
+O,.n(X, a) are the optimal action values for AFIP states (x, n) and A R P actions a. That is
+
+Proof
+
+~n(x, a) = Q~Rp((x, n), a), Va, x, and n > 0.
+
+By induction. From the construction of the ARP, Q0(x, a) is the optimal--indeed the only possible--action value of (x, 0), a. Therefore,
+
+Q0(x, a) = ~A* RP((X , 0), a).
+Hence the theorem holds for n = 0. Suppose that the values of ~n-1, as produced by the Q-learning rule, are the optimal
+action values for the A R P at level n - 1, that is
+
+O,,n_l(X, a ) = Q A*R P ( ( x , n - 1), a ) , Ya, x.
+This implies that the Vn_l(x ) are the optimal values V* for the A R P at the n - 1th level, that is
+
+V*((x, n - 1)) = Vn_~(x) =- max O~n_~(x, a).
+a
+
+Now consider the cases in trying to perform action a in (x, n). If x, a ~ x n, an, then this is the same as performing a in (x, n - 1), and Qn(x, a ) = 0~n_l(x, a ) . Therefore,
+
+(,~,n(X, a) = (~n_l(X, a) = ~A*FIP(/x , n - 1), a) = QA*RP((X, n), a) Otherwise, performing an in (Xn, n)
+
+• with probability 1 - c~n is exactly the same as performing an in (xn, n - 1), or • with probability % yields immediate reward rn and new state (Yn, n - 1).
+
+Therefore the optimal action value in the A R P of (xn, n), an is
+
+~,,~F[p((Xn, n), an) = (1 - OI.n)(~*ARP((Xn, n - 1), an) + C~n(rn + "yV*((y n, n - 1))) = (1 - % ) ~ n - ~ ( x n , an) + o~n(rn + ~Vn-~(Yn))
+
+= ~n(Xn, an)
+from the induction hypothesis and the Qn interation formula in equation 1. Hence, Qn(X, a ) = ~A* RP((X , n), a ) , Va, x, as required.
+
+~-LEARNING
+
+289
+
+Lemma B
+B.1 Discounting infinite sequences
+Consider a discounted, bounded-reward, finite Markov process with transition matrix P~y[a]. From any starting state x, the difference between the value of that state under any set of s actions and under those same s actions followed by any arbitrary policy tends to O a s s ~ oo.
+Proof
+Ignoring the value of the s + lth state incurs a penalty of
+~ =--" "t s Z Py,y,+l[aslV~(Ys+l)
+Ys+ 1
+But if all rewards are bounded by 61, [ V~(x)[ < 61/(1 - 'i), and so
+
+I~l < "is 6l 1-'i
+
+~ O a s s ~ ~o.
+
+B.2 The probability of straying below level I is executing s actions can be make arbitrarily small
+
+Given any level l, there exists another yet higher level, h, such that the probability can be made arbitrarily small of straying below l after taking s actions in the AFIP, starting from above h.
+
+Proof
+
+Define ih as the largest i such that rli(x, a) <_ n, and iz as the smallest such that ni(x, a) >_ l.
+Then, defining c~,0 = 1, the probability of straying below l starting from (x, n), n > l executing action a is:
+
+(1 - %0
+
+Olnj H (1 - %~)
+
+=
+
+j=O
+
+k=j+ 1
+
+< IX (1 - c~.i),
+i=i l
+
+where, as before, n i -- hi(x, a). But IIii=hi~(1 - % 0 < e x p ( - ~ii=h i~ % 0 -~ 0 as n and hence ih --" o~. Furthermore, since the state and action spaces are finite, given ~, there exists some level n I such that starting above there from any (x, a) leads to a level above l with probability at least 1 - ~7. This argument iterates for the second action with n 1 as the new lower limit. ~ can be chosen appropriately to set the overall probability of straying below l less than any arbitrary e > 0.
+
+65
+
+290
+
+C. WATKINS AND P. DAYAN
+
+B. 3 Rewards and transition probabilities converge with probabability 1
+
+With probability 1, the probabilities P~[a] and expected r e w a r d s ff[(xn)(a) in the ARia con-
+verge and tend to the transition matrices and expected rewards in the real process as the level n increases to infinity.
+
+Proof
+
+A standard theorem in stochastic convergence (e.g., theorem 2.3.1 of Kushner & Clark, 1978) states that if Xn are updated according to
+
+Xn+t = Xn q- ~n(~n -- Xn)
+where 0 < /3, < 1, }]iC°=l ~n ~--- Oo, ~i~__l fin2 < t~, and (n are bounded random variables with mean E, then
+
+X~ - ' E, as n ~ ~o, with probability 1.
+
+If (Rix,n)(a) is the expected immediate reward for performing action a from state x at level
+n in the AFIP, then (R[x,n)(a) satisfies
+
+(~(x,ni+l)(a) = (~(x, ni)(a) -J~ OI.ni+l (rni+l -- (Rlx,ni)(a))
+
+where the 6~ and the a satisfy the conditions of the theorem with E = fftx(a), and
+remembering that ni is the i t~ occasion on which action a was tried at state x. Therefore (R~,n)(a) ~ 6tx(a ) as n -~ 0% with probbility one. Also, since there is onl~ a finite num-
+ber of states and actions, the convergence is uniform. Similarly, define
+
+Xn(Y)
+
+S 1 if Yn = Y
+o otherwise
+
+as a (random variable) indicator function of the n th transition, mean value Pxy(a). Then,
+with P~)[a] as the probability of ending up at state y based on a transition from state x using action a at level n in the AFIP,
+P ~(ni+1)[ali = P~e)[a] + c~ni+I (Xni+l - P~')' [a]),
+
+and so, by the theorem, P~)[a] ~ Pxy[a] (the transition matrix in the real process) as
+n --' ~o, with probability one. Since, in addition, all observations from the real process are independent, and, by B.2,
+the probability of straying below a fixed level k can be made arbitrarily small, the transi-
+tion probabilities and expected rewards for a single step conditional on ending up at a level greater than k also converge to Pxy[a] and (fix(a) as n -~ oo.
+
+66
+
+Q-LEARNING
+
+291
+
+B.4 Close rewards and transitions imply close values
+Let P~y[a], for i = 1 . . . s be the transition matrices of s Markov chains, and (Rx/(a) be the reward functions. Consider the s-step chain formed from the concatenation of these--
+i.e., starting from state x~, move to state x2 according to P~x~x2[a~], then state x3 according to Px22x3[a 2], and so on, with commensurate rewards. Given ~7 > 0, if pi[a] are within
+~//(R of Pxy[a], Va, x, y, and (Rx~(a) . . . flit(a) are within ~ of (Rx(a), va, x, then the value of the s actions in the concatenated chain is within ~Ts(s + 1)/2 of their value in the real process.
+Proof
+Define:
+
+(~(X, al, a2) = ff{x(al) + y Z Pxy[al](Ry(a2)
+Y
+as the expected reward in the real process for executing two actions, a~ and a 2 at state x, and
+
+~,,'(X, al, a2) = (Rxl(al) + "YZ P~[al] (Pr2y(a2)
+Y
+as the equivalent in the concatenated chain for exactly the same actions.
+Then, since I(Rx/ (a) - ~x (a)] < ~7 and P~y [a] - Pxy[a ]1 < ~ / (R, Ya, i, x, y,
+
+I~'(x, al, a2) - (~(x, a~, a2)l ~ I~tx~(a0 - ~tx(a01 +
+
+-y
+
+y], 2
+
+2
+
+P~y[a2]((Ry(a2) - (ptx(a2))
+
++
+
+Y
+
+Y ~ (p~2y[a2] - P~y [a2]) fftx(a2)
+Y
+
+< 3~
+
+Similarly, for s actions,
+
+IQ- ' X( , a~.....
+
+as) - ~(x, a 1.....
+
+s(s + 1)
+
+as) [ <
+
+,~
+
+This applies to the AFIP if the rewards and transition matrices at the successively lower levels are sufficiently close to those in the real process--the main body of the theorem quantifies the cost of this condition failing.
+
+67
+
+292
+
+C. WATKINS AND P. DAYAN
+
+References
+Barto, A.G., Bradtke, S.J. & Singh, S.E (1991). Real-time learning and control using asynchronous dynamic programming. (COINS technical report 91-57). Amherst: University of Massachusetts.
+Barto, A.G. & Singh, S.E (1990). On the computational economics of reinforcement learning. In D.S. Touretzky, J. Elman, T.J. Sejnowski& G.E. Hinton, (Eds.), Proceedings of the 1990 Conneetionist Models Summer School San Mateo, CA: Morgan Kaufmann.
+Bellman, R.E. & Dreyfus, S.E. (1962). Applied dynamic programming. RAND Corporation. Chapman, D. & Kaelbling, L.P. (1991). Input generalization in delayed reinforcement learning: An algorithm
+and performance comparisons. Proceedings of the 1991 International Joint Conference on Artificial Intelligence (pp. 726-731). Kushner, H. & Clark, D. (1978). Stochastic approximation methods for constrained and unconstrained systems. Berlin, Germany: Springer-Verlag. Lin, L. (1992). Self-improving reactive agents based on reinforcement learning, planning and teaching. Machine Learning, 8. Mahadevan & Connell (1991). Automatic programming of behavior-based robots using reinforcement learning. Proceedings of the 1991 National Conference on AI (pp. 768-773). Ross, S. (1983). Introduction to stochastic dynamic programming. New York, Academic Press. Sato, M], Abe, K. & Takeda, H. (1988). Learning control of finite Markov chains with explicit trade-offbetween estimation and control. IEEE Transactions on Systems, Man and Cybernetics, 18, pp. 67%684. Sutton, R.S. (1984). Temporalcredit assignment in reinforcementlearning. PhD Thesis, Universityof Massachusetts, Amherst, MA. Sutton, R.S. (1988). Learning to predict by the methods of temporal difference. Machine Learning, 3, pp. 9-44. Sutton. R.S. (1990). Integrated architectures for learning, planning, and reacting based on approximating dynamic programming. Proceedings of the Seventh International Conference on Machine Learning. San Mateo, CA: Morgan Kaufmann. Watldns, C.J.C.H. (1989). Learning from delayed rewards. PhD Thesis, University of Cambridge, England. Werbos, EJ. (1977). Advanced forecasting methods for global crisis warning and models of intelligence. General Systems Yearbook, 22, pp. 25-38.
+
+68
+

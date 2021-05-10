@@ -1,0 +1,749 @@
+arXiv:1712.10062v1 [q-bio.NC] 28 Dec 2017
+
+Multi-timescale memory dynamics in a reinforcement learning network
+with attention-gated memory
+Marco Martinolli†, Wulfram Gerstner† and Aditya Gilra†
+†School of Computer and Communication Sciences, and Brain-Mind Institute, School of Life Sciences,
+École Polytechnique Fédérale de Lausanne, 1015 Lausanne EPFL, Switzerland Correspondence: marco.martinolli@epﬂ.ch, aditya.gilra@epﬂ.ch
+Abstract
+Learning and memory are intertwined in our brain and their relationship is at the core of several recent neural network models. In particular, the Attention-Gated MEmory Tagging model (AuGMEnT) is a reinforcement learning network with an emphasis on biological plausibility of memory dynamics and learning. We ﬁnd that the AuGMEnT network does not solve some hierarchical tasks, where higher-level stimuli have to be maintained over a long time, while lower-level stimuli need to be remembered and forgotten over a shorter timescale. To overcome this limitation, we introduce hybrid AuGMEnT, with leaky or short-timescale and non-leaky or long-timescale units in memory, that allow to exchange lower-level information while maintaining higher-level one, thus solving both hierarchical and distractor tasks.
+
+1 Introduction
+Memory spans various timescales and plays a crucial role in human and animal learning [Tetzlaff et al. 2012]. In cognitive neuroscience, the memory system that enables manipulation and storage of information over a period of a few seconds is called Working Memory (WM), and is correlated with activity in prefrontal cortex (PFC) and basal ganglia (BG) [Frank et al. 2001; Mink 1996]. In computational neuroscience, there are not only several standalone models of WM dynamics [Barak and Tsodyks 2014; Samsonovich and McNaughton 1997; Compte et al. 2000], but also supervised and reinforcement learning models augmented by working memory [Alexander and Brown 2015; Rombouts et al. 2015; Graves et al. 2014; 2016; Santoro et al. 2016].
+Memory mechanisms can be implemented by enriching a subset of artiﬁcial neurons with slow time constants and gating mechanisms [Hochreiter and Schmidhuber 1997; Gers and Schmidhuber
+
+2001; Cho 2014]. More recent memory-augmented neural network models like Neural Turing Machine [Graves et al. 2014] and Differentiable Neural Computer [Graves et al. 2016], employ an addressable memory matrix that works as a repository of past experiences and a neural controller that is able to store and retrieve information from the external memory to improve its learning performance.
+Here, we study and extend the Attention-Gated MEmory Tagging model or AuGMEnT [Rombouts et al. 2015]. AuGMEnT is trained with a Reinforcement Learning (RL) scheme, where learning is based on a reward signal that is released after each response selection. The representation of stimuli is accumulated in the memory states and the memory is reset at the end of each trial (see Methods). The main advantage of the AuGMEnT network for the computational neuroscience community resides in the biological plausibility of its learning algorithm.
+Notably, the AuGMEnT network [Rombouts et al.
+
+1
+
+2015] uses a memory-augmented version of a biologically plausible learning rule [Roelfsema and van Ooyen 2005] mimicking backpropagation (BP). Learning is the result of the joint action of two factors, neuromodulation and attentional feedback, both inﬂuencing synaptic plasticity. The former is a global reward-related signal that is released homogeneously across the network to inform each synapse of the reward prediction error after response selection [Schultz et al. 1993; 1997; Waelti et al. 2001]. Neuromodulators such as dopamine inﬂuence synaptic plasticity [Yagishita et al. 2014; He et al. 2015; Brzosko et al. 2015; 2017; Frémaux and Gerstner 2016]. The novelty of AuGMEnT compared to three-factor rules [Xie and Seung 2004; Legenstein et al. 2008; Vasilaki et al. 2009; Frémaux and Gerstner 2016] is to add an attentional feedback system in order to keep track of the synaptic connections that cooperated for the selection of the winning action and overcome the so-called structural credit assignment problem [Roelfsema and van Ooyen 2005; Rombouts et al. 2015]. AuGMEnT includes a memory system, where units accumulate activity across several stimuli in order to solve temporal credit assignment tasks involving delayed reward delivery [Sutton 1984; Okano et al. 2000]. The attentional feedback mechanism in AuGMEnT works with: a) synaptic eligibility traces that decay slowly over time, and b) non-decaying neuronal traces that store the history of stimuli presented to the network up to the current time [Rombouts et al. 2015] [Rombouts et al. 2015]. The AuGMEnT network solves the Saccade-AntiSaccade task [Rombouts et al. 2015], which is equivalent to a temporal XOR task [Abbott et al. 2016] (see Supplementary Material).
+
+different decay constants so that they work on different temporal scales, while the network learns to weight their usage based on the requirements of the speciﬁc task. In our simulations, we employed just two subgroups of cells in the memory, where one half of the memory is non-leaky and the other is leaky with a uniform decay time constant; however, more generally, the hybrid AuGMEnT architecture may contain several subgroups with distinct leakage behaviours.
+The paper is structured as follows. Section 2 presents the architectural and mathematical details of hybrid AuGMEnT. Section 3 describes the simulated results of the hybrid AuGMEnT network, the standard AuGMEnT network and a fully leaky control network, on two cognitive tasks, a nonhierarchical task involving sequence prediction [Cui et al. 2015] and a hierarchical task 12AX [O’Reilly and Frank 2006]. Finally, in Section 4 we discuss our main achievements in comparison with state-of-the-art models and present possible future developments of the work.
+2 Methods
+2.1 Hybrid AuGMEnT network architecture and operation
+The network controls an agent which, in each time step t, receives a reward in response to the previous action, processes the next stimulus, and takes the next action, as in Figure 1B. In each time step, we distinguish two phases, called the feedforward pass and feedback pass, depicted in Figure 1C.
+
+However, in the case of more complex tasks with long trials and multiple stimuli, like 12AX [O’Reilly and Frank 2006] depicted in Figure 1A, we ﬁnd that the accumulation of information in AuGMEnT can lead to memory interference and loss in performance. Hence, we ask the question whether a modiﬁed AuGMEnT model would lead to a broader applicability of attention-gated reinforcement learning. We propose a variant of the AuGMEnT network, named hybrid AuGMEnT, that introduces timescales of forgetting or leakage in the memory dynamics to overcome this kind of learning limitation. We employ memory units with
+
+2.1.1 Feedforward pass: stimulus to action selection
+In AuGMEnT [Rombouts et al. 2015], information is processed through a network with three layers, as shown in the left panel of Figure 1C. Each unit of the output layer corresponds to an action. There are two pathways into the output layer: the regular R branch and the memory M branch.
+The regular branch is a standard feedforward network with one hidden layer. The current stimulus sRi (t), indexed by unit index i = 1, . . . , S is con-
+
+2
+
+A
+
+B
+
+C
+
+Figure 1. Overview of AuGMEnT network operation. A. Example of trials in the 12AX task, where task symbols appear sequentially on a screen organized in outer loops, which start with either digit 1 or 2, and a random number of inner loops (e.g. B-Y, C-X and A-X). Each cue presentation is associated with a Target (R) or Non-Target (L) correct response. When output and correct response coincide, the agent receives a positive reward (+), otherwise it gets a negative reward (-). Figure is adapted from Figure 1 of O’Reilly and Frank [2006]. B. AuGMEnT operates in discrete time steps each comprising the reception of reward (r), input of state or stimulus (s) and action taken (a). It implements the State-Action-Reward-State-Action (SARSA, in ﬁgure s’a’rsa) reinforcement learning algorithm. In time step t, reward r is obtained for the previous action a’ taken in time step t − 1. The network weights are updated once the next action a is chosen. C. The AuGMEnT network is structured in three layers with different types of units. Each iteration of the learning process consists of a feedforward pass (left) and a feedback pass (right). In the feedforward pass, sensory information about the current stimulus in the bottom layer, is fed to regular units without memory (left branch) and units with memory (right branch) in the middle layer, whose activities in turn are weighted to compute the Q-values in the top activity layer. Based on the Q-values, the current action is selected (e.g. green z2). The reward obtained for the previous action is used to compute the reward prediction error, which modiﬁes the connection weights, that contributed to the selection of the previous action, in proportion to their eligibility traces. After this, temporal eligibility traces and tags (in green) on the connections are updated to reﬂect the correlations between the current pre and post activities. Then, in the feedback pass, spatial eligibility traces (in red) are updated, attention-gated by the current action (e.g. red z2), via feedback weights.
+3
+
+nected to the hidden units (called regular units) indexed by j, via a set of modiﬁable synaptic weights vjRi yielding activity yjR:
+yjR(t) = σ hRj , hRj = vjRisRi (t), (1)
+i
+
+a task, allowing at the same time long-time maintenance and fast decay of information in memory. In contrast to the forget gate of Long Short-Term Memory [Hochreiter and Schmidhuber 1997] or Gated Recurrent Unit [Cho 2014], our memory leak co-efﬁcient is not trained and gated, but ﬁxed.
+
+where σ is the sigmoidal function σ(x) = (1 + exp(−x))−1. Input units are one-hot bi-
+nary with values Si ∈ {0, 1} (equal to 1 if stimulus i is currently presented, 0 otherwise).
+
+The memory state hM j leads to the activation of a memory unit:
+
+yjM (t) = σ hM j (t) .
+
+(5)
+
+The memory branch is driven by transitions be-
+tween stimuli, instead of the stimuli themselves.
+The sensory input of the memory branch consists
+of a set of 2S transient units, i.e. S ON units s+l ∈ {0, 1}S that encode the onset of each stimulus, and S OFF units s−l ∈ {0, 1}S that encode the offset:
+
+s+l (t) = [sl(t) − sl(t − 1)]+ s−l (t) = [sl(t − 1) − sl(t)]+,
+
+(2)
+
+where the brackets signify rectiﬁcation. In the
+following, we denote the input into the memory branch with a variable sM i deﬁned as the concatenation of these ON and OFF units:
+
+sM i (t) =
+
+s+i (t), s−i−S (t),
+
+if i ≤ S if i > S,
+
+(3)
+
+The states of the memory units are reset to 0 at the end of each trial.
+
+Both branches converge onto the output layer. The activity of an output unit with index k approximates the Q-value of action k = a given the input s ≡ [si], denoted as Qs,a(t). Q-values are formally deﬁned as the future expected discounted reward conditioned on stimulus s(t) and action a(t), that is:
+
+∞
+
+Qs,a(t) = E
+
+γτ rt+τ+1 s = s(t), a = a(t) (6)
+
+τ =0
+
+where γ ∈ [0, 1] is a discount factor. Numerically, the vector Q that approximates the Q-values is obtained by combining linearly the hidden states from the regular and the memory branches, with synaptic weights wkRj and wkMj :
+
+The memory units have to maintain task-relevant information through time. The transient input is transmitted via the synaptic connections vjMi to the memory layer, where it is accumulated in the states:
+hM j (t) = ϕjhM j (t − 1) + vjMi sM i (t). (4)
+i
+We introduce the factor ϕj ∈ [0, 1] here, as an extension to the standard AuGMEnT [Rombouts et al. 2015], to incorporate decay or forgetting of the memory state hM j over time. Setting ϕj ≡ 1 for all j, we obtain non-leaky memory dynamics as in the original AuGMEnT network [Rombouts et al. 2015] (Fig. 2, left panel). In our hybrid AuGMEnT network, each memory cell or subgroup of memory cells may be assigned different leak co-efﬁcients ϕj (Fig. 2, right panel). In this way, the memory is composed of subpopulations of neurons that cooperate in different ways to solve
+
+Qk(t) = wkRjyjR(t) + wkMj yjM (t). (7)
+
+j
+
+j
+
+Finally, the Q-values of the different actions participate in an -greedy winner-take-all competition to select the response of the network. With probability 1 − , the next action a(t) is the one with the maximal Q-value:
+
+a(t) = argmaxkQk(t).
+
+(8)
+
+With probability , a stochastic policy is chosen with probability:
+
+pa =
+
+exp(g(t)Qa) k exp(g(t)Qk)
+
+(9)
+
+where g(t) is a weight function deﬁned as
+
+g(t)
+
+=
+
+1
+
++
+
+10 π
+
+arctan(
+
+t t∗
+
+),
+
+that
+
+gradually
+
+increases
+
+in
+
+time over a task-speciﬁc, ﬁxed time scale t∗. Over
+
+time, this emphasizes the action with maximal
+
+Q-value, improving prediction stability.
+
+4
+
+AuGMEnT
+
+Hybrid AuGMEnT
+
+Figure 2. Architectures of standard AuGMEnT and hybrid AuGMEnT networks. The difference between the networks consist in their memory dynamics: the memory layer of standard AuGMEnT (left) has only conservative units with ϕj ≡ 1, while hybrid AuGMEnT (right) possesses a memory composed of both leaky ϕj < 1 and non-leaky ϕj = 1 units.
+
+2.1.2 Feedforward pass: reward-based update of weights, and correlation-based update of eligibility traces and tags
+AuGMEnT follows the SARSA updating scheme and updates the Q-values for the previous action a taken at time t − 1, once the action a at time t is known (see Fig. 1B). Q-values depend on the weights via equation (7). The temporal difference (TD) error is deﬁned as [Wiering and Schmidhuber 1998; Sutton and Barto 1998]:
+
+δ(t) = (r(t) + γQa(t)) − Qa (t − 1), (10)
+
+where a is the action chosen at current time t, and r(t) is the reward obtained for the action a taken at time t − 1. The Temporal Difference (TD) error δ(t) acts as a global reinforcement signal to modify the weights of all connections as
+
+vjRi,M (t + 1) = vjRi,M (t) + βeRji,M (t)δ(t), wkRj,M (t + 1) = wkRj,M (t) + βeRkj,M (t)δ(t),
+
+(11)
+
+j) and hidden-to-output (j to k) synapses, even though these are different, with the appropriate one clear from context and the convention for indices.
+
+After the update of weights, a synapse from neuron j in the hidden layer to neuron k in the output layer updates its temporal eligibility trace
+
+eRkj(t + 1) = yjR(t)zk(t) + (1 − α)eRkj(t), eM kj (t + 1) = yjM (t)zk(t) + (1 − α)eM kj (t),
+
+(12)
+
+where α ∈ [0, 1] is a decay parameter, zk is a binary one-hot variable that indicates the winning action (equal to 1 if action k has been selected, 0 otherwise), and M or R denotes the regular or the memory branch respectively.
+
+Similarly, a synapse from neuron i in the input
+layer to neuron j in the hidden layer sets momentary tags TjRi ,M as:
+
+where β is a learning rate and eRji,M and eRkj,M are synaptic eligibility traces, deﬁned below.
+Superscript R or M denotes the regular or memory branch respectively. We use the same symbol eR,M
+for eligibility traces at the input-to-hidden (i to
+
+TjRi (t) = sRi (t) σ (hRj (t)), TjMi (t) = XjMi (t) σ (hM j (t)),
+
+(13)
+
+where σ (hRj ,M ) is a nonlinear function of the input potential, deﬁned as the derivative of the gain
+
+5
+
+function σ, and XjMi is a synaptic trace [Pﬁster and Gerstner 2006; Morrison et al. 2008] deﬁned as fol-
+lows:
+
+XjMi (t) = ϕj XjMi (t − 1) + sM i (t).
+
+(14)
+
+Note that the tag TjRi ,M has no memory beyond one time step, i.e. it is set anew at each time step. Nevertheless, since XjMi depends on previous times, the tag TjMi of memory units can link across time steps. Since activities yjR,M , zk, sRi ,M and input potentials hRj ,M are quantities available at the synapse, a biological synapse can implement the updates of eligibility traces and tags locally. We emphasize that both eligibility traces and tags can be interpreted as ’Hebbian’ correlation detectors. In the original AuGMEnT model [Rombouts et al. 2015], all eligibility traces and tags were said to be updated in the feedback pass. Here, without changing the order of operations of the algorithm, we have conceptually shifted the update of those traces and tags that depend on the correlations of the activities, to the last step of the feedforward pass when these activities are still available. Note that activities could in principle change via attention-gating during the feedback pass [Roelfsema et al. 2010; Moore and Armstrong 2003].
+
+2.1.3 Feedback pass: attention-gated update of eligibility traces
+After action selection and the updates of weights, tags, and temporal eligibility traces in the feedforward pass, the synapses that contributed to the currently selected action update their spatial eligibility traces in an attentional feedback step. For the synapses from the input to the hidden layer, the tag TjRi ,M from equation (13) is combined with a spatial eligibility trace which can be interpreted as an attentional feedback signal [Rombouts et al. 2015].
+
+It must be noted that the feedback synapses
+
+w
+
+R,M jk
+
+follow
+
+the
+
+same
+
+update
+
+rule
+
+as
+
+their
+
+feed-
+
+forward partner wkRj,M . Therefore, even if the
+
+initializations of the feedforward and feedback
+
+weights are different, their strengths become
+
+similar during learning, as suggested by neuro-
+
+physiological ﬁndings [Mao et al. 2011].
+
+2.2 Deriving the learning rules via gradient descent
+
+For networks with one hidden layer and onehot coding in the output, attentional feedback is equivalent to backpropagation [Roelfsema and van Ooyen 2005; Rombouts et al. 2015]. We can show that the equations for eligibility traces and tagging along with the weight update equations reduce an RPE-based loss function E deﬁned as:
+
+E = 1 (δ(t))2
+
+(16)
+
+2
+
+Here we speciﬁcally discuss the case of the tagging
+equations (13) and (15) and the update rule (11) associated with the weight vjMi from sensory input into memory, as it contains the memory decay
+factor ϕj that we introduced, but analogous discussion holds also for weights vjRi, wkMj and wkRj.
+
+Proof. We want to show that
+
+∆vjMi
+
+=
+
+β eM ji
+
+δt
+
+∝
+
+∂E − ∂vjMi
+
+(17)
+
+For simplicity, here we prove (17) neglecting the temporal decay of the eligibility trace eM ji (i.e. α = 1), so that
+
+eM ji = TjMi
+
+wjMk zk = TjMi wjMa
+
+k
+
+eRji(t + 1) = TjRi
+
+w
+
+R jk
+
+zk
+
++
+
+(1
+
+−
+
+α)eRji(t),
+
+k
+eM ji (t + 1) = TjMi
+
+w
+
+M jk
+
+zk
+
++
+
+(1
+
+−
+
+α)eM ji (t),
+
+(15)
+
+k
+
+where feedback weights from the output layer to
+the hidden layer have been denoted as wjk and zk ∈ {0, 1} is the value of output unit k (one-hot response vector as deﬁned for equation (12)).
+
+where a is the selected action at time t − 1.
+
+We ﬁrst observe that the right-hand side of equation (17) can be rewritten as:
+
+∂E
+
+∂E
+
+− ∂vjMi
+
+=− ∂Qa
+
+∂Qa ∂vjMi
+
+=
+
+δt
+
+∂Qa ∂vjMi
+
+Thus,
+
+it
+
+remains
+
+to
+
+show
+
+that
+
+∂Qa ∂vjMi
+
+= eM ji .
+
+6
+
+Similarly to the approach used in backpropagation, we now apply the chain rule and we focus on each term separately:
+
+∂Qa ∂vjMi
+
+=
+
+∂Qa ∂yjM
+
+∂yjM ∂hM j
+
+∂hM j ∂vjMi
+
+Parameter
+
+Value
+
+β : Learning parameter λ : Eligibility persistence γ : Discount factor α : Eligibility decay rate
+: Exploration rate
+
+0.15 0.15 0.9 1 − γλ 0.025
+
+From equations (5) and (7), we immediately have
+
+that:
+
+∂yjM ∂hM j
+
+= σ (hM j )
+
+∂Qa ∂yjM
+
+= waMj
+
+However, in the feedback step the weight waMj is replaced by its feedback counterpart wjMa . As discussed above, this is a valid approximation because
+they become similar during learning.
+Finally, starting from equation (4) we can write:
+
+Table 1. Parameters for the AuGMEnT network.
+memory cells and ϕj = 0.7 for the second half. To reduce to the standard AuGMEnT [Rombouts et al. 2015] network, we set ϕj ≡ 1 for all j, while for a leaky control network we set ϕj ≡ 0.7 for all j. In general, the leak co-efﬁcients may be tuned to adapt the overall memory dynamics to the speciﬁc task.
+
+t−1
+
+hM j (t) = vjMi (t) sM i (t) +
+
+ϕjt−τ vjMi (τ ) sM i (τ )
+
+i
+
+τ =t0 i
+
+t
+
+≈ vjMi (t)
+
+ϕtj−τ sM i (τ )
+
+3 Results
+
+i
+
+τ =t0
+
+AuGMEnT [Rombouts et al. 2015] includes a differ-
+
+where t0 indicates the starting time of the trial and
+last approximation derives from the assumption of slow learning dynamics, i.e. viMj (τ ) = viMj (t) for t0 ≤ τ < t. As a consequence, we have:
+
+entiable memory system and is trained in an RL framework with learning rules based on the joint effect of synaptic tagging, attentional feedback and neuromodulation (see Methods). Here, we study our proposed variant of AuGMEnT, named hybrid
+
+∂hM j (t − 1) ∂vjMi (t − 1)
+
+≈
+
+t−1
+ϕjt−τ +1sM i (τ )
+τ =t0
+
+=
+
+XjMi (t − 1)
+
+AuGMEnT, that has an additional leak factor in a subset of memory units, and compare it to the original AuGMEnT and to a control network with
+
+all leaky memory units. In conclusion, we combine the different terms
+
+and we obtain the desired result:
+
+As a ﬁrst step, we validated our implementa-
+
+∆vjMi ∝ δt XjMi σ (hM j ) wjMa = δt eM ji .
+
+tions of standard and hybrid AuGMEnT networks on the Saccade-AntiSaccade (S-AS) task, used
+
+in the reference paper [Rombouts et al. 2015]
+
+(Supplementary Material). We next simulated the
+
+2.3 Simulation and tasks
+
+networks on two other cognitive tasks with different structure and memory demands: the sequence
+
+All simulation scripts were written in prediction task [Cui et al. 2015] and the 12AX task
+
+python (https://www.python.org/), with [O’Reilly and Frank 2006]. In the former, the agent
+
+plots rendered using the matplotlib module has to predict the ﬁnal letter of a sequence depend-
+
+(http://matplotlib.org/).
+
+These simulation ing only on its starting letter, while in the latter, the
+
+and plotting scripts are available online at agent has to identify target pairs inside a sequence
+
+https://github.com/martin592/hybrid_AuGMEnT. of hierarchical symbols. The S-AS task maps to a
+
+temporal XOR task [Abbott et al. 2016], thus the
+
+We use the parameters listed in Table 1 for our hidden layer is essential for the task [Minsky and
+
+simulations. Further, for the Hybrid AuGMEnT Papert 1969; Rumelhart et al. 1985]. The 12AX also
+
+network, we set ϕj = 1 for the ﬁrst half of the resembles an XOR structure, but is more complex
+
+7
+
+Table 2. Network Architecture Parameters for the Simulations
+
+Network Parameter
+
+Sequence Prediction Task 12AX Task (L = sequence length)
+
+S : Number of sensory units
+
+L−1
+
+8
+
+R : Number of regular units
+
+3
+
+10
+
+M : Number of memory units
+
+8
+
+20
+
+A : Number of activity units
+
+2
+
+2
+
+due to an additional dimension and distractors in the inner loop (Supplementary Figure 3). The complexity of the sequence prediction task is less compared to the 12AX task, and can be effectively solved by AuGMEnT. We will show that hybrid AuGMEnT performs well on both cognitive tasks, whereas standard AuGMEnT fails on the 12AX task. The parameters involving the architecture of the networks on each task are reported in Table 2. We now discuss each of the tasks in more detail.
+
+3.1 Task 1: Sequence Prediction
+In the sequence prediction task [Cui et al. 2015], letters appear sequentially on a screen and at the end of each trial the agent has to correctly predict the last letter. Each sequence starts either with an A or with an X, which is followed by a ﬁxed sequence of letters (e.g. B-C-D-E). The trial ends with the prediction of the ﬁnal letter, which depends on the initial cue: if the sequence started with A, then the ﬁnal letter has to be a Z; if the initial cue was an X, then the ﬁnal letter has to be a Y. In case of correct prediction the agent receives a reward of 1 unit, otherwise he is punished with a negative reward of −1. A scheme of the task is presented in Figure 3 for sequences of four letters.
+The network has to learn the task for a given sequence length, kept ﬁxed throughout training. The agent must learn to maintain in memory, the initial cue of the sequence until the end of the trial, to solve the task. At the same time, the agent has to learn to neglect the information coming from the intermediate cues (called distractors). Thus the difﬁculty of the task is correlated with the length of the sequence.
+We studied the performance of the AuGMEnT network [Rombouts et al. 2015] and our hybrid
+
+Figure 3. Scheme of the sequence prediction task. Scheme of sequence prediction trials with sequence length equal to 4 (i.e. 2 distractors): the two possible sequences are: A-B-C-Z (blue) or X-B-C-Y (red)
+variant on the sequence prediction task. The mean trend of the RPE-based energy function deﬁned in equation (16) (Fig. 4A) shows that both models converge in a few hundreds of iterations. As a control, we also simulated a variant in which also memory units were leaky. We noticed that hybrid and standard AuGMEnT networks are more efﬁcient than the purely leaky control. This is not surprising because the key point in the sequence prediction task consists in the maintenance of the initial stimulus, which is simpler with a non-leaky memory than with a leaky one. We notice that the hybrid model has a behaviour similar to AuGMEnT.
+We also analyzed the effect of the temporal length of the sequences on the network performance, by varying the number of distractors (i.e. the intermediate letters) per sequence (Fig. 4B). For each sequence length, the network was retrained ab initio. We required 100 consecutive correct predictions as the criterion for convergence. We ran 100 simulations starting with different initializations for each sequence length and averaged
+
+8
+
+A
+
+B
+
+Figure 4. Convergence in the sequence prediction task. A. Time course of error of the models on the sequence prediction task with sequences of ﬁve letters (three distractors): the mean squared RPE decays to zero for all networks but the leaky control network (blue) is much slower than AuGMEnT (green) and Hybrid AuGMEnT (red). B. Convergence time of the AuGMEnT network and its variants on the sequence prediction task with increasing number of distractors, i.e. intermediate cues before ﬁnal prediction.
+
+Figure 5. Memory weights of AuGMEnT networks in sequence prediction task. Memory weight matrices after convergence for AuGMEnT (left) and Hybrid AuGMEnT (right) networks on the sequence prediction task with sequences of length ﬁve (ﬁrst row) and ten (second row). Note that the ﬁrst two memory units in Hybrid AuGMEnT are leaky (M1-L and M2-L), while the last ones are conservative or non-leaky (M1-C and M2-C).
+9
+
+Table 3. The 12AX task: table of key information
+
+Task feature
+
+Details
+
+Input Output Target sequences
+Training dataset
+Inner loops
+
+8 possible stimuli: 1,2,A,B,C,X,Y,Z. Non-Target (L) or Target (R). 1-. . . -A-X or 2-. . . -B-Y. Probability of target sequence is 25%. Sequence of outer loops starting with 1 or 2. Maximum number of training samples is 1000000. Each outer loop contains a random number of inner loops, between 1 and 4
+
+the convergence time. Again, AuGMEnT and Hybrid AuGMEnT show good learning performance, maintaining an average of about 250 trials to convergence for sequences containing up to 10 distractors, whereas a network with purely leaky units is much slower to converge.
+The leaky dynamics are not helpful for the sequence prediction task, because the intermediate cues are not relevant for the ﬁnal model performance. Therefore, it is sufﬁcient to supress the weight values in the VM matrix for distractors, and increase those of the initial A/X letter. This is conﬁrmed by the structure of the weight matrices of the memory in all networks shown after convergence (Fig. 5) in simulations of the sequence prediction task on sequences of ﬁve and ten letters. The weight values are highest in absolute value for letters A and X, for both the ON (+) and OFF (−) units. Finally, we also notice that Hybrid AuGMEnT employs mainly the conservative or non-leaky memory units (M1-C and M2-C) rather than the leaky ones (M1-L and M2-L) to solve the task, showing that the network is able to focus the update dynamics on the connections that are more suitable for the speciﬁc task.
+3.2 Task 2: 12AX
+The 12AX task is a standard cognitive task used to test Working Memory and diagnose behavioral and cognitive deﬁcits related to memory dysfunctions [Alexander and Brown 2015]. Basically, the problem consists in identifying some target sequences among a group of symbols that appear on a screen.
+
+The general procedure of the task is schematized in Figure 1A and details involving the construction of the 12AX dataset are collected in Table 3. The set of possible stimuli consists of 8 symbols: two digit cues (1 and 2), two context cues (A and B), two target cues (X and Y) and ﬁnally two distractors (C and Z). Each trial (or outer loop) starts with a digit cue and is followed by a random number of 1 to 4 inner loops. Inner loops are composed of patterns of context-target cues, like A-X, B-X or B-Y. The distractors are non task-relevant cues that can invalidate a subsequence creating wrong inner loops like A-Z or C-X. The cues are presented one by one on a screen and the agent has two possible responses for each of them: Target (R) and Non-Target (L). There are only two valid Target cases: in trials that start with digit 1, the Target is associated with the target cue X if preceded by context A (1-. . . -A-X); otherwise, in case of initial digit 2, the Target occurs if the target cue Y comes after context B (2-. . . -B-Y). The dots are inserted to stress that the target inner loop can occur even a long time after the digit cue, as happens in the following example sequence: 1-A-Z-B-Y-C-X-A-X (whose sequence of correct responses is L-L-L-LL-L-L-L-R). The variability in the temporal length of each trial is the main issue in solving the 12AX task because of the temporal credit assignment problem. Moreover, since 1-A-X and 2-B-Y are target sequences, whereas 2-A-X and 1-A-Y are not, the task can be seen as a generalization of temporal XOR (Supplementary Fig. 3).
+The types of the inner loops are determined randomly, with a probability of 50% to have pairs A-X or B-Y. As a result, combined with the
+
+10
+
+probability to have either 1 or 2 as starting digit of the trial, the overall probability to have target pair is 25%. Since the Target response R has to be associated only with an X or Y stimulus that appears in the correct sequence, the number of Non-Targets L is generally much larger, on average 8.96 Non-Targets to 1 Target. We rewarded the correct predictions of a Non-Target with 0.1 and of Targets with 1, and punished the wrong predictions with reward of −1. In effect, we balanced the positive reward approximately equally between Targets and Non-Targets based on their relative frequencies, which aids convergence.
+We simulated Hybrid AuGMEnT network, base AuGMEnT and leaky control on the 12AX task, in order to see whether in this case the introduction of the leaky dynamics improves learning performance. Figure 6A shows the evolution of the mean squared RPE for the three networks. After a sharp descent, all networks converge to an error level that is non-zero, indicating that learning of the 12AX task is not completely achieved, possibly due to memory interference. However, hybrid AuGMEnT and leaky control saturate at a lower error value than base AuGMEnT. This difference can be attributed mostly to the errors in responding to the Target cues (Fig. 6B) than to Non-Target cues (Fig. 6C). Note that, since 12AX is a Continuous Performance Task (CPT), the error is computed at each iteration – including the more frequent and trivial Non-Target predictions – and averaged over 2, 000 consecutive predictions. All networks quickly learn to recognize the Non-Target cues (1, 2, A, B, C, Z are always Non-Targets) (Fig. 6C). However, hybrid AuGMEnT and leaky control learn the more complex identiﬁcation of Target patterns within a trial when X or Y are presented to the network, better than base AuGMEnT (Fig. 6B). The gap in the mean squared RPE between hybrid AuGMEnT and leaky control versus base AuGMEnT is wider when only potential target cues are considered in the mean-squared RPE as in Figure 6B, than when only non-targets are considered as in Figure 6C.
+Adopting the convergence criterion from Alexander and Brown [2015] that requires 1, 000 consecutive correct predictions, we show the percentage of successful learning over 100 simulations
+
+and the average learning time in Figure 7 for the three networks. Standard AuGMEnT network was unable to match the convergence condition during any simulation (0% success), despite presenting 1,000,000 outer loop trials in each simulation. However, hybrid AuGMEnT and leaky control performed 100% consistently, suggesting that leaky memory units are necessary for the 12AX task. Leaky control learned slightly faster (learning time mean=30, 032.2 and s.d.=11, 408.9) than hybrid AuGMEnT (learning time mean=34, 263.6 and s.d.=12, 737.3).
+In order to understand how the hybrid memory works on the 12AX task, we analyzed the weight structure of the connectivity matrices which belong to the memory branch of the hybrid AuGMEnT network (Figure 8). Unlike in the sequence prediction task, here the hybrid network employs both the leaky and the non-leaky memory units. However, there is an overall separation in the memory activity between the two groups of cells (Fig. 8, left panel): the leaky units are mainly responsible for the storage of the digit information, having the highest values in absolute value on the weights associated with 1(±) and 2(±) (e.g. on M4 and M9), while the non-leaky cells emphasize more the information coming from the potential Target cues X(±) and Y(±) (e.g. on M14, M17 and M20). The storage of the initial digit cue is ’assigned’ to leaky units, because the interference from the following letters is reduced thanks to the gradual loss of information while the digit information can survive through sufﬁcient increasing of the digit-related input weights. In this way, the memory interference problem is mitigated, because the crucial digit information is maintained over time without interference in the leaky units and the identiﬁcation of the inner loops is done by the conservative part of the memory. As a result, all memory units contribute to the deﬁnition of the activity Q-values (Fig. 8, right panel) and, in particular, the memory units that are more active (i.e. the same ones mentioned above) are the ones that strongly discriminate Non-Targets (L) against Targets (R), giving positive contribution to one and negative to the other.
+The memory units show an opposing behavior on activation versus on deactivation of Target cues:
+
+11
+
+A
+
+B
+
+C
+
+Figure 6. Learning convergence of the AuGMEnT variants in the 12AX task. Minimization of the RPE-based energy function during training on the 12AX task. A. All networks show a good decay of the mean-squared RPE, but they seem to converge to a non-zero regime and, in particular, the base AuGMEnT network (green) is the one that maintains a higher mean-squared RPE level when compared to leaky control (blue) and Hybrid AuGMEnT (red). B. Mean-square RPE associated with only potential target cues X and Y. C. Mean-squared RPE related to only non-target cues.
+
+Figure 7. Comparative statistics of the AuGMEnT variants on performance on the 12AX task. Barplot description of the learning behavior of the three networks on the 12AX task according to the convergence criterion given by Alexander and Brown [2015]. After 100 simulations, we measured the fraction of times that the model satisﬁes convergence condition (left) and the average number of training trials needed to meet the same convergence criterion (right). Although training dataset consists of 1, 000, 000 outer loops, the base AuGMEnT network never manages to satisfy the convergence criterion, while the leaky (blue) and hybrid (red) models have similar convergence performance with a learning time of about 30, 000 trials.
+
+for instance, if X+ has strong positive weight intensity, then X- shows a contrary negative weight intensity (see M14 or M17). In this way, the network tries to reduce the problems of memory interference between subsequent inner cycles by adding to the memory during deactivation, an opposite amount of information stored during the previous activation, effectively erasing the memory. Further, the difference in absolute value between activation
+
+and deactivation is higher in case of the leaky cells, because the deactivation at the next iteration has to remove only a lower amount of information from the memory due to leakage. However, for the digit cues 1 and 2, the weights for activation and deactivation have typically the same sign in order to reinforce the digit signal in memory in two subsequent timesteps (see on M4 and M9).
+
+12
+
+Figure 8. Memory weights of Hybrid AuGMEnT in the 12AX task. Plot of the weight matrices in the memory branch of hybrid AuGMEnT network after convergence on the 12AX Task. Left: weights from the transient stimulus into the 20 memory units (half leaky, half conservative). Right: weights from the memory cells into the output units.
+
+In conclusion, the conservative dynamics of the memory in standard AuGMEnT can be a limitation for the learning ability of the model, especially in cases of complex tasks with many data to store or long trials. In fact, even though the complexity of the 12AX task is limited compared to other typical RL tasks, the AuGMEnT network fails to maintain a sufﬁciently stable performance to satisfy the required convergence criterion. The introduction of the leaky co-efﬁcient in Hybrid AuGMEnT leads to the network solving the 12AX task, overcoming memory interference. However, the loss of information from the leaky memory does not improve learning in other tasks with lower risk of memory interference like the sequence prediction task. Hybrid AuGMEnTcan be adapted to different task structures and to different temporal scales by varying the size and the composition of the memory, for example by considering multiple subpopulations of neurons with distinct memory timescales, say in a power law distribution.
+
+4 Discussion
+A key goal of the computational neuroscience community is to develop neural networks that are at the same time biologically plausible and able to learn complex tasks similar to humans. The embedding of memory is certainly an important step in this direction, because memory plays a central role in human learning and decision making. Our interest in the AuGMEnT network [Rombouts et al. 2015] derives mainly from the biological plausibility of its learning and memory dynamics. In particular, the biological setting of the learning algorithm is based on synaptic tagging, attentional feedback and neuromodulation, providing a possible biological interpretation to backpropagation-like methods.
+We developed Hybrid AuGMEnT, by introducing leaky dynamics in the memory system, with the aim of improving its learning performance and extending the variety of solvable tasks. Hybrid AuGMEnT with both leaky and non-leaky units in its memory system, solves the 12AX task
+
+13
+
+on which standard AuGMEnT fails. Both solve the simpler saccade-antisaccade and sequence prediction tasks. Hybrid AuGMEnT inherits the biological plausibility of base AuGMEnT [Rombouts et al. 2015]. In addition, consistent learning with decaying memory units requires that the decay of synaptic traces in a memory unit, as per equation (14) [Pﬁster and Gerstner 2006; Morrison et al. 2008], be at the same timescale as decay of the unit’s memory state as per equation (4).
+Despite the improvement with our hybrid variant, the learning ability of AuGMEnT is still limited compared to other state-of-the-art memory-augmented networks. For instance, the Hierarchical Temporal Memory (HTM) network [Cui et al. 2015] presents a greater ﬂexibility in sequence learning than what we have experienced in AuGMEnT on the simple sequence prediction task. Utilizing a complex column-based architecture and an efﬁcient system of inner inhibitions, the HTM network is able to maintain a dual neural activity, both at column level and at unit level, that allows to have sparse representations of the input and give multi-order predictions using an unsupervised Hebbian-like learning rule. Nonetheless, it is unclear how the HTM network can be applied to reward-based learning, in particular to tasks like the 12AX, with variable number of inner loops.
+Although the hybrid memory in the AuGMEnT network remarkably improved its convergence performance on the 12AX task, its learning efﬁciency is still lower than the reference Hierarchical Error Representation model (HER) [Alexander and Brown 2015; 2016]. In fact, in our simulations, hybrid AuGMEnT showed a mean time to convergence equal to 34, 263.6 outer loops, while the average learning time of HER on the same convergence condition is around 750 outer loops. The reason for this large gap in the learning performance resides in the gating mechanism of HER network that is speciﬁcally developed for hierarchical tasks and is used to decide at each iteration whether to store the new input or maintain the previous content in memory. Unlike HER model, the memory in AuGMEnT does not include any gating mechanism, meaning that the network does not learn when to store and recall information but the memory dynamics are entirely developed via standard weight
+
+modulation. On the other hand, the HER model is not as biologically plausible as the AuGMEnT network, because, although its hierarchical structure is inspired on the supposed organization of the prefrontal cortex, its learning scheme is artiﬁcial and based on standard backpropagation.
+In addition, the recent delta-RNN network [Ororbia et al. 2017] presents interesting similarities with hybrid AuGMEnT in employing two timescales, maintaining memory via interpolation of fast and slow changing inner representations. The delta-RNN, whose memory dynamics are a generalization of the gating mechanisms of LSTM and GRU, outperforms these popular recurrent architectures. Thus, it likely has a better learning ability than hybrid AuGMEnT, though it requires a higher number of parameters and the network is not based on biological considerations.
+The lack of a memory gating system is a great limitation for AuGMEnT variants, when compared with networks equipped with a gated memory, like HER [Alexander and Brown 2015; 2016] or LSTM [Hochreiter and Schmidhuber 1997; Gers and Schmidhuber 2001], especially on complex tasks with high memory demand. Still, even though it cannot be properly deﬁned as a gating system, the forgetting dynamics introduced in hybrid AuGMEnT has a similar effect as the activity of the forget gates in LSTM or GRU. However, unlike forget gates, the decay coefﬁcients are not learnable and are not input-dependent for each memory cell. The Hybrid AuGMEnT network could be further developed by adding a gating control on the leakage: leak gates could be an output of the controller branch of the network and then applied as a gate or decay co-efﬁcient in the memory branch. In this way, the gating value becomes stimulus-dependent and leakage is adjusted to optimize the model performance. On the other hand, such a gating system would make the network more complex, where learning of the gate variables implies an error backpropagation through multiple layers, that may compromise the biological plausibility of the AuGMEnT learning dynamics (though see [Lillicrap et al. 2016; Baldi et al. 2016; Guerguiev et al. 2017]).
+Alternatively, inspired by the hierarchical ar-
+
+14
+
+chitecture of HER [Alexander and Brown 2015], the memory in AuGMEnT could be divided into multiple levels each with their own memory dynamics: each memory level could be associated with distinct synaptic decay and leaky coefﬁcients, learning rates, or gates, in order to cover different temporal scales and encourage level specialization. Compared with hybrid AuGMEnT, this differentiation in memory will not only involve the leaky dynamics, but also the temporal dynamics associated with attentional feedback and synaptic potentiation.
+
+model of anterior cingulate and dorsolateral prefrontal cortex. Neural Computation, 27(11):2354– 2410.
+Alexander, W. H. and Brown, J. W. (2016). Frontal cortex function derives from hierarchical predictive coding. bioRxiv, page 076505.
+Baldi, P., Sadowski, P., and Lu, Z. (2016). Learning in the machine: Random backpropagation and the learning channel. arXiv preprint arXiv:1612.02734.
+
+In the past years, the reinforcement learning community has proposed several deep RL networks, like deep Q-networks [Mnih et al. 2015] or the AlphaGo model [Chen 2016], that combine the learning advantages of deep neural networks with reinforcement learning [Li 2017]. Thus, it may be interesting to consider a deep version of the AuGMEnT network with additional hidden layers of neurons. While conventional error backpropagation in AuGMEnT may not yield local synaptic plasticity, locality might be retained with alternative backpropagation methods [Lillicrap et al. 2016; Baldi et al. 2016; Guerguiev et al. 2017].
+
+Barak, O. and Tsodyks, M. (2014). Working models of working memory. Current opinion in neurobiology, 25:20–24.
+Brzosko, Z., Schultz, W., and Paulsen, O. (2015). Retroactive modulation of spike timingdependent plasticity by dopamine. eLife, page 4:e09685.
+Brzosko, Z., Zannone, S., Schultz, W., Clopath, C., and Paulsen, O. (2017). Sequential neuromodulation of hebbian plasticity offers mechanism for effective reward-based navigation. eLife, page 6:e27756.
+
+5 Acknowledgements
+
+Chen, J. X. (2016). The evolution of computing: Alphago. Computing in Science & Engineering, 18(4):4–7.
+
+We thank Vineet Jain for helpful discussions. Financial support was provided by the European Research Council (Multirules, grant agreement no. 268689), the Swiss National Science Foundation (Sinergia, grant agreement no. CRSII2_147636), and the European Commission Horizon 2020 Framework Program (H2020) (Human Brain Project, grant agreement no. 720270).
+
+Cho, K. e. a. (2014). Learning phrase representations using rnn encoder-decoder for statistical machine translation. arXiv preprint arXiv:1406.1078.
+Compte, A., Brunel, N., Goldman-Rakic, P. S., and Wang, X.-J. (2000). Synaptic mechanisms and network dynamics underlying spatial working memory in a cortical network model. Cerebral Cortex, 10:910–923.
+
+References
+Abbott, L., De Pasquale, B., and Memmesheimer, R.-M. (2016). Building functional networks of spiking model neurons. Nature neuroscience, 19(3):350–355.
+Alexander, W. H. and Brown, J. W. (2015). Hierarchical error representation: A computational
+
+Cui, Y., Surpur, C., Ahmad, S., and Hawkins, J. (2015). Continuous online sequence learning with an unsupervised neural network model. CoRR, abs/1512.05463.
+Frank, M. J., Loughry, B., and O’Reilly, R. C. (2001). Interactions between frontal cortex and basal ganglia in working memory: a computational model. Cognitive, Affective, & Behavioral Neuroscience, 1(2):137–160.
+
+15
+
+Frémaux, N. and Gerstner, W. (2016). Neuromodulated spike-timing-dependent plasticity, and theory of three-factor learning rules. Frontiers in Neural Circuits, page 9:85.
+Gers, F. A. and Schmidhuber, J. (2001). Long shortterm memory learns context free and context sensitive languages. In Artiﬁcial Neural Nets and Genetic Algorithms, pages 134–137. Springer.
+
+Mao, T., Kusefoglu, D., Hooks, B. M., Huber, D., Petreanu, L., and Svoboda, K. (2011). Longrange neuronal circuits underlying the interaction between sensory and motor cortex. Neuron, 72(1):111–123.
+Mink, J. W. (1996). The basal ganglia: focused selection and inhibition of competing motor programs. Progress in neurobiology, 50(4):381–425.
+
+Gottlieb, J. and Goldberg, M. E. (1999). Activity of neurons in the lateral intraparietal area of the monkey during an antisaccade task. Nature neuroscience, 2(10):906–912.
+Graves, A., Wayne, G., and Danihelka, I. (2014). Neural turing machines. arXiv preprint arXiv:1410.5401.
+
+Minsky, M. and Papert, S. (1969). Perceptrons. MIT press.
+Mnih, V., Kavukcuoglu, K., Silver, D., Rusu, A. A., Veness, J., Bellemare, M. G., Graves, A., Riedmiller, M., Fidjeland, A. K., Ostrovski, G., et al. (2015). Human-level control through deep reinforcement learning. Nature, 518(7540):529–533.
+
+Graves, A., Wayne, G., Reynolds, M., Harley, T., Danihelka, I., Grabska-Barwin´ ska, A., Colmenarejo, S. G., Grefenstette, E., Ramalho, T., Agapiou, J., et al. (2016). Hybrid computing using a neural network with dynamic external memory. Nature, 538(7626):471–476.
+
+Guerguiev, J., Lillicrap, T. P., and Richards, B. A. (2017). Towards deep learning with segregated dendrites. eLife, page 6:e22901.
+
+He, K., Huertas, M., Hong, S. Z., Tie, X., Hell, J. W., Shouval, H., and Kirkwood, A. (2015). Distinct eligibility traces for ltp and ltd in cortical synapses. Neuron, 88(3):528–538.
+
+Hochreiter, S. and Schmidhuber, J. (1997). Long
+
+short-term memory.
+
+Neural computation,
+
+9(8):1735–1780.
+
+Legenstein, R., Pecevski, D., and Wolfgang, M. (2008). A learning theory for reward-modulated spike-timing-dependent plasticity with application to biofeedback. PLOS Comput Biol., 4(10):e1000180.
+
+Li, Y. (2017). Deep reinforcement learning: An overview. arXiv preprint arXiv:1701.07274.
+
+Moore, T. and Armstrong, K. M. (2003). Selective gating of visual signals by microstimulation of frontal cortex. Nature, 421(6921):370–373.
+Morrison, A., Diesmann, M., and Gerstner, W. (2008). Phenomenological models of synaptic plasticity based on spike timing. Biological Cybernetics, 98(6):459–478.
+Okano, H., Hirano, T., and Balaban, E. (2000). Learning and memory. Proceedings of the National Academy of Sciences, 97(23):12403–12404.
+O’Reilly, R. C. and Frank, M. J. (2006). Making working memory work: a computational model of learning in the prefrontal cortex and basal ganglia. Neural computation, 18(2):283–328.
+Ororbia, A. G., Mikolov, T., and Reitter, D. (2017). Learning simpler language models with the differential state framework. Neural Computation, 29(12):3327–3352.
+Pﬁster, J.-P. and Gerstner, W. (2006). Triplets of spikes in a model of spike timing-dependent plasticity. Journal of Neuroscience, 26(38):9673– 9682.
+
+Lillicrap, T. P., Cownden, D., Tweed, D. B., and Akerman, C. J. (2016). Random synaptic feedback weights support error backpropagation for deep learning. Nature communications, 7.
+
+Roelfsema, P. R. and van Ooyen, A. (2005). Attention-gated reinforcement learning of internal representations for classiﬁcation. Neural computation, 17(10):2176–2214.
+
+16
+
+Roelfsema, P. R., van Ooyen, A., and Watanabe, T. (2010). Perceptual learning rules based on reinforcers and attention. Trends in cognitive sciences, 14(2):64–71.
+
+Waelti, P., Dickinson, A., and Schultz, W. (2001). Dopamine responses comply with basic assumptions of formal learning theory. Nature, 412(6842):43–48.
+
+Rombouts, J. O., Bohte, S. M., and Roelfsema, P. R. (2015). How attention can create synaptic tags for the learning of working memories in sequential tasks. PLOS Computational Biology, 11(3):1–34.
+Rumelhart, D. E., Hinton, G. E., and Williams, R. J. (1985). Learning internal representations by error propagation. Technical report, California Univ San Diego La Jolla Inst for Cognitive Science.
+Samsonovich, A. and McNaughton, B. L. (1997). Path integration and cognitive mapping in a continuous attractor neural network model. Journal of Neuroscience, 17(15):5900–5920.
+
+Wiering, M. and Schmidhuber, J. (1998). Fast online q(λ). Machine Learning, 33(1):105–115.
+Xie, X. and Seung, H. S. (2004). Learning in neural networks by reinforcement of irregular spiking. Phys Rev E., 69(4):041909.
+Yagishita, S., Hayashi-Takagi, A., Ellis-Davies, G. C., Urakubo, H., Ishii, S., and Kasai, H. (2014). A critical time window for dopamine actions on the structural plasticity of dendritic spines. Science, 345(6204):1616–1620.
+
+Santoro, A., Bartunov, S., Botvinick, M., Wierstra, D., and Lillicrap, T. (2016). One-shot learning with memory-augmented neural networks. arXiv preprint arXiv:1605.06065.
+
+Schultz, W., Apicella, P., and Ljungberg, T. (1993). Responses of monkey dopamine neurons to reward and conditioned stimuli during successive steps of learning a delayed response task. Journal of neuroscience, 13(3):900–913.
+
+Schultz, W., Dayan, P., and Montague, P. R. (1997). A neural substrate of prediction and reward. Science, 275(5306):1593–1599.
+
+Sutton, R. S. (1984). Temporal Credit Assignment in Reinforcement Learning. PhD thesis. AAI8410337.
+
+Sutton, R. S. and Barto, A. G. (1998). Reinforcement learning: An introduction, volume 1. MIT press Cambridge.
+
+Tetzlaff, C., Kolodziejski, C., Markelic, I., and Wörgötter, F. (2012). Time scales of memory, learning, and plasticity. Biological Cybernetics, 106(11):715–726.
+
+Vasilaki, E., Frémaux, N., Urbanczik, R., Senn, W., and Gerstner, W. (2009). Spike-based reinforcement learning in continuous state and action space: When policy gradient methods fail. PLOS Computational Biology, 5(12):e1000586.
+
+17
+
+Supplementary Material
+
+Model Validation of AuGMEnT Network: The Saccade-Antisaccade Task
+
+The Saccade-AntiSaccade Task (S-AS), presented in the AuGMEnT paper [Rombouts et al. 2015], is inspired by cognitive experiments performed on monkeys to study the memory representations of visual stimuli in the Lateral Intra-Parietal cortex (LIP). The structure of each trial covers different phases in which different cues are presented on a screen and at the end of each episode the agent has to respond accordingly in order to gain a reward. Actually, following a shaping strategy, monkeys received also an intermediate smaller reward when they learnt to ﬁxate on the task-relevant marks at the center of the screen. The details on the procedure of the trials and the experimental results are discussed in Gottlieb and Goldberg [1999].
+The agent has to look either to ’Left’ (L) or to ’Right’ (R) in agreement with a sequence of marks that appear on a screen at each episode. The response, corresponding to the direction of the eye movement (called saccade), depends on the combination of the location and ﬁxation marks. The location cue is a circle displayed either at the left side (L) or at the right side (R) of the screen, while the ﬁxation mark is a square presented at the center that indicates whether the ﬁnal move has to be concordant with the location cue (Prosaccade P) or in the opposite direction (Antisaccade - A). As a consequence, there are four types of trials corresponding to the four cue combinations.
+As can be seen in Figure 1, each trial is structured in ﬁve phases: a) start, where the screen is initially empty, b) ﬁx, when the ﬁxation mark appears c) cue, where the location cue is added on the screen, d) delay, in which the location circle disappears for two timesteps, e) go, when the ﬁxation mark vanishes as well and the agent has to give the ﬁnal response to get the reward. Since the action is given at the end of the trial when the screen is completely empty, the task can be solved only if the network stores and maintains both the
+
+Figure 1. Structure of the Saccade-AntiSaccade task. Structure of the trials in all the possible modalities: P-L and A-R have ﬁnal response L (green arrow), while trials P-R and A-L lead to take action R (red arrow). Figure taken from publication [Rombouts et al. 2015].
+stimuli in memory in spite of the delay phase. In addition, the shaping strategy mentioned above is applied in the ﬁx phase of the experiment, by giving an intermediate reward if the agent gazes at the ﬁxation mark for two consecutive timesteps, to ensure that he observes the screen during the whole trial and that the go response is not random but consequential to the cues. So, the reward for the ﬁnal response is equal to 1.5 units in case of correct response, 0 otherwise, but the intermediate reward for the shaping strategy is smaller, equal to 0.2 units. The most important details about the trial structure are summarized in Table 1.
+The mean trend of the prediction error during training shows that learning of the S-AS task is achieved by the of AuGMEnT network also in our simulation (Figure 2). In particular, in order to compare it with the reference performance in Rombouts et al. [2015] we applied the same convergence condition, for which training on the S-AS task is considered to be successful if the accuracy for each trial type is higher than
+
+18
+
+Table 1. Table of the S-AS task
+
+Task feature
+
+Details
+
+Task Structure Inputs
+Outputs Trial Types
+Training dataset
+Rewards
+
+5 phases: start, ﬁx, cue, delay, go Fixation mark: Pro-saccade (P) or Anti-saccade (A) Location mark: Left (L) or Right (R) Eye movement: Left (L), Front (F) or Right (R) 1. P+L=L 2. P+R=R 3. A+L=R 4. A+R=L Maximum number of trials is 25, 000. Each trial type has equal probability. Correct saccade at go (1.5 units) Fixation of the screen in ﬁx (0.2 units)
+
+Figure 2. Validation of learning perfomance on the saccade task. Decay of the mean predicition error during training of AuGMEnT networks on the S-AS task, computed as the mean number of errors in 50 trials and averaged over 100 simulations.
+
+90% in the last 50 trials. In the original paper, convergence of AuGMEnT is achieved 99.45% of the times, with a training of around 4, 100 trials. In our simulations, the network reaches convergence every time, with a mean time of 2, 063 trials (s.d.= 837.7). The slightly better performance in our simulations could be due to minor differences in the interpretation of the task structure of S-AS or of the convergence criterion, but in any case the error plot in Figure 2 conﬁrms a sharp decrease in the variability of the prediction error after 4, 000 iterations, compliant with the convergence results in the reference paper. In addition, we also show the performance of
+
+hybrid AuGMEnT and leaky control, proving that they also solve the S-AS task. However, the time to convergence is higher (especially for leaky control) because non-leaky memory is better suited to this simple task.
+
+19
+
+A Temporal XOR Task B
+
+S-AS Task
+
+C
+
+12AX Task
+
+Figure 3. Spatial representation of temporal XOR, S-AS and 12AX tasks. Schematic representation of the task structures indicating for each cue combination the correct response. Temporal XOR (A) and S-AS (B) tasks have analogous input-output maps and they both have an output space that is not linearly separable. The map of 12AX task (C) is three-dimensional because its structure is based on three hierarchical levels of inputs instead of two. However, for better visualization we add at right the sections of the structure space with respect to the digit inputs that start the outer loops. The output space is still not linearly separable in 3D.
+
+20
+

@@ -1,0 +1,872 @@
+1
+Meta-Learning in Neural Networks: A Survey
+Timothy Hospedales, Antreas Antoniou, Paul Micaelli, Amos Storkey
+Abstract—The ﬁeld of meta-learning, or learning-to-learn, has seen a dramatic rise in interest in recent years. Contrary to conventional approaches to AI where tasks are solved from scratch using a ﬁxed learning algorithm, meta-learning aims to improve the learning algorithm itself, given the experience of multiple learning episodes. This paradigm provides an opportunity to tackle many conventional challenges of deep learning, including data and computation bottlenecks, as well as generalization. This survey describes the contemporary meta-learning landscape. We ﬁrst discuss deﬁnitions of meta-learning and position it with respect to related ﬁelds, such as transfer learning and hyperparameter optimization. We then propose a new taxonomy that provides a more comprehensive breakdown of the space of meta-learning methods today. We survey promising applications and successes of meta-learning such as few-shot learning and reinforcement learning. Finally, we discuss outstanding challenges and promising areas for future research.
+Index Terms—Meta-Learning, Learning-to-Learn, Few-Shot Learning, Transfer Learning, Neural Architecture Search
+!
+
+arXiv:2004.05439v2 [cs.LG] 7 Nov 2020
+
+1 INTRODUCTION
+Contemporary machine learning models are typically trained from scratch for a speciﬁc task using a ﬁxed learning algorithm designed by hand. Deep learning-based approaches speciﬁcally have seen great successes in a variety of ﬁelds [1]–[3]. However there are clear limitations [4]. For example, successes have largely been in areas where vast quantities of data can be collected or simulated, and where huge compute resources are available. This excludes many applications where data is intrinsically rare or expensive [5], or compute resources are unavailable [6].
+Meta-learning provides an alternative paradigm where a machine learning model gains experience over multiple learning episodes – often covering a distribution of related tasks – and uses this experience to improve its future learning performance. This ‘learning-to-learn’ [7] can lead to a variety of beneﬁts such as data and compute efﬁciency, and it is better aligned with human and animal learning [8], where learning strategies improve both on a lifetime and evolutionary timescales [8]–[10].
+Historically, the success of machine learning was driven by the choice of hand-engineered features [11], [12]. Deep learning realised the promise of joint feature and model learning [13], providing a huge improvement in performance for many tasks [1], [3]. Meta-learning in neural networks can be seen as aiming to provide the next step of integrating joint feature, model, and algorithm learning.
+Neural network meta-learning has a long history [7], [14], [15]. However, its potential as a driver to advance the frontier of the contemporary deep learning industry has led to an explosion of recent research. In particular metalearning has the potential to alleviate many of the main criticisms of contemporary deep learning [4], for instance by improving data efﬁciency, knowledge transfer and unsupervised learning. Meta-learning has proven useful both in multi-task scenarios where task-agnostic knowledge is
+T. Hospedales is with Samsung AI Centre, Cambridge and University of Edinburgh. A. Antoniou, P. Micaelli and Storkey are with University of Edinburgh. Email: {t.hospedales,a.antoniou,paul.micaelli,a.storkey}@ed.ac.uk.
+
+extracted from a family of tasks and used to improve learning of new tasks from that family [7], [16]; and single-task scenarios where a single problem is solved repeatedly and improved over multiple episodes [17]–[19]. Successful applications have been demonstrated in areas spanning few-shot image recognition [16], [20], unsupervised learning [21], data efﬁcient [22], [23] and self-directed [24] reinforcement learning (RL), hyperparameter optimization [17], and neural architecture search (NAS) [18], [25], [26].
+Many perspectives on meta-learning can be found in the literature, in part because different communities use the term differently. Thrun [7] operationally deﬁnes learning-tolearn as occurring when a learner’s performance at solving tasks drawn from a given task family improves with respect to the number of tasks seen. (cf., conventional machine learning performance improves as more data from a single task is seen). This perspective [27]–[29] views meta-learning as a tool to manage the ‘no free lunch’ theorem [30] and improve generalization by searching for the algorithm (inductive bias) that is best suited to a given problem, or problem family. However, this deﬁnition can include transfer, multitask, feature-selection, and model-ensemble learning, which are not typically considered as meta-learning today. Another usage of meta-learning [31] deals with algorithm selection based on dataset features, and becomes hard to distinguish from automated machine learning (AutoML) [32], [33].
+In this paper, we focus on contemporary neural-network meta-learning. We take this to mean algorithm learning as per [27], [28], but focus speciﬁcally on where this is achieved by end-to-end learning of an explicitly deﬁned objective function (such as cross-entropy loss). Additionally we consider single-task meta-learning, and discuss a wider variety of (meta) objectives such as robustness and compute efﬁciency.
+This paper thus provides a unique, timely, and up-todate survey of the rapidly growing area of neural network meta-learning. In contrast, previous surveys are rather out of date and/or focus on algorithm selection for data mining [27], [31], [34], [35], AutoML [32], [33], or particular applications of meta-learning such as few-shot learning [36] or neural architecture search [37].
+
+2
+
+We address both meta-learning methods and applications. We ﬁrst introduce meta-learning through a high-level problem formalization that can be used to understand and position work in this area. We then provide a new taxonomy in terms of meta-representation, meta-objective and metaoptimizer. This framework provides a design-space for developing new meta learning methods and customizing them for different applications. We survey several popular and emerging application areas including few-shot, reinforcement learning, and architecture search; and position metalearning with respect to related topics such as transfer and multi-task learning. We conclude by discussing outstanding challenges and areas for future research.
+
+2 BACKGROUND
+Meta-learning is difﬁcult to deﬁne, having been used in various inconsistent ways, even within contemporary neuralnetwork literature. In this section, we introduce our deﬁnition and key terminology, and then position meta-learning with respect to related topics.
+Meta-learning is most commonly understood as learning to learn, which refers to the process of improving a learning algorithm over multiple learning episodes. In contrast, conventional ML improves model predictions over multiple data instances. During base learning, an inner (or lower/base) learning algorithm solves a task such as image classiﬁcation [13], deﬁned by a dataset and objective. During meta-learning, an outer (or upper/meta) algorithm updates the inner learning algorithm such that the model it learns improves an outer objective. For instance this objective could be generalization performance or learning speed of the inner algorithm. Learning episodes of the base task, namely (base algorithm, trained model, performance) tuples, can be seen as providing the instances needed by the outer algorithm to learn the base learning algorithm.
+As deﬁned above, many conventional algorithms such as random search of hyper-parameters by cross-validation could fall within the deﬁnition of meta-learning. The salient characteristic of contemporary neural-network metalearning is an explicitly deﬁned meta-level objective, and endto-end optimization of the inner algorithm with respect to this objective. Often, meta-learning is conducted on learning episodes sampled from a task family, leading to a base learning algorithm that performs well on new tasks sampled from this family. However, in a limiting case all training episodes can be sampled from a single task. In the following section, we introduce these notions more formally.
+
+2.1 Formalizing Meta-Learning
+
+Conventional Machine Learning In conventional supervised machine learning, we are given a training dataset D = {(x1, y1), . . . , (xN , yN )}, such as (input image, output label) pairs. We can train a predictive model yˆ = fθ(x) parameterized by θ, by solving:
+
+θ∗ = arg min L(D; θ, ω)
+θ
+
+(1)
+
+where L is a loss function that measures the error between true labels and those predicted by fθ(·). The conditioning on ω denotes the dependence of this solution on assumptions
+
+about ‘how to learn’, such as the choice of optimizer for θ or function class for f . Generalization is then measured by evaluating a number of test points with known labels.
+The conventional assumption is that this optimization is performed from scratch for every problem D; and that ω is pre-speciﬁed. However, the speciﬁcation of ω can drastically affect performance measures like accuracy or data efﬁciency. Meta-learning seeks to improve these measures by learning the learning algorithm itself, rather than assuming it is prespeciﬁed and ﬁxed. This is often achieved by revisiting the ﬁrst assumption above, and learning from a distribution of tasks rather than from scratch.
+Meta-Learning: Task-Distribution View A common view of meta-learning is to learn a general purpose learning algorithm that can generalize across tasks, and ideally enable each new task to be learned better than the last. We can evaluate the performance of ω over a distribution of tasks p(T ). Here we loosely deﬁne a task to be a dataset and loss function T = {D, L}. Learning how to learn thus becomes
+
+min E L(D; ω)
+
+(2)
+
+ω T ∼p(T )
+
+where L(D; ω) measures the performance of a model trained using ω on dataset D. ‘How to learn’, i.e. ω, is often referred to as across-task knowledge or meta-knowledge.
+To solve this problem in practice, we often assume access to a set of source tasks sampled from p(T ). Formally, we denote the set of M source tasks used in the meta-training stage as Dsource = {(Dstroauirnce, Dsvoaul rce)(i)}M i=1 where each task has both training and validation data. Often, the source train and validation datasets are respectively called support and query sets. The meta-training step of ‘learning how to learn’ can be written as:
+
+ω∗
+
+=
+
+arg
+
+max
+ω
+
+log
+
+p(ω|Dsource)
+
+(3)
+
+Now we denote the set of Q target tasks used in the meta-testing stage as Dtarget = {(Dttararginet, Dttaesrtget)(i)}Qi=1 where each task has both training and test data. In the metatesting stage we use the learned meta-knowledge ω∗ to train
+the base model on each previously unseen target task i:
+
+θ∗
+
+(i)
+
+=
+
+arg
+
+max
+θ
+
+log
+
+p(θ|ω∗,
+
+Dttararginet(i))
+
+(4)
+
+In contrast to conventional learning in Eq. 1, learning on the training set of a target task i now beneﬁts from metaknowledge ω∗ about the algorithm to use. This could be an
+estimate of the initial parameters [16], or an entire learning
+model [38] or optimization strategy [39]. We can evaluate the accuracy of our meta-learner by the performance of θ∗ (i) on the test split of each target task Dttaesrtge(ti).
+This setup leads to analogies of conventional underﬁtting and overﬁtting: meta-underﬁtting and meta-overﬁtting. In
+particular, meta-overﬁtting is an issue whereby the meta-
+knowledge learned on the source tasks does not generalize
+to the target tasks. It is relatively common, especially in
+the case where only a small number of source tasks are available. It can be seen as learning an inductive bias ω that constrains the hypothesis space of θ too tightly around
+solutions to the source tasks.
+
+3
+
+Meta-Learning: Bilevel Optimization View The previous discussion outlines the common ﬂow of meta-learning in a multiple task scenario, but does not specify how to solve the meta-training step in Eq. 3. This is commonly done by casting the meta-training step as a bilevel optimization problem. While this picture is arguably only accurate for the optimizer-based methods (see section 3.1), it is helpful to visualize the mechanics of meta-learning more generally. Bilevel optimization [40] refers to a hierarchical optimization problem, where one optimization contains another optimization as a constraint [17], [41]. Using this notation, meta-training can be formalised as follows:
+
+M
+
+ω∗ = arg min
+
+Lmeta(θ∗ (i)(ω), ω, Dsvoaul r(cie) ) (5)
+
+ω
+
+i=1
+
+s.t. θ∗(i)(ω) = arg min Ltask(θ, ω, Dstroauirnce(i))
+
+(6)
+
+θ
+
+where Lmeta and Ltask refer to the outer and inner ob-
+jectives respectively, such as cross entropy in the case of
+few-shot classiﬁcation. Note the leader-follower asymmetry
+between the outer and inner levels: the inner level optimization Eq. 6 is conditional on the learning strategy ω deﬁned by the outer level, but it cannot change ω during its training.
+Here ω could indicate an initial condition in non-convex
+optimization [16], a hyper-parameter such as regularization
+strength [17], or even a parameterization of the loss function to optimize Ltask [42]. Section 4.1 discusses the space of choices for ω in detail. The outer level optimization learns ω such that it produces models θ∗ (i)(ω) that perform well
+on their validation sets after training. Section 4.2 discusses how to optimize ω in detail. In Section 4.3 we consider what Lmeta can measure, such as validation performance,
+learning speed or model robustness.
+Finally, we note that the above formalization of meta-
+training uses the notion of a distribution over tasks. While
+common in the meta-learning literature, it is not a necessary
+condition for meta-learning. More formally, if we are given a single train and test dataset (M = Q = 1), we can split the training set to get validation data such that Dsource = (Dstroauirnce, Dsvoaul rce) for meta-training, and for meta-testing we can use Dtarget = (Dstroauirnce ∪ Dsvoaul rce, Dttaesrtget). We still learn ω over several episodes, and different train-val splits
+are usually used during meta-training.
+
+Meta-Learning: Feed-Forward Model View As we will see, there are a number of meta-learning approaches that synthesize models in a feed-forward manner, rather than via an explicit iterative optimization as in Eqs. 5-6 above. While they vary in their degree of complexity, it can be instructive to understand this family of approaches by instantiating the abstract objective in Eq. 2 to deﬁne a toy example for metatraining linear regression [43].
+
+min E
+
+ω
+
+T ∼p(T )
+
+(xT gω(Dtr) − y)2 (7)
+
+(Dtr ,Dval)∈T (x,y)∈Dval
+
+Here we meta-train by optimizing over a distribution of
+tasks. For each task a train and validation set is drawn. The train set Dtr is embedded [44] into a vector gω which deﬁnes the linear regression weights to predict examples x from the
+
+validation set. Optimizing Eq. 7 ‘learns to learn’ by training the function gω to map a training set to a weight vector. Thus gω should provide a good solution for novel metatest tasks T te drawn from p(T ). Methods in this family vary in the complexity of the predictive model g used, and how the support set is embedded [44] (e.g., by pooling, CNN or RNN). These models are also known as amortized [45] because the cost of learning a new task is reduced to a feed-forward operation through gω(·), with iterative optimization already paid for during meta-training of ω.
+2.2 Historical Context of Meta-Learning
+Meta-learning and learning-to-learn ﬁrst appear in the literature in 1987 [14]. J. Schmidhuber introduced a family of methods that can learn how to learn, using self-referential learning. Self-referential learning involves training neural networks that can receive as inputs their own weights and predict updates for said weights. Schmidhuber proposed to learn the model itself using evolutionary algorithms.
+Meta-learning was subsequently extended to multiple areas. Bengio et al. [46], [47] proposed to meta-learn biologically plausible learning rules. Schmidhuber et al.continued to explore self-referential systems and meta-learning [48], [49]. S. Thrun et al. took care to more clearly deﬁne the term learning to learn in [7] and introduced initial theoretical justiﬁcations and practical implementations. Proposals for training meta-learning systems using gradient descent and backpropagation were ﬁrst made in 1991 [50] followed by more extensions in 2001 [51], [52], with [27] giving an overview of the literature at that time. Meta-learning was used in the context of reinforcement learning in 1995 [53], followed by various extensions [54], [55].
+2.3 Related Fields
+Here we position meta-learning against related areas whose relation to meta-learning is often a source of confusion.
+Transfer Learning (TL) TL [34], [56] uses past experience from a source task to improve learning (speed, data efﬁciency, accuracy) on a target task. TL refers both to this problem area and family of solutions, most commonly parameter transfer plus optional ﬁne tuning [57] (although there are numerous other approaches [34]).
+In contrast, meta-learning refers to a paradigm that can be used to improve TL as well as other problems. In TL the prior is extracted by vanilla learning on the source task without the use of a meta-objective. In meta-learning, the corresponding prior would be deﬁned by an outer optimization that evaluates the beneﬁt of the prior when learn a new task, as illustrated by MAML [16]. More generally, meta-learning deals with a much wider range of metarepresentations than solely model parameters (Section 4.1).
+Domain Adaptation (DA) and Domain Generalization (DG) Domain-shift refers to the situation where source and target problems share the same objective, but the input distribution of the target task is shifted with respect to the source task [34], [58], reducing model performance. DA is a variant of transfer learning that attempts to alleviate this issue by adapting the source-trained model using sparse or unlabeled data from the target. DG refers to methods to train
+
+4
+
+a source model to be robust to such domain-shift without further adaptation. Many knowledge transfer methods have been studied [34], [58] to boost target domain performance. However, as for TL, vanilla DA and DG don’t use a metaobjective to optimize ‘how to learn’ across domains. Meanwhile, meta-learning methods can be used to perform both DA [59] and DG [42] (see Sec. 5.8).
+
+Continual learning (CL) Continual or lifelong learning [60]–[62] refers to the ability to learn on a sequence of tasks drawn from a potentially non-stationary distribution, and in particular seek to do so while accelerating learning new tasks and without forgetting old tasks. Similarly to metalearning, a task distribution is considered, and the goal is partly to accelerate learning of a target task. However most continual learning methodologies are not meta-learning methodologies since this meta objective is not solved for explicitly. Nevertheless, meta-learning provides a potential framework to advance continual learning, and a few recent studies have begun to do so by developing meta-objectives that encode continual learning performance [63]–[65].
+
+Multi-Task Learning (MTL) aims to jointly learn several related tasks, to beneﬁt from regularization due to parameter sharing and the diversity of the resulting shared representation [66]–[68], as well as compute/memory savings. Like TL, DA, and CL, conventional MTL is a singlelevel optimization without a meta-objective. Furthermore, the goal of MTL is to solve a ﬁxed number of known tasks, whereas the point of meta-learning is often to solve unseen future tasks. Nonetheless, meta-learning can be brought in to beneﬁt MTL, e.g. by learning the relatedness between tasks [69], or how to prioritise among multiple tasks [70].
+
+Hyperparameter Optimization (HO) is within the remit of meta-learning, in that hyperparameters like learning rate or regularization strength describe ‘how to learn’. Here we include HO tasks that deﬁne a meta objective that is trained end-to-end with neural networks, such as gradient-based hyperparameter learning [69], [71] and neural architecture search [18]. But we exclude other approaches like random search [72] and Bayesian Hyperparameter Optimization [73], which are rarely considered to be meta-learning.
+
+Hierarchical Bayesian Models (HBM) involve Bayesian
+
+learning of parameters θ under a prior p(θ|ω). The prior
+
+is written as a conditional density on some other variable
+
+ω which has its own prior p(ω). Hierarchical Bayesian
+
+models feature strongly as models for grouped data D =
+
+{Di|i = 1, 2, . . . , M }, where each group i has its own
+
+θi. The full model is
+
+M i=1
+
+p(Di|θi)p(θi
+
+|ω)
+
+p(ω). The lev-
+
+els of hierarchy can be increased further; in particular ω
+
+can itself be parameterized, and hence p(ω) can be learnt.
+
+Learning is usually full-pipeline, but using some form of
+
+Bayesian marginalisation to compute the posterior over
+
+ω: P (ω|D) ∼ p(ω)
+
+M i=1
+
+dθip(Di|θi)p(θi|ω). The ease of
+
+doing the marginalisation depends on the model: in some
+
+(e.g. Latent Dirichlet Allocation [74]) the marginalisation is
+
+exact due to the choice of conjugate exponential models,
+
+in others (see e.g. [75]), a stochastic variational approach is
+
+used to calculate an approximate posterior, from which a
+
+lower bound to the marginal likelihood is computed.
+
+Bayesian hierarchical models provide a valuable view-
+
+point for meta-learning, by providing a modeling rather than an algorithmic framework for understanding the metalearning process. In practice, prior work in HBMs has typically focused on learning simple tractable models θ while most meta-learning work considers complex inner-loop learning processes, involving many iterations. Nonetheless, some meta-learning methods like MAML [16] can be understood through the lens of HBMs [76].
+AutoML: AutoML [31]–[33] is a rather broad umbrella for approaches aiming to automate parts of the machine learning process that are typically manual, such as data preparation, algorithm selection, hyper-parameter tuning, and architecture search. AutoML often makes use of numerous heuristics outside the scope of meta-learning as deﬁned here, and focuses on tasks such as data cleaning that are less central to meta-learning. However, AutoML sometimes makes use of end-to-end optimization of a meta-objective, so meta-learning can be seen as a specialization of AutoML.
+3 TAXONOMY
+3.1 Previous Taxonomies
+Previous [77], [78] categorizations of meta-learning methods have tended to produce a three-way taxonomy across optimization-based methods, model-based (or black box) methods, and metric-based (or non-parametric) methods.
+Optimization Optimization-based methods include those where the inner-level task (Eq. 6) is literally solved as an optimization problem, and focuses on extracting metaknowledge ω required to improve optimization performance. A famous example is MAML [16], which aims to learn the initialization ω = θ0, such that a small number of inner steps produces a classiﬁer that performs well on validation data. This is also performed by gradient descent, differentiating through the updates of the base model. More elaborate alternatives also learn step sizes [79], [80] or train recurrent networks to predict steps from gradients [19], [39], [81]. Meta-optimization by gradient over long inner optimizations leads to several compute and memory challenges which are discussed in Section 6. A uniﬁed view of gradient-based meta learning expressing many existing methods as special cases of a generalized inner loop metalearning framework has been proposed [82].
+Black Box / Model-based In model-based (or black-box) methods the inner learning step (Eq. 6, Eq. 4) is wrapped up in the feed-forward pass of a single model, as illustrated in Eq. 7. The model embeds the current dataset D into activation state, with predictions for test data being made based on this state. Typical architectures include recurrent networks [39], [51], convolutional networks [38] or hypernetworks [83], [84] that embed training instances and labels of a given task to deﬁne a predictor for test samples. In this case all the inner-level learning is contained in the activation states of the model and is entirely feed-forward. Outerlevel learning is performed with ω containing the CNN, RNN or hypernetwork parameters. The outer and innerlevel optimizations are tightly coupled as ω and D directly specify θ. Memory-augmented neural networks [85] use an explicit storage buffer and can be seen as a model-based
+
+5
+
+algorithm [86], [87]. Compared to optimization-based approaches, these enjoy simpler optimization without requiring second-order gradients. However, it has been observed that model-based approaches are usually less able to generalize to out-of-distribution tasks than optimization-based methods [88]. Furthermore, while they are often very good at data efﬁcient few-shot learning, they have been criticised for being asymptotically weaker [88] as they struggle to embed a large training set into a rich base model.
+Metric-Learning Metric-learning or non-parametric algorithms are thus far largely restricted to the popular but speciﬁc few-shot application of meta-learning (Section 5.1.1). The idea is to perform non-parametric ‘learning’ at the inner (task) level by simply comparing validation points with training points and predicting the label of matching training points. In chronological order, this has been achieved with siamese [89], matching [90], prototypical [20], relation [91], and graph [92] neural networks. Here outer-level learning corresponds to metric learning (ﬁnding a feature extractor ω that represents the data suitably for comparison). As before ω is learned on source tasks, and used for target tasks.
+Discussion The common breakdown reviewed above does not expose all facets of interest and is insufﬁcient to understand the connections between the wide variety of meta-learning frameworks available today. For this reason, we propose a new taxonomy in the following section.
+3.2 Proposed Taxonomy
+We introduce a new breakdown along three independent axes. For each axis we provide a taxonomy that reﬂects the current meta-learning landscape.
+Meta-Representation (“What?”) The ﬁrst axis is the choice of meta-knowledge ω to meta-learn. This could be anything from initial model parameters [16] to readable code in the case of program induction [93].
+Meta-Optimizer (“How?”) The second axis is the choice of optimizer to use for the outer level during meta-training (see Eq. 5). The outer-level optimizer for ω can take a variety of forms from gradient-descent [16], to reinforcement learning [93] and evolutionary search [23].
+Meta-Objective (“Why?”) The third axis is the goal of meta-learning which is determined by choice of metaobjective Lmeta (Eq. 5), task distribution p(T ), and dataﬂow between the two levels. Together these can customize meta-learning for different purposes such as sample efﬁcient few-shot learning [16], [38], fast many-shot optimization [93], [94], robustness to domain-shift [42], [95], label noise [96], and adversarial attack [97].
+Together these axes provide a design-space for metalearning methods that can orient the development of new algorithms and customization for particular applications. Note that the base model representation θ isn’t included in this taxonomy, since it is determined and optimized in a way that is speciﬁc to the application at hand.
+4 SURVEY: METHODOLOGIES
+In this section we break down existing literature according to our proposed new methodological taxonomy.
+
+4.1 Meta-Representation
+Meta-learning methods make different choices about what meta-knowledge ω should be, i.e. which aspects of the learning strategy should be learned; and (by exclusion) which aspects should be considered ﬁxed.
+Parameter Initialization Here ω corresponds to the initial parameters of a neural network to be used in the inner optimization, with MAML being the most popular example [16], [98], [99]. A good initialization is just a few gradient steps away from a solution to any task T drawn from p(T ), and can help to learn without overﬁtting in few-shot learning. A key challenge with this approach is that the outer optimization needs to solve for as many parameters as the inner optimization (potentially hundreds of millions in large CNNs). This leads to a line of work on isolating a subset of parameters to meta-learn, for example by subspace [78], [100], by layer [83], [100], [101], or by separating out scale and shift [102]. Another concern is whether a single initial condition is sufﬁcient to provide fast learning for a wide range of potential tasks, or if one is limited to narrow distributions p(T ). This has led to variants that model mixtures over multiple initial conditions [100], [103], [104].
+Optimizer The above parameter-centric methods usually rely on existing optimizers such as SGD with momentum or Adam [105] to reﬁne the initialization when given some new task. Instead, optimizer-centric approaches [19], [39], [81], [94] focus on learning the inner optimizer by training a function that takes as input optimization states such as θ and ∇θLtask and produces the optimization step for each base learning iteration. The trainable component ω can span simple hyper-parameters such as a ﬁxed step size [79], [80] to more sophisticated pre-conditioning matrices [106], [107]. Ultimately ω can be used to deﬁne a full gradientbased optimizer through a complex non-linear transformation of the input gradient and other metadata [19], [39], [93], [94]. The parameters to learn here can be few if the optimizer is applied coordinate-wise across weights [19]. The initialization-centric and optimizer-centric methods can be merged by learning them jointly, namely having the former learn the initial condition for the latter [39], [79]. Optimizer learning methods have both been applied to for few-shot learning [39] and to accelerate and improve many-shot learning [19], [93], [94]. Finally, one can also meta-learn zeroth-order optimizers [108] that only require evaluations of Ltask rather than optimizer states such as gradients. These have been shown [108] to be competitive with conventional Bayesian Optimization [73] alternatives.
+Feed-Forward Models (FFMs. aka, Black-Box, Amortized) Another family of models trains learners ω that provide a feed-forward mapping directly from the support set to the parameters required to classify test instances, i.e., θ = gω(Dtrain) – rather than relying on a gradient-based iterative optimization of θ. These correspond to blackbox model-based learning in the conventional taxonomy (Sec. 3.1) and span from classic [109] to recent approaches such as CNAPs [110] that provide strong performance on challenging cross-domain few-shot benchmarks [111].
+These methods have connections to Hypernetworks [112], [113] which generate the weights of another neural network conditioned on some embedding – and are often
+
+6
+
+Meta-Learning
+
+Meta-Optimizer
+
+Meta-Representation
+
+Meta-Objective
+
+Application
+
+Gradient
+Reinforcement Learning
+Evolution
+
+Parameter Initialization
+Optimizer
+
+Instance Weights
+Attention
+
+Black-Box Model Hyperparameters
+
+Embedding
+
+Architecture
+
+Modules
+
+Noise Generator
+
+Curriculum
+Dataset/ Environment
+Loss/ Reward
+Exploration Policy
+Data Augmentation
+
+Many/Few-Shot
+Multi/Single-Task
+Online/Ofﬂine Net/Asymptotic
+Performance
+
+Few-Shot Learning
+Fast Learning
+Continual Learning
+Compression
+
+Exploration
+Bayesian Meta-Learning
+Unsupervised Meta-Learning
+Active Learning
+
+Label Noise
+Adversarial Defense
+Domain Generalization
+Architecture Search
+
+Fig. 1. Overview of the meta-learning landscape including algorithm design (meta-optimizer, meta-representation, meta-objective), and applications.
+
+used for compression or multi-task learning. Here ω is the hypernetwork and it synthesises θ given the source dataset in a feed-forward pass [100], [114]. Embedding the support set is often achieved by recurrent networks [51], [115], [116] convolution [38], or set embeddings [45], [110]. Research here often studies architectures for paramaterizing the classiﬁer by the task-embedding network: (i) Which parameters should be globally shared across all tasks, vs synthesized per task by the hypernetwork (e.g., share the feature extractor and synthesize the classiﬁer [83], [117]), and (ii) How to parameterize the hypernetwork so as to limit the number of parameters required in ω (e.g., via synthesizing only lightweight adapter layers in the feature extractor [110], or class-wise classiﬁer weight synthesis [45]).
+Some FFMs can also be understood elegantly in terms of amortized inference in probabilistic models [45], [109], making predictions for test data x as:
+
+qω(y|x, Dtr) = p(y|x, θ)qω(θ|Dtr)dθ
+
+(8)
+
+where the meta-representation ω is a network qω(·) that approximates the intractable Bayesian inference for parameters θ that solve the task with training data Dtr, and the integral may be computed exactly [109], or approximated by sampling [45] or point estimate [110]. The model ω is then trained to minimise validation loss over a distribution of training tasks cf. Eq. 7.
+Finally, memory-augmented neural networks, with the ability to remember old data and assimilate new data quickly, typically fall in the FFM category as well [86], [87].
+Embedding Functions (Metric Learning) Here the metaoptimization process learns an embedding network ω that transforms raw inputs into a representation suitable for recognition by simple similarity comparison between query and support instances [20], [83], [90], [117] (e.g., with cosine similarity or euclidean distance). These methods are classiﬁed as metric learning in the conventional taxonomy (Section 3.1) but can also be seen as a special case of the feed-forward black-box models above. This can easily be seen for methods that produce logits based on the inner product of the embeddings of support and query images xs and xq, namely gωT (xq)gω(xs) [83], [117]. Here the support
+
+image generates ‘weights’ to interpret the query example, making it a special case of a FFM where the ‘hypernetwork’ generates a linear classiﬁer for the query set. Vanilla methods in this family have been further enhanced by making the embedding task-conditional [101], [118], learning a more elaborate comparison metric [91], [92], or combining with gradient-based meta-learning to train other hyperparameters such as stochastic regularizers [119].
+Losses and Auxiliary Tasks Analogously to the metalearning approach to optimizer design, these aim to learn the inner task-loss Ltωask(·) for the base model. Loss-learning approaches typically deﬁne a small neural network that inputs quantities relevant to losses (e.g. predictions, features, or model parameters) and outputs a scalar to be treated as a loss by the inner (task) optimizer. This has potential beneﬁts such as leading to a learned loss that is easier to optimize (e.g. less local minima) than commonly used ones [23], [120], [121], leads to faster learning with improved generalization [43], [122]–[124], or one whose minima correspond to a model more robust to domain shift [42]. Loss learning methods have also been used to learn to learn from unlabeled instances [101], [125], or to learn Ltωask() as a differentiable approximation to a true non-differentiable task loss such as area under precision recall curve [126], [127].
+Loss learning also arises in generalizations of selfsupervised [128] or auxiliary task [129] learning. In these problems unsupervised predictive tasks (such as colourising pixels in vision [128], or simply changing pixels in RL [129]) are deﬁned and optimized with the aim of improving the representation for the main task. In this case the best auxiliary task (loss) to use can be hard to predict in advance, so meta-learning can be used to select among several auxiliary losses according to their impact on improving main task learning. I.e., ω is a per-auxiliary task weight [70]. More generally, one can meta-learn an auxiliary task generator that annotates examples with auxiliary labels [130].
+Architectures Architecture discovery has always been an important area in neural networks [37], [131], and one that is not amenable to simple exhaustive search. Meta-Learning can be used to automate this very expensive process by learning architectures. Early attempts used evolutionary
+
+7
+
+algorithms to learn the topology of LSTM cells [132], while later approaches leveraged RL to generate descriptions for good CNN architectures [26]. Evolutionary Algorithms [25] can learn blocks within architectures modelled as graphs which could mutate by editing their graph. Gradient-based architecture representations have also been visited in the form of DARTS [18] where the forward pass during training consists in a softmax across the outputs of all possible layers in a given block, which are weighted by coefﬁcients to be meta learned (i.e. ω). During meta-test, the architecture is discretized by only keeping the layers corresponding to the highest coefﬁcients. Recent efforts to improve DARTS have focused on more efﬁcient differentiable approximations [133], robustifying the discretization step [134], learning easy to adapt initializations [135], or architecture priors [136]. See Section 5.4 for more details.
+Attention Modules have been used as comparators in metric-based meta-learners [137], to prevent catastrophic forgetting in few-shot continual learning [138] and to summarize the distribution of text classiﬁcation tasks [139].
+Modules Modular meta-learning [140], [141] assumes that the task agnostic knowledge ω deﬁnes a set of modules, which are re-composed in a task speciﬁc manner deﬁned by θ in order to solve each encountered task. These strategies can be seen as meta-learning generalizations of the typical structural approaches to knowledge sharing that are well studied in multi-task and transfer learning [67], [68], [142], and may ultimately underpin compositional learning [143].
+Hyper-parameters Here ω represents hyperparameters of the base learner such as regularization strength [17], [71], per-parameter regularization [95], task-relatedness in multitask learning [69], or sparsity strength in data cleansing [69]. Hyperparameters such as step size [71], [79], [80] can be seen as part of the optimizer, leading to an overlap between hyper-parameter and optimizer learning categories.
+Data Augmentation In supervised learning it is common to improve generalization by synthesizing more training data through label-preserving transformations on the existing data. The data augmentation operation is wrapped up in optimization steps of the inner problem (Eq. 6), and is conventionally hand-designed. However, when ω deﬁnes the data augmentation strategy, it can be learned by the outer optimization in Eq. 5 in order to maximize validation performance [144]. Since augmentation operations are typically non-differentiable, this requires reinforcement learning [144], discrete gradient-estimators [145], or evolutionary [146] methods. An open question is whether powerful GANbased data augmentation methods [147] can be used in inner-level learning and optimized in outer-level learning.
+Minibatch Selection, Sample Weights, and Curriculum Learning When the base algorithm is minibatch-based stochastic gradient descent, a design parameter of the learning strategy is the batch selection process. Various handdesigned methods [148] exist to improve on randomlysampled minibatches. Meta-learning approaches can deﬁne ω as an instance selection probability [149] or neural network that picks instances [150] for inclusion in a minibatch. Related to mini-batch selection policies are methods that learn per-sample loss weights ω for the training set [151],
+
+[152]. This can be used to learn under label-noise by discounting noisy samples [151], [152], discount outliers [69], or correct for class imbalance [151]
+More generally, the curriculum [153] refers to sequences of data or concepts to learn that produce better performance than learning items in a random order. For instance by focusing on instances of the right difﬁculty while rejecting too hard or too easy (already learned) instances. Instead of deﬁning a curriculum by hand [154], meta-learning can automate the process and select examples of the right difﬁculty by deﬁning a teaching policy as the meta-knowledge and training it to optimize the student’s progress [150], [155].
+Datasets, Labels and Environments Another metarepresentation is the support dataset itself. This departs from our initial formalization of meta-learning which considers the source datasets to be ﬁxed (Section 2.1, Eqs. 2-3). However, it can be easily understood in the bilevel view of Eqs. 5-6. If the validation set in the upper optimization is real and ﬁxed, and a train set in the lower optimization is paramaterized by ω, the training dataset can be tuned by meta-learning to optimize validation performance.
+In dataset distillation [156], [157], the support images themselves are learned such that a few steps on them allows for good generalization on real query images. This can be used to summarize large datasets into a handful of images, which is useful for replay in continual learning where streaming datasets cannot be stored.
+Rather than learning input images x for ﬁxed labels y, one can also learn the input labels y for ﬁxed images x. This can be used in distilling core sets [158] as in dataset distillation; or semi-supervised learning, for example to directly learn the unlabeled set’s labels to optimize validation set performance [159], [160].
+In the case of sim2real learning [161] in computer vision or reinforcement learning, one uses an environment simulator to generate data for training. In this case, as detailed in Section 5.3, one can also train the graphics engine [162] or simulator [163] so as to optimize the real-data (validation) performance of the downstream model after training on data generated by that environment simulator.
+Discussion: Transductive Representations and Methods Most of the representations ω discussed above are parameter vectors of functions that process or generate data. However a few of the representations mentioned are transductive in the sense that the ω literally corresponds to data points [156], labels [159], or per-sample weights [152]. Therefore the number of parameters in ω to meta-learn scales as the size of the dataset. While the success of these methods is a testament to the capabilities of contemporary meta-learning [157], this property may ultimately limit their scalability.
+Distinct from a transductive representation are methods that are transductive in the sense that they operate on the query instances as well as support instances [101], [130].
+Discussion: Interpretable Symbolic Representations A cross-cutting distinction that can be made across many of the meta-representations discussed above is between uninterpretable (sub-symbolic) and human interpretable (symbolic) representations. Sub-symbolic representations, such as when ω parameterizes a neural network [19], are more common and make up the majority of studies cited above.
+
+8
+
+However, meta-learning with symbolic representations is also possible, where ω represents human readable symbolic functions such as optimization program code [93]. Rather than neural loss functions [42], one can train symbolic losses ω that are deﬁned by an expression analogous to cross-entropy [123]. One can also meta-learn new symbolic activations [164] that outperform standards such as ReLU. As these meta-representations are non-smooth, the metaobjective is non-differentiable and is harder to optimize (see Section 4.2). So the upper optimization for ω typically uses RL [93] or evolutionary algorithms [123]. However, symbolic representations may have an advantage [93], [123], [164] in their ability to generalize across task families. I.e., to span wider distributions p(T ) with a single ω during metatraining, or to have the learned ω generalize to an out of distribution task during meta-testing (see Section 6).
+Discussion: Amortization One way to relate some of the representations discussed is in terms of the degree of learning amortization entailed [45]. That is, how much task-speciﬁc optimization is performed during meta-testing vs how much learning is amortized during meta-training. Training from scratch, or conventional ﬁne-tuning [57] perform full task-speciﬁc optimization at meta-testing, with no amortization. MAML [16] provides limited amortization by ﬁtting an initial condition, to enable learning a new task by few-step ﬁne-tuning. Pure FFMs [20], [90], [110] are fully amortized, with no task-speciﬁc optimization, and thus enable the fastest learning of new tasks. Meanwhile some hybrid approaches [100], [101], [111], [165] implement semiamortized learning by drawing on both feed-forward and optimization-based meta-learning in a single framework.
+4.2 Meta-Optimizer
+Given a choice of which facet of the learning strategy to optimize, the next axis of meta-learner design is actual outer (meta) optimization strategy to use for training ω.
+Gradient A large family of methods use gradient descent on the meta parameters ω [16], [39], [42], [69]. This requires computing derivatives dLmeta/dω of the outer objective, which are typically connected via the chain rule to the model parameter θ, dLmeta/dω = (dLmeta/dθ)(dθ/dω). These methods are potentially the most efﬁcient as they exploit analytical gradients of ω. However key challenges include: (i) Efﬁciently differentiating through many steps of inner optimization, for example through careful design of differentiation algorithms [17], [71], [193] and implicit differentiation [157], [167], [194], and dealing tractably with the required second-order gradients [195]. (ii) Reducing the inevitable gradient degradation problems whose severity increases with the number of inner loop optimization steps. (iii) Calculating gradients when the base learner, ω, or Ltask include discrete or other non-differentiable operations.
+Reinforcement Learning When the base learner includes non-differentiable steps [144], or the meta-objective Lmeta is itself non-differentiable [126], many methods [22] resort to RL to optimize the outer objective Eq. 5. This estimates the gradient ∇ωLmeta, typically using the policy gradient theorem. However, alleviating the requirement for differentiability in this way is typically extremely costly. Highvariance policy-gradient estimates for ∇ωLmeta mean that
+
+many outer-level optimization steps are required to converge, and each of these steps are themselves costly due to wrapping task-model optimization within them.
+Evolution Another approach for optimizing the metaobjective are evolutionary algorithms (EA) [14], [131], [196]. Many evolutionary algorithms have strong connections to reinforcement learning algorithms [197]. However, their performance does not depend on the length and reward sparsity of the inner optimization as for RL.
+EAs are attractive for several reasons [196]: (i) They can optimize any base model and meta-objective with no differentiability constraint. (ii) Not relying on backpropagation avoids both gradient degradation issues and the cost of high-order gradient computation of conventional gradient-based methods. (iii) They are highly parallelizable for scalability. (iv) By maintaining a diverse population of solutions, they can avoid local minima that plague gradientbased methods [131]. However, they have a number of disadvantages: (i) The population size required increases rapidly with the number of parameters to learn. (ii) They can be sensitive to the mutation strategy and may require careful hyperparameter optimization. (iii) Their ﬁtting ability is generally inferior to gradient-based methods, especially for large models such as CNNs.
+EAs are relatively more commonly applied in RL applications [23], [172] (where models are typically smaller, and inner optimizations are long and non-differentiable). However they have also been applied to learn learning rules [198], optimizers [199], architectures [25], [131] and data augmentation strategies [146] in supervised learning. They are also particularly important in learning human interpretable symbolic meta-representations [123].
+4.3 Meta-Objective and Episode Design
+The ﬁnal component is to deﬁne the meta-learning goal through choice of meta-objective Lmeta, and associated data ﬂow between inner loop episodes and outer optimizations. Most methods deﬁne a meta-objective using a performance metric computed on a validation set, after updating the task model with ω. This is in line with classic validation set approaches to hyperparameter and model selection. However, within this framework, there are several design options:
+Many vs Few-Shot Episode Design According to whether the goal is improving few- or many-shot performance, inner loop learning episodes may be deﬁned with many [69], [93], [94] or few- [16], [39] examples per-task.
+Fast Adaptation vs Asymptotic Performance When validation loss is computed at the end of the inner learning episode, meta-training encourages better ﬁnal performance of the base task. When it is computed as the sum of the validation loss after each inner optimization step, then metatraining also encourages faster learning in the base task [80], [93], [94]. Most RL applications also use this latter setting.
+Multi vs Single-Task When the goal is to tune the learner to better solve any task drawn from a given family, then inner loop learning episodes correspond to a randomly drawn task from p(T ) [16], [20], [42]. When the goal is to tune the learner to simply solve one speciﬁc task better, then the inner loop learning episodes all draw data from the same underlying task [19], [69], [175], [183], [184], [200].
+
+9
+
+Meta-Representation
+
+Meta-Optimizer
+
+Gradient
+
+RL
+
+Evolution
+
+Initial Condition
+
+[16], [79], [88], [102], [166], [166]–[168]
+
+[169]–[171] [16], [63], [64]
+
+[172], [173]
+
+Optimizer
+
+[19], [94] [21], [39], [79], [106], [107], [174]
+
+[81], [93]
+
+Hyperparam
+
+[17], [69] [71]
+
+[175], [176]
+
+[173] [177]
+
+Feed-Forward model
+
+[38], [45], [86], [110], [178], [179] [180]–[182]
+
+[22], [114], [116]
+
+Metric
+
+[20], [90], [91]
+
+Loss/Reward
+
+[42], [95] [127] [124]
+
+[126] [121], [183] [124]
+
+[123] [23] [177]
+
+Architecture
+
+[18] [135]
+
+[26]
+
+[25]
+
+Exploration Policy
+
+[24], [184]–[188]
+
+Dataset/Environment
+
+[156] [159]
+
+[162]
+
+[163]
+
+Instance Weights
+
+[151], [152], [155]
+
+Feature/Metric
+
+[20], [90]–[92]
+
+Data Augmentation/Noise
+
+[145] [119] [189]
+
+[144]
+
+[146]
+
+Modules
+
+[140], [141]
+
+Annotation Policy
+
+[190], [191]
+
+[192]
+
+TABLE 1
+
+Research papers according to our taxonomy. We use color to indicate salient meta-objective or application goal. We focus on the main goal of
+
+each paper for simplicity. The color code is: sample efﬁciency (red), learning speed (green), asymptotic performance (purple), cross-domain (blue).
+
+It is worth noting that these two meta-objectives tend to have different assumptions and value propositions. The multi-task objective obviously requires a task family p(T ) to work with, which single-task does not. Meanwhile for multi-task, the data and compute cost of meta-training can be amortized by potentially boosting the performance of multiple target tasks during meta-test; but single-task – without the new tasks for amortization – needs to improve the ﬁnal solution or asymptotic performance of the current task, or meta-learn fast enough to be online.
+Online vs Ofﬂine While the classic meta-learning pipeline deﬁnes the meta-optimization as an outer-loop of the inner base learner [16], [19], some studies have attempted to preform meta-optimization online within a single base learning episode [42], [183], [200], [201]. In this case the base model θ and learner ω co-evolve during a single episode. Since there is now no set of source tasks to amortize over, meta-learning needs to be fast compared to base model learning in order to beneﬁt sample or compute efﬁciency.
+Other Episode Design Factors Other operators can be inserted into the episode generation pipeline to customize meta-learning for particular applications. For example one can simulate domain-shift between training and validation to meta-optimize for good performance under domainshift [42], [59], [95]; simulate network compression such as quantization [202] between training and validation to metaoptimize for network compressibility; provide noisy labels during meta-training to optimize for label-noise robustness [96], or generate an adversarial validation set to metaoptimize for adversarial defense [97]. These opportunities are explored in more detail in the following section.
+5 APPLICATIONS
+In this section we brieﬂy review the ways in which metalearning has been exploited in computer vision, reinforcement learning, architecture search, and so on.
+
+5.1 Computer Vision and Graphics
+Computer vision is a major consumer domain of metalearning techniques, notably due to its impact on few-shot learning, which holds promise to deal with the challenge posed by the long-tail of concepts to recognise in vision.
+5.1.1 Few-Shot Learning Methods
+Few-shot learning (FSL) is extremely challenging, especially for large neural networks [1], [13], where data volume is often the dominant factor in performance [203], and training large models with small datasets leads to overﬁtting or non-convergence. Meta-learning-based approaches are increasingly able to train powerful CNNs on small datasets in many vision problems. We provide a non-exhaustive representative summary as follows.
+Classiﬁcation The most common application of metalearning is few-shot multi-class image recognition, where the inner and outer loss functions are typically the cross entropy over training and validation data respectively [20], [39], [77], [79], [80], [90], [92], [100], [101], [104], [107], [204]– [207]. Optimizer-centric [16], black-box [38], [83] and metric learning [90]–[92] models have all been considered.
+This line of work has led to a steady improvement in performance compared to early methods [16], [89], [90]. However, performance is still far behind that of fully supervised methods, so there is more work to be done. Current research issues include improving cross-domain generalization [119], recognition within the joint label space deﬁned by metatrain and meta-test classes [84], and incremental addition of new few-shot classes [138], [178].
+Object Detection Building on progress in few-shot classiﬁcation, few-shot object detection [178], [208] has been demonstrated, often using feed-forward hypernetworkbased approaches to embed support set images and synthesize ﬁnal layer classiﬁcation weights in the base model.
+Landmark Prediction aims to locate a skeleton of key points within an image, such as such as joints of a human or robot. This is typically formulated as an image-conditional
+
+10
+
+regression. For example, a MAML-based model was shown to work for human pose estimation [209], modular-metalearning was successfully applied to robotics [140], while a hypernetwork-based model was applied to few-shot clothes ﬁtting for novel fashion items [178].
+Few-Shot Object Segmentation is important due to the cost of obtaining pixel-wise labeled images. Hypernetworkbased meta-learners have been applied in the one-shot regime [210], and performance was later improved by adapting prototypical networks [211]. Other models tackle cases where segmentation has low density [212].
+Image and Video Generation In [45] an amortized probabilistic meta-learner is used to generate multiple views of an object from just a single image, generative query networks [213] render scenes from novel views, and talking faces are generated from little data by learning the initialization of an adversarial model for quick adaptation [214]. In video domain, [215] meta-learns a weight generator that synthesizes videos given few example images as cues.
+Generative Models and Density Estimation Density estimators capable of generating images typically require many parameters, and as such overﬁt in the few-shot regime. Gradient-based meta-learning of PixelCNN generators was shown to enable their few-shot learning [216].
+5.1.2 Few-Shot Learning Benchmarks
+Progress in AI and machine learning is often measured, and spurred, by well designed benchmarks [217]. Conventional ML benchmarks deﬁne a task and dataset for which a model should generalize from seen to unseen instances. In metalearning, benchmark design is more complex, since we are often dealing with a learner that should generalize from seen to unseen tasks. Benchmark design thus needs to deﬁne families of tasks from which meta-training and meta-testing tasks can be drawn. Established FSL benchmarks include miniImageNet [39], [90], Tiered-ImageNet [218], SlimageNet [219], Omniglot [90] and Meta-Dataset [111].
+Dataset Diversity, Bias and Generalization The standard benchmarks provide tasks for training and evaluation, but suffer from a lack of diversity (narrow p(T )) which makes performance on these benchmarks non-reﬂective of performance on real-world few shot task. For example, switching between different kinds of animal photos in miniImageNet is not a strong test of generalization. Ideally we would like to span more diverse categories and types of images (satellite, medical, agricultural, underwater, etc); and even be robust to domain-shifts between meta-train and metatest tasks.
+There is work still to be done here as, even in the manyshot setting, ﬁtting a deep model to a very wide distribution of data is itself non-trivial [220], as is generalizing to out-ofsample data [42], [95]. Similarly, the performance of metalearners often drops drastically when introducing a domain shift between the source and target task distributions [117]. This motivates the recent Meta-Dataset [111] and CVPR cross-domain few-shot challenge [221]. Meta-Dataset aggregates a number of individual recognition benchmarks to provide a wider distribution of tasks p(T ) to evaluate the ability to ﬁt a wide task distribution and generalize across
+
+domain-shift. Meanwhile, [221] challenges methods to generalize from the everyday ImageNet images to medical, satellite and agricultural images. Recent work has begun to try and address these issues by meta-training for domainshift robustness as well as sample efﬁciency [119]. Generalization issues also arise in applying models to data from under-represented countries [222].
+5.2 Meta Reinforcement Learning and Robotics
+Reinforcement learning is typically concerned with learning control policies that enable an agent to obtain high reward after performing a sequential action task within an environment. RL typically suffers from extreme sample inefﬁciency due to sparse rewards, the need for exploration, and the high-variance [223] of optimization algorithms. However, applications often naturally entail task families which meta-learning can exploit – for example locomotingto or reaching-to different positions [188], navigating within different environments [38], traversing different terrains [65], driving different cars [187], competing with different competitor agents [63], and dealing with different handicaps such as failures in individual robot limbs [65]. Thus RL provides a fertile application area in which meta-learning on task distributions has had signiﬁcant successes in improving sample efﬁciency over standard RL algorithms. One can intuitively understand the efﬁcacy of these methods. For instance meta-knowledge of a maze layout is transferable for all tasks that require navigating within the maze.
+5.2.1 Methods
+Several meta-representations that we have already seen have been explored in RL including learning the initial conditions [16], [173], hyperparameters [173], [177], step directions [79] and step sizes [176], which enables gradientbased learning to train a neural policy with fewer environmental interactions; and training fast convolutional [38] or recurrent [22], [116] black-box models to embed the experience of a given environment to synthesize a policy. Recent work has developed improved meta-optimization algorithms [169], [170], [172] for these tasks, and provided theoretical guarantees for meta-RL [224].
+Exploration A meta-representation rather unique to RL is the exploration policy. RL is complicated by the fact that the data distribution is not ﬁxed, but varies according to the agent’s actions. Furthermore, sparse rewards may mean that an agent must take many actions before achieving a reward that can be used to guide learning. As such, how to explore and acquire data for learning is a crucial factor in any RL algorithm. Traditionally exploration is based on sampling random actions [225], or hand-crafted heuristics [226]. Several meta-RL studies have instead explicitly treated exploration strategy or curiosity function as metaknowledge ω; and modeled their acquisition as a metalearning problem [24], [186], [187], [227] – leading to sample efﬁciency improvements by ‘learning how to explore’.
+Optimization RL is a difﬁcult optimization problem where the learned policy is usually far from optimal, even on ‘training set’ episodes. This means that, in contrast to meta-SL, meta-RL methods are more commonly deployed to increase asymptotic performance [23], [177], [183] as
+
+11
+
+well as sample-efﬁciency, and can lead to signiﬁcantly better solutions overall. The meta-objective of many meta-RL frameworks is the net return of the agent over a full episode, and thus both sample efﬁcient and asymptotically performant learning are rewarded. Optimization difﬁculty also means that there has been relatively more work on learning losses (or rewards) [121], [124], [183], [228] which an RL agent should optimize instead of – or in addition to – the conventional sparse reward objective. Such learned losses may be easier to optimize (denser, smoother) compared to the true target [23], [228]. This also links to exploration as reward learning and can be considered to instantiate metalearning of learning intrinsic motivation [184].
+Online meta-RL A signiﬁcant fraction of meta-RL studies addressed the single-task setting, where the metaknowledge such as loss [121], [183], reward [177], [184], hyperparameters [175], [176], or exploration strategy [185] are trained online together with the base policy while learning a single task. These methods thus do not require task families and provide a direct improvement to their respective base learners’ performance.
+On- vs Off-Policy meta-RL A major dichotomy in conventional RL is between on-policy and off-policy learning such as PPO [225] vs SAC [229]. Off-policy methods are usually signiﬁcantly more sample efﬁcient. However, offpolicy methods have been harder to extend to meta-RL, leading to more meta-RL methods being built on on-policy RL methods, thus limiting the absolute performance of meta-RL. Early work in off-policy meta-RL methods has led to strong results [114], [121], [171], [228]. Off-policy learning also improves the efﬁciency of the meta-train stage [114], which can be expensive in meta-RL. It also provides new opportunities to accelerate meta-testing by replay buffer sample from meta-training [171].
+Other Trends and Challenges [65] is noteworthy in demonstrating successful meta-RL on a real-world physical robot. Knowledge transfer in robotics is often best studied compositionally [230]. E.g., walking, navigating and object pick/place may be subroutines for a room cleaning robot. However, developing meta-learners with effective compositional knowledge transfer is an open question, with modular meta-learning [141] being an option. Unsupervised metaRL variants aim to perform meta-training without manually speciﬁed rewards [231], or adapt at meta-testing to a changed environment but without new rewards [232]. Continual adaptation provides an agent with the ability to adapt to a sequence of tasks within one meta-test episode [63]–[65], similar to continual learning. Finally, meta-learning has also been applied to imitation [115] and inverse RL [233].
+5.2.2 Benchmarks
+Meta-learning benchmarks for RL typically deﬁne a family to solve in order to train and evaluate an agent that learns how to learn. These can be tasks (reward functions) to achieve, or domains (distinct environments or MDPs).
+Discrete Control RL An early meta-RL benchmark for vision-actuated control is the arcade learning environment (ALE) [234], which deﬁnes a set of classic Atari games split into meta-training and meta-testing. The protocol here is to evaluate return after a ﬁxed number of timesteps in the
+
+meta-test environment. A challenge is the great diversity (wide p(T )) across games, which makes successful metatraining hard and leads to limited beneﬁt from knowledge transfer [234]. Another benchmark [235] is based on splitting Sonic-hedgehog levels into meta-train/meta-test. The task distribution here is narrower and beneﬁcial meta-learning is relatively easier to achieve. Cobbe et al. [236] proposed two purpose designed video games for benchmarking meta-RL. CoinRun game [236] provides 232 procedurally generated levels of varying difﬁculty and visual appearance. They show that some 10, 000 levels of meta-train experience are required to generalize reliably to new levels. CoinRun is primarily designed to test direct generalization rather than fast adaptation, and can be seen as providing a distribution over MDP environments to test generalization rather than over tasks to test adaptation. To better test fast learning in a wider task distribution, ProcGen [236] provides a set of 16 procedurally generated games including CoinRun.
+Continuous Control RL While common benchmarks such as gym [237] have greatly beneﬁted RL research, there is less consensus on meta-RL benchmarks, making existing work hard to compare. Most continuous control meta-RL studies have proposed home-brewed benchmarks that are low dimensional parametric variants of particular tasks such as navigating to various locations or velocities [16], [114], or traversing different terrains [65]. Several multi-MDP benchmarks [238], [239] have recently been proposed but these primarily test generalization across different environmental perturbations rather than different tasks. The Meta-World benchmark [240] provides a suite of 50 continuous control tasks with state-based actuation, varying from simple parametric variants such as lever-pulling and door-opening. This benchmark should enable more comparable evaluation, and investigation of generalization within and across task distributions. The meta-world evaluation [240] suggests that existing meta-RL methods struggle to generalize over wide task distributions and meta-train/meta-test shifts. This may be due to our meta-RL models being too weak and/or benchmarks being too small, in terms of number and coverage tasks, for effective learning-to-learn. Another recent benchmark suitable for meta-RL is PHYRE [241] which provides a set of 50 vision-based physics task templates which can be solved with simple actions but are likely to require model-based reasoning to address efﬁciently. These also provide within and cross-template generalization tests.
+Discussion One complication of vision-actuated metaRL is disentangling visual generalization (as in computer vision) with fast learning of control strategies more generally. For example CoinRun [236] evaluation showed large beneﬁt from standard vision techniques such as batch norm suggesting that perception is a major bottleneck.
+5.3 Environment Learning and Sim2Real
+In Sim2Real we are interested in training a model in simulation that is able to generalize to the real-world. The classic domain randomization approach simulates a wide distribution over domains/MDPs, with the aim of training a sufﬁciently robust model to succeed in the real world – and has succeeded in both vision [242] and RL [161]. Nevertheless tuning the simulation distribution remains a challenge.
+
+12
+
+This leads to a meta-learning setup where the inner-level optimization learns a model in simulation, the outer-level optimization Lmeta evaluates the model’s performance in the real-world, and the meta-representation ω corresponds to the parameters of the simulation environment. This paradigm has been used in RL [163] as well as vision [162], [243]. In this case the source tasks used for meta-train tasks are not a pre-provided data distribution, but paramaterized by omega, Dsource(ω). However, challenges remain in terms of costly back-propagation through a long graph of inner task learning steps; as well as minimising the number of real-world Lmeta evaluations in the case of Sim2Real.
+5.4 Neural Architecture Search (NAS)
+Architecture search [18], [25], [26], [37], [131] can be seen as a kind of hyperparameter optimization where ω speciﬁes the architecture of a neural network. The inner optimization trains networks with the speciﬁed architecture, and the outer optimization searches for architectures with good validation performance. NAS methods have been analysed [37] according to ‘search space’, ‘search strategy’, and ‘performance estimation strategy’. These correspond to the hypothesis space for ω, the meta-optimization strategy, and the meta-objective. NAS is particularly challenging because: (i) Fully evaluating the inner loop is expensive since it requires training a many-shot neural network to completion. This leads to approximations such as sub-sampling the train set, early termination of the inner loop, and interleaved descent on both ω and θ [18] as in online meta-learning. (ii.) The search space is hard to deﬁne, and optimize. This is because most search spaces are broad, and the space of architectures is not trivially differentiable. This leads to reliance on celllevel search [18], [26] constraining the search space, RL [26], discrete gradient estimators [133] and evolution [25], [131].
+Topical Issues While NAS itself can be seen as an instance of hyper-parameter or hypothesis-class meta-learning, it can also interact with meta-learning in other forms. Since NAS is costly, a topical issue is whether discovered architectures can generalize to new problems [244]. Meta-training across multiple datasets may lead to improved cross-task generalization of architectures [136]. Finally, one can also deﬁne NAS meta-objectives to train an architecture suitable for few-shot learning [245], [246]. Similarly to fast-adapting initial condition meta-learning approaches such as MAML [16], one can train good initial architectures [135] or architecture priors [136] that are easy to adapt towards speciﬁc tasks.
+Benchmarks NAS is often evaluated on CIFAR-10, but it is costly to perform and results are hard to reproduce due to confounding factors such as tuning of hyperparameters [247]. To support reproducible and accessible research, the NASbenches [248] provide pre-computed performance measures for a large number of network architectures.
+5.5 Bayesian Meta-learning
+Bayesian meta-learning approaches formalize meta-learning via Bayesian hierarchical modelling, and use Bayesian inference for learning rather than direct optimization of parameters. In the meta-learning context, Bayesian learning is typically intractable, and so approximations such as stochastic variational inference or sampling are used.
+
+Bayesian meta-learning importantly provides uncertainty measures for the ω parameters, and hence measures of prediction uncertainty which can be important for safety critical applications, exploration in RL, and active learning.
+A number of authors have explored Bayesian approaches to meta-learning complex neural network models with competitive results. For example, extending variational autoencoders to model task variables explicitly [75]. Neural Processes [179] deﬁne a feed-forward Bayesian meta-learner inspired by Gaussian Processes but implemented with neural networks. Deep kernel learning is also an active research area that has been adapted to the meta-learning setting [249], and is often coupled with Gaussian Processes [250]. In [76] gradient based meta-learning is recast into a hierarchical empirical Bayes inference problem (i.e. prior learning), which models uncertainty in task-speciﬁc parameters θ. Bayesian MAML [251] improves on this model by using a Bayesian ensemble approach that allows non-Gaussian posteriors over θ, and later work removes the need for costly ensembles [45], [252]. In Probabilistic MAML [98], it is the uncertainty in the metaknowledge ω that is modelled, while a MAP estimate is used for θ. Increasingly, these Bayesian methods are shown to tackle ambiguous tasks, active learning and RL problems.
+Separate from the above, meta-learning has also been proposed to aid the Bayesian inference process itself, as in [253] where the authors adapt a Bayesian sampler to provide efﬁcient adaptive sampling methods.
+5.6 Unsupervised Meta-Learning
+There are several distinct ways in which unsupervised learning can interact with meta-learning, depending on whether unsupervised learning in performed in the inner loop or outer loop, and during meta-train vs meta-test.
+Unsupervised Learning of a Supervised Learner The aim here is to learn a supervised learning algorithm (e.g., via MAML [16] style initial condition for supervised ﬁnetuning), but do so without the requirement of a large set of source tasks for meta-training [254]–[256]. To this end, synthetic source tasks are constructed without supervision via clustering or class-preserving data augmentation, and used to deﬁne the meta-objective for meta-training.
+Supervised Learning of an Unsupervised Learner This family of methods aims to meta-train an unsupervised learner. For example, by training the unsupervised algorithm such that it works well for downstream supervised learning tasks. One can train unsupervised learning rules [21] or losses [101], [125] such that downstream supervised learning performance is optimized – after re-using the unsupervised representation for a supervised task [21], or adapting based on unlabeled data [101], [125]. Alternatively, when unsupervised tasks such as clustering exist in a family, rather than in isolation, then learning-to-learn of ‘how-to-cluster’ on several source tasks can provide better performance on new clustering tasks in the family [180]– [182], [257], [258]. The methods in this group that make use of feed-forward models are often known as amortized clustering [181], [182], because they amortize the typically iterative computation of clustering algorithms into the cost of training a single inference model, which subsequently
+
+13
+
+performs clustering using a single feed-froward pass. Overall, these methods help to deal with the ill-deﬁnedness of the unsupervised learning problem by transforming it into a problem with a clear supervised (meta) objective.
+5.7 Continual, Online and Adaptive Learning
+Continual Learning refers to the human-like capability of learning tasks presented in sequence. Ideally this is done while exploiting forward transfer so new tasks are learned better given past experience, without forgetting previously learned tasks, and without needing to store past data [62]. Deep Neural Networks struggle to meet these criteria, especially as they tend to forget information seen in earlier tasks – a phenomenon known as catastrophic forgetting. Meta-learning can include the requirements of continual learning into a meta-objective, for example by deﬁning a sequence of learning episodes in which the support set contains one new task, but the query set contains examples drawn from all tasks seen until now [107], [174]. Various meta-representations can be learned to improve continual learning performance, such as weight priors [138], gradient descent preconditioning matrices [107], or RNN learned optimizers [174], or feature representations [259]. A related idea is meta-training representations to support local editing updates [260] for improvement without interference.
+Online and Adaptive Learning also consider tasks arriving in a stream, but are concerned with the ability to effectively adapt to the current task in the stream, more than remembering the old tasks. To this end an online extension of MAML was proposed [99] to perform MAML-style meta-training online during a task sequence. Meanwhile others [63]–[65] consider the setting where meta-training is performed in advance on source tasks, before meta-testing adaptation capabilities on a sequence of target tasks.
+Benchmarks A number of benchmarks for continual learning work quite well with standard deep learning methods. However, most cannot readily work with meta-learning approaches as their their sample generation routines do not provide a large number of explicit learning sets and an explicit evaluation sets. Some early steps were made towards deﬁning meta-learning ready continual benchmarks in [99], [174], [259], mainly composed of Omniglot and perturbed versions of MNIST. However, most of those were simply tasks built to demonstrate a method. More explicit benchmark work can be found in [219], which is built for meta and non meta-learning approaches alike.
+5.8 Domain Adaptation and Domain Generalization
+Domain-shift refers to the statistics of data encountered in deployment being different from those used in training. Numerous domain adaptation and generalization algorithms have been studied to address this issue in supervised, unsupervised, and semi-supervised settings [58].
+Domain Generalization Domain generalization aims to train models with increased robustness to train-test domain shift [261], often by exploiting a distribution over training domains. Using a validation domain that is shifted with respect to the training domain [262], different kinds of metaknowledge such as regularizers [95], losses [42], and noise
+
+augmentation [119] can be (meta) learned to maximize the robustness of the learned model to train-test domain-shift.
+Domain Adaptation To improve on conventional domain adaptation [58], meta-learning can be used to deﬁne a metaobjective that optimizes the performance of a base unsupervised DA algorithm [59].
+Benchmarks Popular benchmarks for DA and DG consider image recognition across multiple domains such as photo/sketch/cartoon. PACS [263] provides a good starter benchmark, with Visual Decathlon [42], [220] and MetaDataset [111] providing larger scale alternatives.
+5.9 Hyper-parameter Optimization
+Meta-learning address hyperparameter optimization when considering ω to specify hyperparameters, such as regularization strength or learning rate. There are two main settings: we can learn hyperparameters that improve training over a distribution of tasks, just a single task. The former case is usually relevant in few-shot applications, especially in optimization based methods. For instance, MAML can be improved by learning a learning rate per layer per step [80]. The case where we wish to learn hyperparameters for a single task is usually more relevant for many-shot applications [71], [157], where some validation data can be extracted from the training dataset, as discussed in Section 2.1. End-to-end gradient-based meta-learning has already demonstrated promising scalability to millions of parameters (as demonstrated by MAML [16] and Dataset Distillation [156], [157], for example) in contrast to the classic approaches (such cross-validation by grid or random [72] search, or Bayesian Optimization [73]) which are typically only successful with dozens of hyper-parameters.
+5.10 Novel and Biologically Plausible Learners
+Most meta-learning work that uses explicit (non feedforward/black-box) optimization for the base model is based on gradient descent by backpropagation. Metalearning can deﬁne the function class of ω so as to lead to the discovery of novel learning rules that are unsupervised [21] or biologically plausible [46], [264], [265], making use of ideas less commonly used in contemporary deep learning such as Hebbian updates [264] and neuromodulation [265].
+5.11 Language and Speech
+Language Modelling Few-shot language modelling increasingly showcases the versatility of meta-learners. Early matching networks showed impressive performances on one-shot tasks such as ﬁlling in missing words [90]. Many more tasks have since been tackled, including text classiﬁcation [139], neural program induction [266] and synthesis [267], English to SQL program synthesis [268], text-based relationship graph extractor [269], machine translation [270], and quickly adapting to new personas in dialogue [271].
+Speech Recognition Deep learning is now the dominant paradigm for state of the art automatic speech recognition (ASR). Meta-learning is beginning to be applied to address the many few-shot adaptation problems that arise within ASR including learning how to train for low-resource languages [272], cross-accent adaptation [273] and optimizing models for individual speakers [274].
+
+14
+
+5.12 Meta-learning for Social Good
+Meta-learning lands itself to various challenging tasks that arise in applications of AI for social good such as medical image classiﬁcation and drug discovery, where data is often scarce. Progress in the medical domain is especially relevant given the global shortage of pathologists [275]. In [5] an LSTM is combined with a graph neural network to predict the behaviour of a molecule (e.g. its toxicity) in the oneshot data regime. In [276] MAML is adapted to weaklysupervised breast cancer detection tasks, and the order of tasks are selected according to a curriculum. MAML is also combined with denoising autoencoders to do medical visual question answering [277], while learning to weigh support samples [218] is adapted to pixel wise weighting for skin lesion segmentation tasks that have noisy labels [278].
+5.13 Abstract Reasoning
+A long- term goal in deep learning is to go beyond simple perception tasks and tackle more abstract reasoning problems such as IQ tests in the form of Raven’s Progressive Matrices (RPMs) [279]. Solving RPMs can be seen as asking for few-shot generalization from the context panels to the answer panels. Recent meta-learning approaches to abstract reasoning with RPMs achieved signiﬁcant improvement via meta-learning a teacher that deﬁnes the data generating distribution for the panels [280]. The teacher is trained jointly with the student, and rewarded by the student’s progress.
+
+policy, (iv) performing outer-level optimization to train the optimal annotation query policy [190]–[192]. However, if labels are used to train AL algorithms, they need to generalize across tasks to amortize their training cost [192].
+Learning with Label Noise commonly arises when large datasets are collected by web scraping or crowd-sourcing. While there are many algorithms hand-designed for this situation, recent meta-learning methods have addressed label noise. For example by transductively learning sample-wise weighs to down-weight noisy samples [151], or learning an initial condition robust to noisy label training [96].
+Adversarial Attacks and Defenses Deep Neural Networks can be fooled into misclassifying a data point that should be easily recognizable, by adding a carefully crafted human-invisible perturbation to the data [286]. Numerous attack and defense methods have been published in recent years, with defense strategies usually consisting in carefully hand-designed architectures or training algorithms. Analogous to the case in domain-shift, one can train the learning algorithm for robustness by deﬁning a meta-loss in terms of performance under adversarial attack [97], [287].
+Recommendation Systems are a mature consumer of machine learning in the commerce space. However, bootstrapping recommendations for new users with little historical interaction data, or new items for recommendation remains a challenge known as the cold-start problem. Meta-learning has applied black-box models to item cold-start [288] and gradient-based methods to user cold-start [289].
+
+5.14 Systems
+Network Compression Contemporary CNNs require large amounts of memory that may be prohibitive on embedded devices. Thus network compression in various forms such as quantization and pruning are topical research areas [281]. Meta-learning is beginning to be applied to this objective as well, such as training gradient generator metanetworks that allow quantized networks to be trained [202], and weight generator meta-networks that allow quantized networks to be trained with gradient [282].
+Communications Deep learning is rapidly impacting communications systems. For example by learning coding systems that exceed the best hand designed codes for realistic channels [283]. Few-shot meta-learning can be used to provide rapid adaptation of codes to changing channel characteristics [284].
+Active Learning (AL) methods wrap supervised learning, and deﬁne a policy for selective data annotation – typically in the setting where annotation can be obtained sequentially. The goal of AL is to ﬁnd the optimal subset of data to annotate so as to maximize performance of downstream supervised learning with the fewest annotations. AL is a well studied problem with numerous hand designed algorithms [285]. Meta-learning can map active learning algorithm design into a learning task by: (i) deﬁning the inner-level optimization as conventional supervised learning on the annotated dataset so far, (ii) deﬁning ω to be a query policy that selects the best unlabeled datapoints to annotate, (iii), deﬁning the meta-objective as validation performance after iterative learning and annotation according to the query
+
+6 CHALLENGES AND OPEN QUESTIONS
+Diverse and multi-modal task distributions The difﬁculty of ﬁtting a meta-learner to a distribution of tasks p(T ) can depend on its width. Many big successes of meta-learning have been within narrow task families, while learning on diverse task distributions can challenge existing methods [111], [220], [240]. This may be partly due to conﬂicting gradients between tasks [290].
+Many meta-learning frameworks [16] implicitly assume that the distribution over tasks p(T ) is uni-modal, and a single learning strategy ω provides a good solution for them all. However task distributions are often multi-modal; such as medical vs satellite vs everyday images in computer vision, or putting pegs in holes vs opening doors [240] in robotics. Different tasks within the distribution may require different learning strategies, which is hard to achieve with today’s methods. In vanilla multi-task learning, this phenomenon is relatively well studied with, e.g., methods that group tasks into clusters [291] or subspaces [292]. However this is only just beginning to be explored in meta-learning [293].
+Meta-generalization Meta-learning poses a new generalization challenge across tasks analogous to the challenge of generalizing across instances in conventional machine learning. There are two sub-challenges: (i) The ﬁrst is generalizing from meta-train to novel meta-test tasks drawn from p(T ). This is exacerbated because the number of tasks available for meta-training is typically low (much less than the number of instances available in conventional supervised learning), making it difﬁcult to generalize. One failure mode for generalization in few-shot learning has been well studied
+
+15
+
+under the guise of memorisation [204], which occurs when each meta-training task can be solved directly without performing any task-speciﬁc adaptation based on the support set. In this case models fail to generalize in meta-testing, and speciﬁc regularizers [204] have been proposed to prevent this kind of meta-overﬁtting. (ii) The second challenge is generalizing to meta-test tasks drawn from a different distribution than the training tasks. This is inevitable in many potential practical applications of meta-learning, for example generalizing few-shot visual learning from everyday training images of ImageNet to specialist domains such as medical images [221]. From the perspective of a learner, this is a meta-level generalization of the domain-shift problem, as observed in supervised learning. Addressing these issues through meta-generalizations of regularization, transfer learning, domain adaptation, and domain generalization are emerging directions [119]. Furthermore, we have yet to understand which kinds of meta-representations tend to generalize better under certain types of domain shifts.
+Task families Many existing meta-learning frameworks, especially for few-shot learning, require task families for meta-training. While this indeed reﬂects lifelong human learning, in some applications data for such task families may not be available. Unsupervised meta-learning [254]– [256] and single-task meta-learning methods [42], [175], [183], [184], [200], could help to alleviate this requirement; as can improvements in meta-generalization discussed above.
+Computation Cost & Many-shot A naive implementation of bilevel optimization as shown in Section 2.1 is expensive in both time (because each outer step requires several inner steps) and memory (because reverse-mode differentiation requires storing the intermediate inner states). For this reason, much of meta-learning has focused on the fewshot regime [16]. However, there is an increasing focus on methods which seek to extend optimization-based metalearning to the many-shot regime. Popular solutions include implicit differentiation of ω [157], [167], [294], forward-mode differentiation of ω [69], [71], [295], gradient preconditioning [107], solving for a greedy version of ω online by alternating inner and outer steps [18], [42], [201], truncation [296], shortcuts [297] or inversion [193] of the inner optimization. Many-step meta-learning can also be achieved by learning an initialization that minimizes the gradient descent trajectory length over task manifolds [298]. Finally, another family of approaches accelerate meta-training via closedform solvers in the inner loop [166], [168].
+Implicit gradients scale to large dimensions of ω but only provide approximate gradients for it, and require the inner task loss to be a function of ω. Forward-mode differentiation is exact and doesn’t have such constraints, but scales poorly with the dimension of ω. Online methods are cheap but suffer from a short-horizon bias [299]. Gradient degradation is also a challenge in the many-shot regime, and solutions include warp layers [107] or gradient averaging [71].
+In terms of the cost of solving new tasks at the meta-test stage, FFMs have a signiﬁcant advantage over optimizationbased meta-learners, which makes them appealing for applications involving deployment of learning algorithms on mobile devices such as smartphones [6], for example to achieve personalisation. This is especially so because the embedded
+
+device versions of contemporary deep learning software frameworks typically lack support for backpropagationbased training, which FFMs do not require.
+7 CONCLUSION
+The ﬁeld of meta-learning has seen a rapid growth in interest. This has come with some level of confusion, with regards to how it relates to neighbouring ﬁelds, what it can be applied to, and how it can be benchmarked. In this survey we have sought to clarify these issues by thoroughly surveying the area both from a methodological point of view – which we broke down into a taxonomy of meta-representation, meta-optimizer and meta-objective; and from an application point of view. We hope that this survey will help newcomers and practitioners to orient themselves to develop and exploit in this growing ﬁeld, as well as highlight opportunities for future research.
+ACKNOWLEDGMENTS
+T. Hospedales was supported by the Engineering and Physical Sciences Research Council of the UK (EPSRC) Grant number EP/S000631/1 and the UK MOD University Defence Research Collaboration (UDRC) in Signal Processing, and EPSRC Grant EP/R026173/1.
+REFERENCES
+[1] K. He, X. Zhang, S. Ren, and J. Sun, “Deep Residual Learning For Image Recognition,” in CVPR, 2016.
+[2] D. Silver, A. Huang, C. J. Maddison, A. Guez, L. Sifre, G. Van Den Driessche, J. Schrittwieser, I. Antonoglou, V. Panneershelvam, M. Lanctot et al., “Mastering The Game Of Go With Deep Neural Networks And Tree Search,” Nature, 2016.
+[3] J. Devlin, M. Chang, K. Lee, and K. Toutanova, “BERT: Pretraining Of Deep Bidirectional Transformers For Language Understanding,” in ACL, 2019.
+[4] G. Marcus, “Deep Learning: A Critical Appraisal,” arXiv e-prints, 2018.
+[5] H. Altae-Tran, B. Ramsundar, A. S. Pappu, and V. S. Pande, “Low Data Drug Discovery With One-shot Learning,” CoRR, 2016.
+[6] A. Ignatov, R. Timofte, A. Kulik, S. Yang, K. Wang, F. Baum, M. Wu, L. Xu, and L. Van Gool, “AI Benchmark: All About Deep Learning On Smartphones In 2019,” arXiv e-prints, 2019.
+[7] S. Thrun and L. Pratt, “Learning To Learn: Introduction And Overview,” in Learning To Learn, 1998.
+[8] H. F. Harlow, “The Formation Of Learning Sets.” Psychological Review, 1949.
+[9] J. B. Biggs, “The Role of Meta-Learning in Study Processes,” British Journal of Educational Psychology, 1985.
+[10] A. M. Schrier, “Learning How To Learn: The Signiﬁcance And Current Status Of Learning Set Formation,” Primates, 1984.
+[11] P. Domingos, “A Few Useful Things To Know About Machine Learning,” Commun. ACM, 2012.
+[12] D. G. Lowe, “Distinctive Image Features From Scale-Invariant,” International Journal of Computer Vision, 2004.
+[13] A. Krizhevsky, I. Sutskever, and G. E. Hinton, “Imagenet Classiﬁcation With Deep Convolutional Neural Networks,” in NeurIPS, 2012.
+[14] J. Schmidhuber, “Evolutionary Principles In Self-referential Learning,” On learning how to learn: The meta-meta-... hook, 1987.
+[15] J. Schmidhuber, J. Zhao, and M. Wiering, “Shifting Inductive Bias With Success-Story Algorithm, Adaptive Levin Search, And Incremental Self-Improvement,” Machine Learning, 1997.
+[16] C. Finn, P. Abbeel, and S. Levine, “Model-Agnostic Meta-learning For Fast Adaptation Of Deep Networks,” in ICML, 2017.
+[17] L. Franceschi, P. Frasconi, S. Salzo, R. Grazzi, and M. Pontil, “Bilevel Programming For Hyperparameter Optimization And Meta-learning,” in ICML, 2018.
+
+16
+
+[18] H. Liu, K. Simonyan, and Y. Yang, “DARTS: Differentiable Architecture Search,” in ICLR, 2019.
+[19] M. Andrychowicz, M. Denil, S. G. Colmenarejo, M. W. Hoffman, D. Pfau, T. Schaul, and N. de Freitas, “Learning To Learn By Gradient Descent By Gradient Descent,” in NeurIPS, 2016.
+[20] J. Snell, K. Swersky, and R. S. Zemel, “Prototypical Networks For Few Shot Learning,” in NeurIPS, 2017.
+[21] L. Metz, N. Maheswaranathan, B. Cheung, and J. Sohl-Dickstein, “Meta-learning Update Rules For Unsupervised Representation Learning,” ICLR, 2019.
+[22] Y. Duan, J. Schulman, X. Chen, P. L. Bartlett, I. Sutskever, and P. Abbeel, “RL2: Fast Reinforcement Learning Via Slow Reinforcement Learning,” in ArXiv E-prints, 2016.
+[23] R. Houthooft, R. Y. Chen, P. Isola, B. C. Stadie, F. Wolski, J. Ho, and P. Abbeel, “Evolved Policy Gradients,” NeurIPS, 2018.
+[24] F. Alet, M. F. Schneider, T. Lozano-Perez, and L. Pack Kaelbling, “Meta-Learning Curiosity Algorithms,” ICLR, 2020.
+[25] E. Real, A. Aggarwal, Y. Huang, and Q. V. Le, “Regularized Evolution For Image Classiﬁer Architecture Search,” AAAI, 2019.
+[26] B. Zoph and Q. V. Le, “Neural Architecture Search With Reinforcement Learning,” ICLR, 2017.
+[27] R. Vilalta and Y. Drissi, “A Perspective View And Survey Of Meta-learning,” Artiﬁcial intelligence review, 2002.
+[28] S. Thrun, “Lifelong learning algorithms,” in Learning to learn. Springer, 1998, pp. 181–209.
+[29] J. Baxter, “Theoretical models of learning to learn,” in Learning to learn. Springer, 1998, pp. 71–94.
+[30] D. H. Wolpert, “The Lack Of A Priori Distinctions Between Learning Algorithms,” Neural Computation, 1996.
+[31] J. Vanschoren, “Meta-Learning: A Survey,” CoRR, 2018. [32] Q. Yao, M. Wang, H. J. Escalante, I. Guyon, Y. Hu, Y. Li, W. Tu,
+Q. Yang, and Y. Yu, “Taking Human Out Of Learning Applications: A Survey On Automated Machine Learning,” CoRR, 2018. [33] F. Hutter, L. Kotthoff, and J. Vanschoren, Eds., Automatic machine learning: methods, systems, challenges. Springer, 2019. [34] S. J. Pan and Q. Yang, “A Survey On Transfer Learning,” IEEE TKDE, 2010. [35] C. Lemke, M. Budka, and B. Gabrys, “Meta-Learning: A Survey Of Trends And Technologies,” Artiﬁcial intelligence review, 2015. [36] Y. Wang, Q. Yao, J. T. Kwok, and L. M. Ni, “Generalizing from a few examples: A survey on few-shot learning,” ACM Comput. Surv., vol. 53, no. 3, Jun. 2020. [37] T. Elsken, J. H. Metzen, and F. Hutter, “Neural Architecture Search: A Survey,” Journal of Machine Learning Research, 2019. [38] N. Mishra, M. Rohaninejad, X. Chen, and P. Abbeel, “A Simple Neural Attentive Meta-learner,” ICLR, 2018. [39] S. Ravi and H. Larochelle, “Optimization As A Model For FewShot Learning,” in ICLR, 2016. [40] H. Stackelberg, The Theory Of Market Economy. Oxford University Press, 1952. [41] A. Sinha, P. Malo, and K. Deb, “A Review On Bilevel Optimization: From Classical To Evolutionary Approaches And Applications,” IEEE Transactions on Evolutionary Computation, 2018. [42] Y. Li, Y. Yang, W. Zhou, and T. M. Hospedales, “Feature-Critic Networks For Heterogeneous Domain Generalization,” in ICML, 2019. [43] G. Denevi, C. Ciliberto, D. Stamos, and M. Pontil, “Learning To Learn Around A Common Mean,” in NeurIPS, 2018. [44] M. Zaheer, S. Kottur, S. Ravanbakhsh, B. Poczos, R. R. Salakhutdinov, and A. J. Smola, “Deep sets,” in NIPS, 2017. [45] J. Gordon, J. Bronskill, M. Bauer, S. Nowozin, and R. E. Turner, “Meta-Learning Probabilistic Inference For Prediction,” ICLR, 2019. [46] Y. Bengio, S. Bengio, and J. Cloutier, “Learning A Synaptic Learning Rule,” in IJCNN, 1990. [47] S. Bengio, Y. Bengio, and J. Cloutier, “On The Search For New Learning Rules For ANNs,” Neural Processing Letters, 1995. [48] J. Schmidhuber, J. Zhao, and M. Wiering, “Simple Principles Of Meta-Learning,” Technical report IDSIA, 1996. [49] J. Schmidhuber, “A Neural Network That Embeds Its Own Metalevels,” in IEEE International Conference On Neural Networks, 1993. [50] ——, “A possibility for implementing curiosity and boredom in model-building neural controllers,” in SAB, 1991. [51] S. Hochreiter, A. S. Younger, and P. R. Conwell, “Learning To Learn Using Gradient Descent,” in ICANN, 2001. [52] A. S. Younger, S. Hochreiter, and P. R. Conwell, “Meta-learning With Backpropagation,” in IJCNN, 2001.
+
+[53] J. Storck, S. Hochreiter, and J. Schmidhuber, “Reinforcement driven information acquisition in non-deterministic environments,” in ICANN, 1995.
+[54] M. Wiering and J. Schmidhuber, “Efﬁcient model-based exploration,” in SAB, 1998.
+[55] N. Schweighofer and K. Doya, “Meta-learning In Reinforcement Learning,” Neural Networks, 2003.
+[56] L. Y. Pratt, J. Mostow, C. A. Kamm, and A. A. Kamm, “Direct transfer of learned information among neural networks.” in AAAI, vol. 91, 1991.
+[57] J. Yosinski, J. Clune, Y. Bengio, and H. Lipson, “How Transferable Are Features In Deep Neural Networks?” in NeurIPS, 2014.
+[58] G. Csurka, Domain Adaptation In Computer Vision Applications. Springer, 2017.
+[59] D. Li and T. Hospedales, “Online Meta-Learning For MultiSource And Semi-Supervised Domain Adaptation,” in ECCV, 2020.
+[60] M. B. Ring, “Continual learning in reinforcement environments,” Ph.D. dissertation, USA, 1994.
+[61] G. I. Parisi, R. Kemker, J. L. Part, C. Kanan, and S. Wermter, “Continual Lifelong Learning With Neural Networks: A Review,” Neural Networks, 2019.
+[62] Z. Chen and B. Liu, “Lifelong Machine Learning, Second Edition,” Synthesis Lectures on Artiﬁcial Intelligence and Machine Learning, 2018.
+[63] M. Al-Shedivat, T. Bansal, Y. Burda, I. Sutskever, I. Mordatch, and P. Abbeel, “Continuous Adaptation Via Meta-Learning In Nonstationary And Competitive Environments,” ICLR, 2018.
+[64] S. Ritter, J. X. Wang, Z. Kurth-Nelson, S. M. Jayakumar, C. Blundell, R. Pascanu, and M. Botvinick, “Been There, Done That: Meta-learning With Episodic Recall,” ICML, 2018.
+[65] I. Clavera, A. Nagabandi, S. Liu, R. S. Fearing, P. Abbeel, S. Levine, and C. Finn, “Learning To Adapt In Dynamic, RealWorld Environments Through Meta-Reinforcement Learning,” in ICLR, 2019.
+[66] R. Caruana, “Multitask Learning,” Machine Learning, 1997.
+[67] Y. Yang and T. M. Hospedales, “Deep Multi-Task Representation Learning: A Tensor Factorisation Approach,” in ICLR, 2017.
+[68] E. Meyerson and R. Miikkulainen, “Modular Universal Reparameterization: Deep Multi-task Learning Across Diverse Domains,” in NeurIPS, 2019.
+[69] L. Franceschi, M. Donini, P. Frasconi, and M. Pontil, “Forward And Reverse Gradient-Based Hyperparameter Optimization,” in ICML, 2017.
+[70] X. Lin, H. Baweja, G. Kantor, and D. Held, “Adaptive Auxiliary Task Weighting For Reinforcement Learning,” in NeurIPS, 2019.
+[71] P. Micaelli and A. Storkey, “Non-greedy gradient-based hyperparameter optimization over long horizons,” arXiv, 2020.
+[72] J. Bergstra and Y. Bengio, “Random Search For Hyper-Parameter Optimization,” in Journal Of Machine Learning Research, 2012.
+[73] B. Shahriari, K. Swersky, Z. Wang, R. P. Adams, and N. de Freitas, “Taking The Human Out Of The Loop: A Review Of Bayesian Optimization,” Proceedings of the IEEE, 2016.
+[74] D. M. Blei, A. Y. Ng, and M. I. Jordan, “Latent Dirchlet allocation,” Journal of Machine Learning Research, vol. 3, pp. 993–1022, 2003.
+[75] H. Edwards and A. Storkey, “Towards A Neural Statistician,” in ICLR, 2017.
+[76] E. Grant, C. Finn, S. Levine, T. Darrell, and T. Grifﬁths, “Recasting Gradient-Based Meta-Learning As Hierarchical Bayes,” in ICLR, 2018.
+[77] H. Yao, X. Wu, Z. Tao, Y. Li, B. Ding, R. Li, and Z. Li, “Automated Relational Meta-learning,” in ICLR, 2020.
+[78] S. C. Yoonho Lee, “Gradient-Based Meta-Learning With Learned Layerwise Metric And Subspace,” in ICML, 2018.
+[79] Z. Li, F. Zhou, F. Chen, and H. Li, “Meta-SGD: Learning To Learn Quickly For Few Shot Learning,” arXiv e-prints, 2017.
+[80] A. Antoniou, H. Edwards, and A. J. Storkey, “How To Train Your MAML,” in ICLR, 2018.
+[81] K. Li and J. Malik, “Learning To Optimize,” in ICLR, 2017.
+[82] E. Grefenstette, B. Amos, D. Yarats, P. M. Htut, A. Molchanov, F. Meier, D. Kiela, K. Cho, and S. Chintala, “Generalized inner loop meta-learning,” arXiv preprint arXiv:1910.01727, 2019.
+[83] S. Qiao, C. Liu, W. Shen, and A. L. Yuille, “Few-Shot Image Recognition By Predicting Parameters From Activations,” CVPR, 2018.
+
+17
+
+[84] S. Gidaris and N. Komodakis, “Dynamic Few-Shot Visual Learning Without Forgetting,” in CVPR, 2018.
+[85] A. Graves, G. Wayne, and I. Danihelka, “Neural Turing Machines,” in ArXiv E-prints, 2014.
+[86] A. Santoro, S. Bartunov, M. Botvinick, D. Wierstra, and T. Lillicrap, “Meta Learning With Memory-Augmented Neural Networks,” in ICML, 2016.
+[87] T. Munkhdalai and H. Yu, “Meta Networks,” in ICML, 2017.
+[88] C. Finn and S. Levine, “Meta-Learning And Universality: Deep Representations And Gradient Descent Can Approximate Any Learning Algorithm,” in ICLR, 2018.
+[89] G. Kosh, R. Zemel, and R. Salakhutdinov, “Siamese Neural Networks For One-shot Image Recognition,” in ICML, 2015.
+[90] O. Vinyals, C. Blundell, T. Lillicrap, D. Wierstra et al., “Matching Networks For One Shot Learning,” in NeurIPS, 2016.
+[91] F. Sung, Y. Yang, L. Zhang, T. Xiang, P. H. S. Torr, and T. M. Hospedales, “Learning To Compare: Relation Network For FewShot Learning,” in CVPR, 2018.
+[92] V. Garcia and J. Bruna, “Few-Shot Learning With Graph Neural Networks,” in ICLR, 2018.
+[93] I. Bello, B. Zoph, V. Vasudevan, and Q. V. Le, “Neural Optimizer Search With Reinforcement Learning,” in ICML, 2017.
+[94] O. Wichrowska, N. Maheswaranathan, M. W. Hoffman, S. G. Colmenarejo, M. Denil, N. de Freitas, and J. Sohl-Dickstein, “Learned Optimizers That Scale And Generalize,” in ICML, 2017.
+[95] Y. Balaji, S. Sankaranarayanan, and R. Chellappa, “MetaReg: Towards Domain Generalization Using Meta-Regularization,” in NeurIPS, 2018.
+[96] J. Li, Y. Wong, Q. Zhao, and M. S. Kankanhalli, “Learning To Learn From Noisy Labeled Data,” in CVPR, 2019.
+[97] M. Goldblum, L. Fowl, and T. Goldstein, “Adversarially Robust Few-shot Learning: A Meta-learning Approach,” arXiv e-prints, 2019.
+[98] C. Finn, K. Xu, and S. Levine, “Probabilistic Model-agnostic Meta-learning,” in NeurIPS, 2018.
+[99] C. Finn, A. Rajeswaran, S. Kakade, and S. Levine, “Online Metalearning,” ICML, 2019.
+[100] A. A. Rusu, D. Rao, J. Sygnowski, O. Vinyals, R. Pascanu, S. Osindero, and R. Hadsell, “Meta-Learning With Latent Embedding Optimization,” ICLR, 2019.
+[101] A. Antoniou and A. Storkey, “Learning To Learn By SelfCritique,” NeurIPS, 2019.
+[102] Q. Sun, Y. Liu, T.-S. Chua, and B. Schiele, “Meta-Transfer Learning For Few-Shot Learning,” in CVPR, 2018.
+[103] R. Vuorio, S.-H. Sun, H. Hu, and J. J. Lim, “Multimodal Model-Agnostic Meta-Learning Via Task-Aware Modulation,” in NeurIPS, 2019.
+[104] H. Yao, Y. Wei, J. Huang, and Z. Li, “Hierarchically Structured Meta-learning,” ICML, 2019.
+[105] D. Kingma and J. Ba, “Adam: A Method For Stochastic Optimization,” in ICLR, 2015.
+[106] E. Park and J. B. Oliva, “Meta-Curvature,” in NeurIPS, 2019.
+[107] S. Flennerhag, A. A. Rusu, R. Pascanu, F. Visin, H. Yin, and R. Hadsell, “Meta-learning with warped gradient descent,” in ICLR, 2020.
+[108] Y. Chen, M. W. Hoffman, S. G. Colmenarejo, M. Denil, T. P. Lillicrap, M. Botvinick, and N. de Freitas, “Learning To Learn Without Gradient Descent By Gradient Descent,” in ICML, 2017.
+[109] T. Heskes, “Empirical bayes for learning to learn,” in ICML, 2000.
+[110] J. Requeima, J. Gordon, J. Bronskill, S. Nowozin, and R. E. Turner, “Fast and ﬂexible multi-task classiﬁcation using conditional neural adaptive processes,” in NeurIPS, 2019.
+[111] E. Triantaﬁllou, T. Zhu, V. Dumoulin, P. Lamblin, K. Xu, R. Goroshin, C. Gelada, K. Swersky, P. Manzagol, and H. Larochelle, “Meta-Dataset: A Dataset Of Datasets For Learning To Learn From Few Examples,” ICLR, 2020.
+[112] D. Ha, A. Dai, and Q. V. Le, “HyperNetworks,” ICLR, 2017.
+[113] A. Brock, T. Lim, J. M. Ritchie, and N. Weston, “SMASH: OneShot Model Architecture Search Through Hypernetworks,” ICLR, 2018.
+[114] K. Rakelly, A. Zhou, C. Finn, S. Levine, and D. Quillen, “Efﬁcient Off-Policy Meta-Reinforcement Learning Via Probabilistic Context Variables,” in ICML, 2019.
+[115] Y. Duan, M. Andrychowicz, B. Stadie, O. J. Ho, J. Schneider, I. Sutskever, P. Abbeel, and W. Zaremba, “One-shot Imitation Learning,” in NeurIPS, 2017.
+
+[116] J. X. Wang, Z. Kurth-Nelson, D. Tirumala, H. Soyer, J. Z. Leibo, R. Munos, C. Blundell, D. Kumaran, and M. Botvinick, “Learning To Reinforcement Learn,” CoRR, 2016.
+[117] W.-Y. Chen, Y.-C. Liu, Z. Kira, Y.-C. Wang, and J.-B. Huang, “A Closer Look At Few-Shot Classiﬁcation,” in ICLR, 2019.
+[118] B. Oreshkin, P. Rodr´ıguez Lo´ pez, and A. Lacoste, “TADAM: Task Dependent Adaptive Metric For Improved Few-shot Learning,” in NeurIPS, 2018.
+[119] H.-Y. Tseng, H.-Y. Lee, J.-B. Huang, and M.-H. Yang, “”CrossDomain Few-Shot Classiﬁcation Via Learned Feature-Wise Transformation”,” ICLR, Jan. 2020.
+[120] F. Sung, L. Zhang, T. Xiang, T. Hospedales, and Y. Yang, “Learning To Learn: Meta-critic Networks For Sample Efﬁcient Learning,” arXiv e-prints, 2017.
+[121] W. Zhou, Y. Li, Y. Yang, H. Wang, and T. M. Hospedales, “Online Meta-Critic Learning For Off-Policy Actor-Critic Methods,” in NeurIPS, 2020.
+[122] G. Denevi, D. Stamos, C. Ciliberto, and M. Pontil, “OnlineWithin-Online Meta-Learning,” in NeurIPS, 2019.
+[123] S. Gonzalez and R. Miikkulainen, “Improved Training Speed, Accuracy, And Data Utilization Through Loss Function Optimization,” arXiv e-prints, 2019.
+[124] S. Bechtle, A. Molchanov, Y. Chebotar, E. Grefenstette, L. Righetti, G. Sukhatme, and F. Meier, “Meta-learning via learned loss,” arXiv preprint arXiv:1906.05374, 2019.
+[125] A. I. Rinu Boney, “Semi-Supervised Few-Shot Learning With MAML,” ICLR, 2018.
+[126] C. Huang, S. Zhai, W. Talbott, M. B. Martin, S.-Y. Sun, C. Guestrin, and J. Susskind, “Addressing The Loss-Metric Mismatch With Adaptive Loss Alignment,” in ICML, 2019.
+[127] J. Grabocka, R. Scholz, and L. Schmidt-Thieme, “Learning Surrogate Losses,” CoRR, 2019.
+[128] C. Doersch and A. Zisserman, “Multi-task Self-Supervised Visual Learning,” in ICCV, 2017.
+[129] M. Jaderberg, V. Mnih, W. M. Czarnecki, T. Schaul, J. Z. Leibo, D. Silver, and K. Kavukcuoglu, “Reinforcement Learning With Unsupervised Auxiliary Tasks,” in ICLR, 2017.
+[130] S. Liu, A. Davison, and E. Johns, “Self-supervised Generalisation With Meta Auxiliary Learning,” in NeurIPS, 2019.
+[131] K. O. Stanley, J. Clune, J. Lehman, and R. Miikkulainen, “Designing Neural Networks Through Neuroevolution,” Nature Machine Intelligence, 2019.
+[132] J. Bayer, D. Wierstra, J. Togelius, and J. Schmidhuber, “Evolving memory cell structures for sequence learning,” in ICANN, 2009.
+[133] S. Xie, H. Zheng, C. Liu, and L. Lin, “SNAS: Stochastic Neural Architecture Search,” in ICLR, 2019.
+[134] A. Zela, T. Elsken, T. Saikia, Y. Marrakchi, T. Brox, and F. Hutter, “Understanding and robustifying differentiable architecture search,” in ICLR, 2020. [Online]. Available: https://openreview.net/forum?id=H1gDNyrKDS
+[135] D. Lian, Y. Zheng, Y. Xu, Y. Lu, L. Lin, P. Zhao, J. Huang, and S. Gao, “Towards Fast Adaptation Of Neural Architectures With Meta Learning,” in ICLR, 2020.
+[136] A. Shaw, W. Wei, W. Liu, L. Song, and B. Dai, “Meta Architecture Search,” in NeurIPS, 2019.
+[137] R. Hou, H. Chang, M. Bingpeng, S. Shan, and X. Chen, “Cross Attention Network For Few-shot Classiﬁcation,” in NeurIPS, 2019.
+[138] M. Ren, R. Liao, E. Fetaya, and R. Zemel, “Incremental Few-shot Learning With Attention Attractor Networks,” in NeurIPS, 2019.
+[139] Y. Bao, M. Wu, S. Chang, and R. Barzilay, “Few-shot Text Classiﬁcation With Distributional Signatures,” in ICLR, 2020.
+[140] F. Alet, T. Lozano-Pe´rez, and L. P. Kaelbling, “Modular Metalearning,” in CORL, 2018.
+[141] F. Alet, E. Weng, T. Lozano-Pe´rez, and L. P. Kaelbling, “Neural Relational Inference With Fast Modular Meta-learning,” in NeurIPS, 2019.
+[142] C. Fernando, D. Banarse, C. Blundell, Y. Zwols, D. Ha, A. A. Rusu, A. Pritzel, and D. Wierstra, “PathNet: Evolution Channels Gradient Descent In Super Neural Networks,” in ArXiv E-prints, 2017.
+[143] B. M. Lake, “Compositional Generalization Through Meta Sequence-to-sequence Learning,” in NeurIPS, 2019.
+[144] E. D. Cubuk, B. Zoph, D. Mane´, V. Vasudevan, and Q. V. Le, “AutoAugment: Learning Augmentation Policies From Data,” CVPR, 2019.
+
+18
+
+[145] Y. Li, G. Hu, Y. Wang, T. Hospedales, N. M. Robertson, and Y. Yang, “DADA: Differentiable Automatic Data Augmentation,” 2020.
+[146] R. Volpi and V. Murino, “Model Vulnerability To Distributional Shifts Over Image Transformation Sets,” in ICCV, 2019.
+[147] A. Antoniou, A. Storkey, and H. Edwards, “Data Augmentation Generative Adversarial Networks,” arXiv e-prints, 2017.
+[148] C. Zhang, C. O¨ ztireli, S. Mandt, and G. Salvi, “Active Mini-batch Sampling Using Repulsive Point Processes,” in AAAI, 2019.
+[149] I. Loshchilov and F. Hutter, “Online Batch Selection For Faster Training Of Neural Networks,” in ICLR, 2016.
+[150] Y. Fan, F. Tian, T. Qin, X. Li, and T. Liu, “Learning To Teach,” in ICLR, 2018.
+[151] J. Shu, Q. Xie, L. Yi, Q. Zhao, S. Zhou, Z. Xu, and D. Meng, “Meta-Weight-Net: Learning An Explicit Mapping For Sample Weighting,” in NeurIPS, 2019.
+[152] M. Ren, W. Zeng, B. Yang, and R. Urtasun, “Learning To Reweight Examples For Robust Deep Learning,” in ICML, 2018.
+[153] J. L. Elman, “Learning and development in neural networks: the importance of starting small,” Cognition, vol. 48, no. 1, pp. 71 – 99, 1993.
+[154] Y. Bengio, J. Louradour, R. Collobert, and J. Weston, “Curriculum Learning,” in ICML, 2009.
+[155] L. Jiang, Z. Zhou, T. Leung, L.-J. Li, and L. Fei-Fei, “Mentornet: Learning Data-driven Curriculum For Very Deep Neural Networks On Corrupted Labels,” in ICML, 2018.
+[156] T. Wang, J. Zhu, A. Torralba, and A. A. Efros, “Dataset Distillation,” CoRR, 2018.
+[157] J. Lorraine, P. Vicol, and D. Duvenaud, “Optimizing Millions Of Hyperparameters By Implicit Differentiation,” in AISTATS, 2020.
+[158] O. Bohdal, Y. Yang, and T. Hospedales, “Flexible dataset distillation: Learn labels instead of images,” arXiv, 2020.
+[159] W.-H. Li, C.-S. Foo, and H. Bilen, “Learning To Impute: A General Framework For Semi-supervised Learning,” arXiv e-prints, 2019.
+[160] Q. Sun, X. Li, Y. Liu, S. Zheng, T.-S. Chua, and B. Schiele, “Learning To Self-train For Semi-supervised Few-shot Classiﬁcation,” in NeurIPS, 2019.
+[161] O. M. Andrychowicz, B. Baker, M. Chociej, R. Jo´ zefowicz, B. McGrew, J. Pachocki, A. Petron, M. Plappert, G. Powell, A. Ray, J. Schneider, S. Sidor, J. Tobin, P. Welinder, L. Weng, and W. Zaremba, “Learning dexterous in-hand manipulation,” The International Journal of Robotics Research, vol. 39, no. 1, pp. 3–20, 2020.
+[162] N. Ruiz, S. Schulter, and M. Chandraker, “Learning To Simulate,” ICLR, 2018.
+[163] Q. Vuong, S. Vikram, H. Su, S. Gao, and H. I. Christensen, “How To Pick The Domain Randomization Parameters For Sim-to-real Transfer Of Reinforcement Learning Policies?” CoRR, 2019.
+[164] Q. V. L. Prajit Ramachandran, Barret Zoph, “Searching For Activation Functions,” in ArXiv E-prints, 2017.
+[165] H. B. Lee, H. Lee, D. Na, S. Kim, M. Park, E. Yang, and S. J. Hwang, “Learning to balance: Bayesian meta-learning for imbalanced and out-of-distribution tasks,” ICLR, 2020.
+[166] K. Lee, S. Maji, A. Ravichandran, and S. Soatto, “Meta-Learning With Differentiable Convex Optimization,” in CVPR, 2019.
+[167] A. Rajeswaran, C. Finn, S. Kakade, and S. Levine, “Meta-Learning With Implicit Gradients,” in NeurIPS, 2019.
+[168] L. Bertinetto, J. F. Henriques, P. H. Torr, and A. Vedaldi, “Metalearning With Differentiable Closed-form Solvers,” in ICLR, 2019.
+[169] H. Liu, R. Socher, and C. Xiong, “Taming MAML: Efﬁcient Unbiased Meta-reinforcement Learning,” in ICML, 2019.
+[170] J. Rothfuss, D. Lee, I. Clavera, T. Asfour, and P. Abbeel, “ProMP: Proximal Meta-Policy Search,” in ICLR, 2019.
+[171] R. Fakoor, P. Chaudhari, S. Soatto, and A. J. Smola, “Meta-QLearning,” in ICLR, 2020.
+[172] X. Song, W. Gao, Y. Yang, K. Choromanski, A. Pacchiano, and Y. Tang, “ES-MAML: Simple Hessian-Free Meta Learning,” in ICLR, 2020.
+[173] C. Fernando, J. Sygnowski, S. Osindero, J. Wang, T. Schaul, D. Teplyashin, P. Sprechmann, A. Pritzel, and A. Rusu, “MetaLearning By The Baldwin Effect,” in Proceedings Of The Genetic And Evolutionary Computation Conference Companion, 2018.
+[174] R. Vuorio, D.-Y. Cho, D. Kim, and J. Kim, “Meta Continual Learning,” arXiv e-prints, 2018.
+[175] Z. Xu, H. van Hasselt, and D. Silver, “Meta-Gradient Reinforcement Learning,” in NeurIPS, 2018.
+
+[176] K. Young, B. Wang, and M. E. Taylor, “Metatrace Actor-Critic: Online Step-Size Tuning By Meta-gradient Descent For Reinforcement Learning Control,” in IJCAI, 2019.
+[177] M. Jaderberg, W. M. Czarnecki, I. Dunning, L. Marris, G. Lever, A. G. Castan˜ eda, C. Beattie, N. C. Rabinowitz, A. S. Morcos, A. Ruderman, N. Sonnerat, T. Green, L. Deason, J. Z. Leibo, D. Silver, D. Hassabis, K. Kavukcuoglu, and T. Graepel, “Humanlevel Performance In 3D Multiplayer Games With Populationbased Reinforcement Learning,” Science, 2019.
+[178] J.-M. Perez-Rua, X. Zhu, T. Hospedales, and T. Xiang, “Incremental Few-Shot Object Detection,” in CVPR, 2020.
+[179] M. Garnelo, D. Rosenbaum, C. J. Maddison, T. Ramalho, D. Saxton, M. Shanahan, Y. W. Teh, D. J. Rezende, and S. M. A. Eslami, “Conditional Neural Processes,” ICML, 2018.
+[180] A. Pakman, Y. Wang, C. Mitelut, J. Lee, and L. Paninski, “Neural clustering processes,” in ICML, 2019.
+[181] J. Lee, Y. Lee, J. Kim, A. Kosiorek, S. Choi, and Y. W. Teh, “Set transformer: A framework for attention-based permutationinvariant neural networks,” in ICML, 2019.
+[182] J. Lee, Y. Lee, and Y. W. Teh, “Deep amortized clustering,” 2019. [183] V. Veeriah, M. Hessel, Z. Xu, R. Lewis, J. Rajendran, J. Oh, H. van
+Hasselt, D. Silver, and S. Singh, “Discovery Of Useful Questions As Auxiliary Tasks,” in NeurIPS, 2019. [184] Z. Zheng, J. Oh, and S. Singh, “On Learning Intrinsic Rewards For Policy Gradient Methods,” in NeurIPS, 2018. [185] T. Xu, Q. Liu, L. Zhao, and J. Peng, “Learning To Explore With Meta-Policy Gradient,” ICML, 2018. [186] B. C. Stadie, G. Yang, R. Houthooft, X. Chen, Y. Duan, Y. Wu, P. Abbeel, and I. Sutskever, “Some Considerations On Learning To Explore Via Meta-Reinforcement Learning,” in NeurIPS, 2018. [187] F. Garcia and P. S. Thomas, “A Meta-MDP Approach To Exploration For Lifelong Reinforcement Learning,” in NeurIPS, 2019. [188] A. Gupta, R. Mendonca, Y. Liu, P. Abbeel, and S. Levine, “MetaReinforcement Learning Of Structured Exploration Strategies,” in NeurIPS, 2018. [189] H. B. Lee, T. Nam, E. Yang, and S. J. Hwang, “Meta Dropout: Learning To Perturb Latent Features For Generalization,” in ICLR, 2020. [190] P. Bachman, A. Sordoni, and A. Trischler, “Learning Algorithms For Active Learning,” in ICML, 2017. [191] K. Konyushkova, R. Sznitman, and P. Fua, “Learning Active Learning From Data,” in NeurIPS, 2017. [192] K. Pang, M. Dong, Y. Wu, and T. M. Hospedales, “Meta-Learning Transferable Active Learning Policies By Deep Reinforcement Learning,” CoRR, 2018. [193] D. Maclaurin, D. Duvenaud, and R. P. Adams, “Gradient-based Hyperparameter Optimization Through Reversible Learning,” in ICML, 2015. [194] C. Russell, M. Toso, and N. Campbell, “Fixing Implicit Derivatives: Trust-Region Based Learning Of Continuous Energy Functions,” in NeurIPS, 2019. [195] A. Nichol, J. Achiam, and J. Schulman, “On First-Order MetaLearning Algorithms,” in ArXiv E-prints, 2018. [196] T. Salimans, J. Ho, X. Chen, S. Sidor, and I. Sutskever, “Evolution Strategies As A Scalable Alternative To Reinforcement Learning,” arXiv e-prints, 2017. [197] F. Stulp and O. Sigaud, “Robot Skill Learning: From Reinforcement Learning To Evolution Strategies,” Paladyn, Journal of Behavioral Robotics, 2013. [198] A. Soltoggio, K. O. Stanley, and S. Risi, “Born To Learn: The Inspiration, Progress, And Future Of Evolved Plastic Artiﬁcial Neural Networks,” Neural Networks, 2018. [199] Y. Cao, T. Chen, Z. Wang, and Y. Shen, “Learning To Optimize In Swarms,” in NeurIPS, 2019. [200] F. Meier, D. Kappler, and S. Schaal, “Online Learning Of A Memory For Learning Rates,” in ICRA, 2018. [201] A. G. Baydin, R. Cornish, D. Mart´ınez-Rubio, M. Schmidt, and F. D. Wood, “Online Learning Rate Adaptation With Hypergradient Descent,” in ICLR, 2018. [202] S. Chen, W. Wang, and S. J. Pan, “MetaQuant: Learning To Quantize By Learning To Penetrate Non-differentiable Quantization,” in NeurIPS, 2019. [203] C. Sun, A. Shrivastava, S. Singh, and A. Gupta, “Revisiting Unreasonable Effectiveness Of Data In Deep Learning Era,” in ICCV, 2017. [204] M. Yin, G. Tucker, M. Zhou, S. Levine, and C. Finn, “MetaLearning Without Memorization,” ICLR, 2020.
+
+19
+
+[205] S. W. Yoon, J. Seo, and J. Moon, “Tapnet: Neural Network Augmented With Task-adaptive Projection For Few-shot Learning,” ICML, 2019.
+[206] J. W. Rae, S. Bartunov, and T. P. Lillicrap, “Meta-learning Neural Bloom Filters,” ICML, 2019.
+[207] A. Raghu, M. Raghu, S. Bengio, and O. Vinyals, “Rapid Learning Or Feature Reuse? Towards Understanding The Effectiveness Of Maml,” arXiv e-prints, 2019.
+[208] B. Kang, Z. Liu, X. Wang, F. Yu, J. Feng, and T. Darrell, “Few-shot Object Detection Via Feature Reweighting,” in ICCV, 2019.
+[209] L.-Y. Gui, Y.-X. Wang, D. Ramanan, and J. Moura, Few-Shot Human Motion Prediction Via Meta-learning. Springer, 2018.
+[210] A. Shaban, S. Bansal, Z. Liu, I. Essa, and B. Boots, “One-Shot Learning For Semantic Segmentation,” CoRR, 2017.
+[211] N. Dong and E. P. Xing, “Few-Shot Semantic Segmentation With Prototype Learning,” in BMVC, 2018.
+[212] K. Rakelly, E. Shelhamer, T. Darrell, A. A. Efros, and S. Levine, “Few-Shot Segmentation Propagation With Guided Networks,” ICML, 2019.
+[213] S. A. Eslami, D. J. Rezende, F. Besse, F. Viola, A. S. Morcos, M. Garnelo, A. Ruderman, A. A. Rusu, I. Danihelka, K. Gregor et al., “Neural scene representation and rendering,” Science, vol. 360, no. 6394, pp. 1204–1210, 2018.
+[214] E. Zakharov, A. Shysheya, E. Burkov, and V. S. Lempitsky, “FewShot Adversarial Learning Of Realistic Neural Talking Head Models,” CoRR, 2019.
+[215] T.-C. Wang, M.-Y. Liu, A. Tao, G. Liu, J. Kautz, and B. Catanzaro, “Few-shot Video-to-video Synthesis,” in NeurIPS, 2019.
+[216] S. E. Reed, Y. Chen, T. Paine, A. van den Oord, S. M. A. Eslami, D. J. Rezende, O. Vinyals, and N. de Freitas, “Few-shot Autoregressive Density Estimation: Towards Learning To Learn Distributions,” in ICLR, 2018.
+[217] O. Russakovsky, J. Deng, H. Su, J. Krause, S. Satheesh, S. Ma, Z. Huang, A. Karpathy, A. Khosla, M. Bernstein et al., “Imagenet Large Scale Visual Recognition Challenge,” International Journal of Computer Vision, 2015.
+[218] M. Ren, E. Triantaﬁllou, S. Ravi, J. Snell, K. Swersky, J. B. Tenenbaum, H. Larochelle, and R. S. Zemel, “Meta-Learning For Semi-Supervised Few-Shot Classiﬁcation,” ICLR, 2018.
+[219] A. Antoniou and M. O. S. A. Massimiliano, Patacchiola, “Deﬁning Benchmarks For Continual Few-shot Learning,” arXiv eprints, 2020.
+[220] S.-A. Rebufﬁ, H. Bilen, and A. Vedaldi, “Learning Multiple Visual Domains With Residual Adapters,” in NeurIPS, 2017.
+[221] Y. Guo, N. C. F. Codella, L. Karlinsky, J. R. Smith, T. Rosing, and R. Feris, “A New Benchmark For Evaluation Of Cross-Domain Few-Shot Learning,” arXiv:1912.07200, 2019.
+[222] T. de Vries, I. Misra, C. Wang, and L. van der Maaten, “Does Object Recognition Work For Everyone?” in CVPR, 2019.
+[223] R. J. Williams, “Simple Statistical Gradient-Following Algorithms For Connectionist Reinforcement Learning,” Machine learning, 1992.
+[224] A. Fallah, A. Mokhtari, and A. Ozdaglar, “Provably Convergent Policy Gradient Methods For Model-Agnostic MetaReinforcement Learning,” arXiv e-prints, 2020.
+[225] J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, “Proximal Policy Optimization Algorithms,” arXiv e-prints, 2017.
+[226] O. Sigaud and F. Stulp, “Policy Search In Continuous Action Domains: An Overview,” Neural Networks, 2019.
+[227] J. Schmidhuber, “What’s interesting?” 1997. [228] L. Kirsch, S. van Steenkiste, and J. Schmidhuber, “Improving
+Generalization In Meta Reinforcement Learning Using Learned Objectives,” in ICLR, 2020. [229] T. Haarnoja, A. Zhou, P. Abbeel, and S. Levine, “Soft ActorCritic: Off-Policy Maximum Entropy Deep Reinforcement Learning With A Stochastic Actor,” in ICML, 2018. [230] O. Kroemer, S. Niekum, and G. D. Konidaris, “A Review Of Robot Learning For Manipulation: Challenges, Representations, And Algorithms,” CoRR, 2019. [231] A. Jabri, K. Hsu, A. Gupta, B. Eysenbach, S. Levine, and C. Finn, “Unsupervised Curricula For Visual Meta-Reinforcement Learning,” in NeurIPS, 2019. [232] Y. Yang, K. Caluwaerts, A. Iscen, J. Tan, and C. Finn, “Norml: No-reward Meta Learning,” in AAMAS, 2019. [233] S. K. Seyed Ghasemipour, S. S. Gu, and R. Zemel, “SMILe: Scalable Meta Inverse Reinforcement Learning Through ContextConditional Policies,” in NeurIPS, 2019.
+
+[234] M. C. Machado, M. G. Bellemare, E. Talvitie, J. Veness, M. Hausknecht, and M. Bowling, “Revisiting The Arcade Learning Environment: Evaluation Protocols And Open Problems For General Agents,” Journal of Artiﬁcial Intelligence Research, 2018.
+[235] A. Nichol, V. Pfau, C. Hesse, O. Klimov, and J. Schulman, “Gotta Learn Fast: A New Benchmark For Generalization In RL,” CoRR, 2018.
+[236] K. Cobbe, O. Klimov, C. Hesse, T. Kim, and J. Schulman, “Quantifying Generalization In Reinforcement Learning,” ICML, 2019.
+[237] G. Brockman, V. Cheung, L. Pettersson, J. Schneider, J. Schulman, J. Tang, and W. Zaremba, “OpenAI Gym,” 2016.
+[238] C. Packer, K. Gao, J. Kos, P. Kra¨henbu¨ hl, V. Koltun, and D. Song, “Assessing Generalization In Deep Reinforcement Learning,” arXiv e-prints, 2018.
+[239] C. Zhao, O. Siguad, F. Stulp, and T. M. Hospedales, “Investigating Generalisation In Continuous Deep Reinforcement Learning,” arXiv e-prints, 2019.
+[240] T. Yu, D. Quillen, Z. He, R. Julian, K. Hausman, C. Finn, and S. Levine, “Meta-world: A Benchmark And Evaluation For Multitask And Meta Reinforcement Learning,” CORL, 2019.
+[241] A. Bakhtin, L. van der Maaten, J. Johnson, L. Gustafson, and R. Girshick, “Phyre: A New Benchmark For Physical Reasoning,” in NeurIPS, 2019.
+[242] J. Tremblay, A. Prakash, D. Acuna, M. Brophy, V. Jampani, C. Anil, T. To, E. Cameracci, S. Boochoon, and S. Birchﬁeld, “Training Deep Networks With Synthetic Data: Bridging The Reality Gap By Domain Randomization,” in CVPR, 2018.
+[243] A. Kar, A. Prakash, M. Liu, E. Cameracci, J. Yuan, M. Rusiniak, D. Acuna, A. Torralba, and S. Fidler, “Meta-Sim: Learning To Generate Synthetic Datasets,” CoRR, 2019.
+[244] B. Zoph, V. Vasudevan, J. Shlens, and Q. V. Le, “Learning Transferable Architectures For Scalable Image Recognition,” in CVPR, 2018.
+[245] J. Kim, Y. Choi, M. Cha, J. K. Lee, S. Lee, S. Kim, Y. Choi, and J. Kim, “Auto-Meta: Automated Gradient Based Meta Learner Search,” CoRR, 2018.
+[246] T. Elsken, B. Stafﬂer, J. H. Metzen, and F. Hutter, “Meta-Learning Of Neural Architectures For Few-Shot Learning,” in CVPR, 2019.
+[247] L. Li and A. Talwalkar, “Random Search And Reproducibility For Neural Architecture Search,” arXiv e-prints, 2019.
+[248] C. Ying, A. Klein, E. Christiansen, E. Real, K. Murphy, and F. Hutter, “NAS-Bench-101: Towards Reproducible Neural Architecture Search,” in ICML, 2019.
+[249] P. Tossou, B. Dura, F. Laviolette, M. Marchand, and A. Lacoste, “Adaptive Deep Kernel Learning,” CoRR, 2019.
+[250] M. Patacchiola, J. Turner, E. J. Crowley, M. O’Boyle, and A. Storkey, “Deep Kernel Transfer In Gaussian Processes For Few-shot Learning,” arXiv e-prints, 2019.
+[251] T. Kim, J. Yoon, O. Dia, S. Kim, Y. Bengio, and S. Ahn, “Bayesian Model-Agnostic Meta-Learning,” NeurIPS, 2018.
+[252] S. Ravi and A. Beatson, “Amortized Bayesian Meta-Learning,” in ICLR, 2019.
+[253] Z. Wang, Y. Zhao, P. Yu, R. Zhang, and C. Chen, “Bayesian meta sampling for fast uncertainty adaptation,” in ICLR, 2020.
+[254] K. Hsu, S. Levine, and C. Finn, “Unsupervised Learning Via Meta-learning,” ICLR, 2019.
+[255] S. Khodadadeh, L. Boloni, and M. Shah, “Unsupervised MetaLearning For Few-Shot Image Classiﬁcation,” in NeurIPS, 2019.
+[256] A. Antoniou and A. Storkey, “Assume, Augment And Learn: Unsupervised Few-shot Meta-learning Via Random Labels And Data Augmentation,” arXiv e-prints, 2019.
+[257] Y. Jiang and N. Verma, “Meta-Learning To Cluster,” 2019.
+[258] V. Garg and A. T. Kalai, “Supervising Unsupervised Learning,” in NeurIPS, 2018.
+[259] K. Javed and M. White, “Meta-learning Representations For Continual Learning,” in NeurIPS, 2019.
+[260] A. Sinitsin, V. Plokhotnyuk, D. Pyrkin, S. Popov, and A. Babenko, “Editable Neural Networks,” in ICLR, 2020.
+[261] K. Muandet, D. Balduzzi, and B. Scho¨ lkopf, “Domain Generalization Via Invariant Feature Representation,” in ICML, 2013.
+[262] D. Li, Y. Yang, Y. Song, and T. M. Hospedales, “Learning To Generalize: Meta-Learning For Domain Generalization,” in AAAI, 2018.
+[263] D. Li, Y. Yang, Y.-Z. Song, and T. Hospedales, “Deeper, Broader And Artier Domain Generalization,” in ICCV, 2017.
+
+20
+
+[264] T. Miconi, J. Clune, and K. O. Stanley, “Differentiable Plasticity: Training Plastic Neural Networks With Backpropagation,” in ICML, 2018.
+[265] T. Miconi, A. Rawal, J. Clune, and K. O. Stanley, “Backpropamine: Training Self-modifying Neural Networks With Differentiable Neuromodulated Plasticity,” in ICLR, 2019.
+[266] J. Devlin, R. Bunel, R. Singh, M. J. Hausknecht, and P. Kohli, “Neural Program Meta-Induction,” in NIPS, 2017.
+[267] X. Si, Y. Yang, H. Dai, M. Naik, and L. Song, “Learning A Metasolver For Syntax-guided Program Synthesis,” ICLR, 2018.
+[268] P. Huang, C. Wang, R. Singh, W. Yih, and X. He, “Natural Language To Structured Query Generation Via Meta-Learning,” CoRR, 2018.
+[269] Y. Xie, H. Jiang, F. Liu, T. Zhao, and H. Zha, “Meta Learning With Relational Information For Short Sequences,” in NeurIPS, 2019.
+[270] J. Gu, Y. Wang, Y. Chen, V. O. K. Li, and K. Cho, “Meta-Learning For Low-Resource Neural Machine Translation,” in EMNLP, 2018.
+[271] Z. Lin, A. Madotto, C. Wu, and P. Fung, “Personalizing Dialogue Agents Via Meta-Learning,” CoRR, 2019.
+[272] J.-Y. Hsu, Y.-J. Chen, and H. yi Lee, “Meta Learning For End-toEnd Low-Resource Speech Recognition,” in ICASSP, 2019.
+[273] G. I. Winata, S. Cahyawijaya, Z. Liu, Z. Lin, A. Madotto, P. Xu, and P. Fung, “Learning Fast Adaptation On Cross-Accented Speech Recognition,” arXiv e-prints, 2020.
+[274] O. Klejch, J. Fainberg, and P. Bell, “Learning To Adapt: A Metalearning Approach For Speaker Adaptation,” Interspeech, 2018.
+[275] D. M. Metter, T. J. Colgan, S. T. Leung, C. F. Timmons, and J. Y. Park, “Trends In The US And Canadian Pathologist Workforces From 2007 To 2017,” JAMA Network Open, 2019.
+[276] G. Maicas, A. P. Bradley, J. C. Nascimento, I. D. Reid, and G. Carneiro, “Training Medical Image Analysis Systems Like Radiologists,” CoRR, 2018.
+[277] B. D. Nguyen, T.-T. Do, B. X. Nguyen, T. Do, E. Tjiputra, and Q. D. Tran, “Overcoming Data Limitation In Medical Visual Question Answering,” arXiv e-prints, 2019.
+[278] Z. Mirikharaji, Y. Yan, and G. Hamarneh, “Learning To Segment Skin Lesions From Noisy Annotations,” CoRR, 2019.
+[279] D. Barrett, F. Hill, A. Santoro, A. Morcos, and T. Lillicrap, “Measuring Abstract Reasoning In Neural Networks,” in ICML, 2018.
+[280] K. Zheng, Z.-J. Zha, and W. Wei, “Abstract Reasoning With Distracting Features,” in NeurIPS, 2019.
+[281] B. Dai, C. Zhu, and D. Wipf, “Compressing Neural Networks Using The Variational Information Bottleneck,” ICML, 2018.
+[282] Z. Liu, H. Mu, X. Zhang, Z. Guo, X. Yang, K.-T. Cheng, and J. Sun, “Metapruning: Meta Learning For Automatic Neural Network Channel Pruning,” in ICCV, 2019.
+[283] T. O’Shea and J. Hoydis, “An Introduction To Deep Learning For The Physical Layer,” IEEE Transactions on Cognitive Communications and Networking, 2017.
+[284] Y. Jiang, H. Kim, H. Asnani, and S. Kannan, “MIND: Model Independent Neural Decoder,” arXiv e-prints, 2019.
+[285] B. Settles, “Active Learning,” Synthesis Lectures on Artiﬁcial Intelligence and Machine Learning, 2012.
+[286] I. J. Goodfellow, J. Shlens, and C. Szegedy, “Explaining And Harnessing Adversarial Examples,” in ICLR, 2015.
+[287] C. Yin, J. Tang, Z. Xu, and Y. Wang, “Adversarial Meta-Learning,” CoRR, 2018.
+[288] M. Vartak, A. Thiagarajan, C. Miranda, J. Bratman, and H. Larochelle, “A meta-learning perspective on cold-start recommendations for items,” in NIPS, 2017.
+[289] H. Bharadhwaj, “Meta-learning for user cold-start recommendation,” in IJCNN, 2019.
+[290] T. Yu, S. Kumar, A. Gupta, S. Levine, K. Hausman, and C. Finn, “Gradient Surgery For Multi-Task Learning,” 2020.
+[291] Z. Kang, K. Grauman, and F. Sha, “Learning With Whom To Share In Multi-task Feature Learning,” in ICML, 2011.
+[292] Y. Yang and T. Hospedales, “A Uniﬁed Perspective On MultiDomain And Multi-Task Learning,” in ICLR, 2015.
+[293] K. Allen, E. Shelhamer, H. Shin, and J. Tenenbaum, “Inﬁnite Mixture Prototypes For Few-shot Learning,” in ICML, 2019.
+[294] F. Pedregosa, “Hyperparameter optimization with approximate gradient,” in ICML, 2016.
+[295] R. J. Williams and D. Zipser, “A learning algorithm for continually running fully recurrent neural networks,” Neural Computation, vol. 1, no. 2, pp. 270–280, 1989.
+
+[296] A. Shaban, C.-A. Cheng, N. Hatch, and B. Boots, “Truncated backpropagation for bilevel optimization,” in AISTATS, 2019.
+[297] J. Fu, H. Luo, J. Feng, K. H. Low, and T.-S. Chua, “DrMAD: Distilling reverse-mode automatic differentiation for optimizing hyperparameters of deep neural networks,” in IJCAI, 2016.
+[298] S. Flennerhag, P. G. Moreno, N. Lawrence, and A. Damianou, “Transferring knowledge across learning processes,” in ICLR, 2019.
+[299] Y. Wu, M. Ren, R. Liao, and R. Grosse, “Understanding shorthorizon bias in stochastic meta-optimization,” in ICLR, 2018.
+Timothy Hospedales is a Professor at the University of Edinburgh, and Principal Researcher at Samsung AI Research. His research interest is in data efﬁcient and robust learning-to-learn with diverse applications in vision, language, reinforcement learning, and beyond.
+Antreas Antoniou is a PhD student at the University of Edinburgh, supervised by Amos Storkey. His research contributions in metalearning and few-shot learning are commonly seen as key benchmarks in the ﬁeld. His main interests lie around meta-learning better learning priors such as losses, initializations and neural network layers, to improve few-shot and life-long learning.
+Paul Micaelli is a PhD student at the University of Edinburgh, supervised by Amos Storkey and Timothy Hospedales. His research focuses on zero-shot knowledge distillation and on metalearning over long horizons for many-shot problems.
+Amos Storkey is Professor of Machine Learning and AI in the School of Informatics, University of Edinburgh. He leads a research team focused on deep neural networks, Bayesian and probabilistic models, efﬁcient inference and meta-learning.
+
