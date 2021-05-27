@@ -1,0 +1,1383 @@
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Successor Representation, Replay and Linear Successor Feature Model
+Cyril REGAN May 26, 2021
+1 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Table of Contents
+
+Reinforcement Learning Markov Decision Process (MDP) Model Free - Model Based Dyna Model
+Successor Representation A time based representation SR matrix construction SR relation with transition function SR policy dependence SR TD-Learning
+Replay EVB Bellman backup
+
+EVB Policy Gain - Need Algorithm limitations Bidirectionnal MB Prioritized Sweeping Trajectory Sampling Bidirectional Algorithm LSFM State of the Art Literature Latent space Latent space and Successor Features Learning Conclusion
+
+2 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Markov Decision Process (MDP)
+15 RL purpose is to solve Markov Decision Process (MDP) S, A, p, r , γ
+
+S : State Space : s ∈ S
+
+,
+
+A : Action Space : a ∈ A
+
+,
+
+p:
+
+Transition function p is Markovian : p(s |s, a) = P[st+1 = s |st = s, at = a]
+
+,
+
+r : Reward function r : S × A × S → [R, R]
+
+,
+
+γ:
+
+discount factor that captures a preference for proximal rewards
+
+3 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+But what is solve MDP ? Find the optimal policy π∗ to maximize the rewards. The policy π is a function that maps the state of an agent to an action :
+π(a|s) = P[at = a|st = s]
+
+4 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+2 main type of Models to solve a MDP : • Model-based : An internal model (p, r ) is known or learned • Model-free : No internal model
+
+Policy Optimization
+
+RL Algorithm
+
+Model-Free RL
+
+ModelBased RL
+
+Q-Learning
+
+Learn the Model
+
+Given the Model
+
+5 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Model Free - Model Based
+Model Free : − Need many on-line steps, − Inﬂexible (transition / reward change), + No planning phase, + Computationally cheap.
+Model based : − Need to learn model (can be given), + few on-line steps (oﬀ-line learning), + ﬂexible (transition / reward change), − planning can be complex (trajectory optimization), − computationally expensive.
+6 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Dyna Model
+
+Dyna Model : • Model Free learning on-line. • Model Based Planning oﬀ-line ≡ Simulated experiences similar to hippocampal replay
+Dyna Model Based planning can be constructed with the : Successor Representation (SR)
+(instead to the transition function p).
+7 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Table of Contents
+
+Reinforcement Learning Markov Decision Process (MDP) Model Free - Model Based Dyna Model
+Successor Representation A time based representation SR matrix construction SR relation with transition function SR policy dependence SR TD-Learning
+Replay EVB Bellman backup
+
+EVB Policy Gain - Need Algorithm limitations Bidirectionnal MB Prioritized Sweeping Trajectory Sampling Bidirectional Algorithm LSFM State of the Art Literature Latent space Latent space and Successor Features Learning Conclusion
+
+8 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Successor Representation : a time based representation
+
+SR matrix construction
+
+(Dayan 1993; Gershman 2018)
+
+SR is a "compressed time based" representation of the actual state and all the future state occupancy (discounting by the γ factor) :
+
+Mπ(s , s, a) = Eπ
+
+γt I{st = s }|s0 = s, a0 = a
+
+(1)
+
+Where I{...} = 1 if its argument is true (0 otherwise). In tabular state, SR matrix Mπ relation with transition matrix (Pπ)ass = p(s |s, a) is :
+
+Mπ(s , s, a) = I{s = s } + γ(Pπ)ass + γ2(Pπ2)ass + γ3(Pπ3)ass + ... (2)
+
+In a matrix formulation : Mπ = (1 − γPπ)−1
+
+(3)
+
+9 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+SR relation with transition function SR Matrix Mπ : a time based representation :
+Rows : expected future occupancy of a state Columns : expected past occupancy of a state
+
+Transition matrix (Pπ)
+
+Mdp
+
+(Momennejad and Howard 2018)
+
+SR matrix Mπ
+
+10 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+SR policy dependence
+
+Successor Representation policy dependence (Mattar-Daw 2018)
+
+11 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+The Successor Representation TD-Learning
+
+SR Matrix Mπ can be learn as TD-Learning (Gershman 2018):
+
+Mπ(s, :) ← Mπ(s, :) + α(1s + γMπ(s , :) − Mπ(s, :))
+
+(4)
+
+Nice property : Value functions (V , Q) are linear with SR (M) :
+
++∞
+
+V π(s) = Eπ
+
+γk rt+k |st = s = Mπ(s, s )r (s )
+
+(5)
+
+k =0
+
+s
+
++∞
+
+Qπ(s, a) = Eπ
+
+γk rt+k |st = s, at = a =
+
+Mπ(s, s , a)r (s , a)
+
+k =0
+
+s
+
+(6)
+
+12 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Table of Contents
+
+Reinforcement Learning Markov Decision Process (MDP) Model Free - Model Based Dyna Model
+Successor Representation A time based representation SR matrix construction SR relation with transition function SR policy dependence SR TD-Learning
+Replay EVB Bellman backup
+
+EVB Policy Gain - Need Algorithm limitations Bidirectionnal MB Prioritized Sweeping Trajectory Sampling Bidirectional Algorithm LSFM State of the Art Literature Latent space Latent space and Successor Features Learning Conclusion
+
+13 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Replay :
+• Model-Free : experience storage + oﬀ-line learning (Lin 1992) • Random experience replay (Mnih 2013; Mnih 2015) • prioritized experience replay (Schaul 2016)
+• Model-Based / SR-Based : simulated experience replay
+2 = prioritized simulated replay method : • The Expected Value of a Bellman backup (EVB) (Mattar-Daw 2018) • The Bidirectionnal Model-Based approach (Khamassi-Girard 2020).
+14 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+2 computational families of simulated replay :
+
+EVB (Mattar-Daw 2018):
+Bidirectionnal MB (Khamassi-Girard 2020):
+
+Need Trajectory sampling
+
+Gain Prioritized sweeping
+
+Forward replay
+
+Backward replay
+
+15 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Expected Value of a Bellman backup (EVB)
+The Bellman backup EVB (Mattar-Daw 2018) algorithm is based on :
+• Dyna architecture, • and prioritized Bellman backup. A Bellman backup is the TD-learning iteration of Q :
+
+Q(sk , ak ) ← Q(sk , ak ) + α
+
+rk
+
++
+
+γ
+
+max
+a
+
+Q(sk , a)
+
+−
+
+Q(sk ,
+
+ak )
+
+(7)
+
+A Bellman backups occur on-line or oﬀ-line with simulated replay.
+
+16 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+EVB Policy : e β Q (s ,a)
+Softmax Q function π(a|s) = i eβQ(s,i) :
+
+Pure exploration β → 0+
+Pure exploitation β→∞
+
+= Probability for all actions
+Probability = 1 for the action with max Q value
+(= 0 for the others)
+
+17 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Expected Value of a Bellman backup (EVB) :
+
+EVB is the criterion to order the replay experiences for the oﬄine update of Q (Bellman Backup).
+
+EVB(sk , ak ) = Gain(sk , ak ) × Need(sk )
+
+(8)
+
+• Gain : expected return when reaching (sk , ak ), • Need : number of times the agent expects to visit sk in the future.
+
+18 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Gain :
+
+Qπ (sk ,ak )=Eπ
+
+∞ k
+
+γi
+
+rt+i
+
+Gain on (sk , ak ) quantiﬁes the improvement in the expected return
+
+πnew (a|sk )−πold (a|sk )
+
+Qnew (sk ,ak )←Qold (sk ,ak )
+
+as a result of a policy change after a Bellman Backup on (sk , ak ) :
+
+expected return
+
+policy change
+
+Gain(sk , ak ) = Qπnew (sk , a) πnew (a|sk ) − πold (a|sk )
+
+(9)
+
+a
+
+where πnew (a|sk ) = softmax (Qnew (a, sk )) (resp.πold )
+
+19 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Need :
+
+Need on sk quantiﬁes the discounted number of times the agent expects to visit states in the future :
+
+∞
+
+Need(sk ) =
+
+γi .1St+i,sk =
+
+M[sk , si ] =
+
+M
+
+i
+
+i ∈S
+
+row sk
+
+(10)
+
+: SR of a state (row of M)
+
+20 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+EVB algorithm and limitations :
+Ofﬂine learning : Compute ﬁxed number of planning steps on on the start and the end of each episode (not ﬂexible).
+• planning step : ∗ EVB is computed on all possible experiences (very high computational cost). ∗ Q update (Bellman backup) on experience with the higher EVB
+Online learning = Q learning : Update (Bellman backup) on current experience
+21 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+EVB Algorithm :
+
+(sk ,ak ,rk ,sk )k∈S×A
+
+Loop on all states-actions and store all experiences of the environment
+Construct Transition (P) and SR (M = (1 − γP)−1) matrices loop on nmax episodes while n <= nmax do
+pmax oﬄine learning steps at the start of episode while p <= pmax do
+Compute EVB on all states-actions (sk , ak )
+
+Belman Backup
+
+(sk ,ak ,rr ,sk )
+
+UpdateQ with the experience with higher EVB end online learning
+
+at ← argmaxasoftmaxβ (Q(st , a))
+Take action at receive (st+1, rt+1, done)
+Update Q (Belman Backup), P and M on (st , at , st+1, rt+1) pmax oﬄine learning steps again at the end of episode while p <= pmax do end end
+
+22 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Bidirectionnal Model-Based (MB)
+Bidirectionnal MB : prioritized replay with a heuristic-based approach (Khamassi-Girard 2020) .
+• Backward replay : Prioritized sweeping (PS) ∗ Start : replay starting from states whose Q-value changed recently, ∗ and then to their predecessors ∗ and the predecessors to their predecessors ... and so on.
+• Forward replay : Trajectory sampling (TS) ∗ Start : generate continuous trajectories from the current position ... until forward and backward search reached a connection state.
+23 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Prioritized Sweeping (PS) :
+
+PS is backward replay. PS consists of weighing experiences based on how surprising they are, measured by the absolute value of the MB TD error signal :
+
+δ = |Qn+1(s, a) − Qn(s, a)|,
+
+Qn+1(s, a) ← r (s, a) + γ
+
+Psas
+
+max Qn(s , a )
+a
+
+(11)
+
+s
+
+24 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+if the level of surprise δ is large enough, all possible predecessors of s are added to a priority queue PQueue, with a priority p :
+• equal to δ, • attenuated by γ, • and attenuated by the probability to eﬀectively reach state s from
+the predecessor s under consideration : T (s , a , s)
+
+p ← δ × γ × T (s , a , s)
+
+(12)
+
+25 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Trajectory Sampling (TS) : • TS drives forward replay from the current location. • TS generates trajectories(with transition state function). • TS stops when a connection state with backward search (Prioritized Sweeping) is reached.
+26 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Bidirectional Algorithm
+
+Oﬄine alternation between
+• Prioritized Sweeping, • Trajectory Sampling.
+27 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+loop until namax actions while na = namax do
+
+at ← softmaxβ (Q(st , at )) Take action at receive st+1, rt ,
+
+Update Psattst+1 R(st , at ) ← rt Store Qold ← Q(st , at )
+
+Q(st , at ) ← R(st , at ) + γ s Psattst+1 maxk Q(s , k)
+
+Compute the level reach predecessors
+
+of (s ,
+
+surprise a) of st
+
+: δ = |Q(st , at ) −
+for each (s, a) so
+
+Qold that
+
+|
+Psast
+
+= 0 do
+
+Compute predecessors priority : p ← δ × γ × Psast
+
+if (s, a) ∈/ PQueue then : Put (s, a) in PQueue with priority p
+
+else : Update priority of (s, a) in PQueue with p end
+
+st ← st+1 and na = na + 1
+
+Oﬄine MB Q-update Q ← OﬄineBidirectional(Q, PQueue, st ) end
+Algorithm 1: Online bidirectional algorithm
+
+28 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+nbLoops ← 0 repeat
+Prioritized Sweeping (PS) while PQueue[0] > thresold max budget do
+Select highest prioritized tuple : (s, a) ← PQueue[0] MB Q Update on Q(s, a)
+Update (s, a) predecessors priority : for each (s , a ) ... do ...
+end TS start from the current location in the environment : s ← st Trajectory Sampling (TS) while s ∈/ PQueue max budget do
+
+a ← softmaxβ (Q(s)) s ← the best probability of T (s, a, s )
+
+Qold ← Q(s, a) Q(s, a) ← R(s, a) + γ s Psas maxk Q(s , k)
+
+Sum of TD error : Sumδ ← Sumδ + |Q(s, a) − Qold |
+
+Jump to the next state : s ← s
+
+end
+
+until TD error convergence or budget max;
+
+return Q
+
+Algorithm 2: Oﬄine bidirectional algorithm
+
+29 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Table of Contents
+
+Reinforcement Learning Markov Decision Process (MDP) Model Free - Model Based Dyna Model
+Successor Representation A time based representation SR matrix construction SR relation with transition function SR policy dependence SR TD-Learning
+Replay EVB Bellman backup
+
+EVB Policy Gain - Need Algorithm limitations Bidirectionnal MB Prioritized Sweeping Trajectory Sampling Bidirectional Algorithm LSFM State of the Art Literature Latent space Latent space and Successor Features Learning Conclusion
+
+30 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+State of the Art
+SR can represent small discrete Tabular State Space => Unsuitable for big states space like video-games environment.
+
+=> Need approximate functions to reduce the original state space => The resulting reduced latent representation can lead to faster learning because information can be re-used across diﬀerent inputs
+31 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Successor Features (SFs) combine Successor Representation (SR) with
+
+arbitrary state representations φ. SFs are column vectors (Kulkarni 2016)
+
+:
+∞
+
+Mπ(s , s, a) = Eπ
+
+γt I{st = s }|s0 = s, a0 = a
+
+(13)
+
+t =0
+
+∞
+
+ψπ(s, a) = Eπ
+
+γt−1φst s1 = s, a1 = a ,
+
+t =1
+
+(14)
+
+ψπ : frequency of diﬀerent latent states vectors encountered following π.
+
+32 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Literature
+
+Some papers on SR Approximation functions in Neural Network.
+
+Deep SR (Kulkarni 2016)
+
+VIC Variational Intrinsic Control
+(Gregor 2016)
+
+SF & GPI Upgrade (Barreto and Borsa 2019)
+
+Successor Feature & GPI (Barreto and Dabney 2017)
+LSFM (Lehnert 2020)
+
+Universal SR (Wen 2018)
+Universal SF Approximator
+SF & GPI + USR (Borsa et al. 2018)
+VISF : VIC + SF &
+GPI + USR (Hansen 2020)
+
+33 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Latent space
+
+Latent state space Sφ is constructed using a state representation
+
+function :
+
+φ : S → Sφ
+
+(15)
+
+Sφ is
+
+value-predictive reward-predictive
+
+if it retains enough information to support
+
+V π or Qπ Eπ
+
+k γk rk
+
+• accurate value or Q-value predictions
+
+• accurate future expected reward predictions
+
+E[r1 ,r2 ,...|s ,a1 ,a2 ,...]
+
+34 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+• Value-predictive state representation is policy dependent. • Reward-predictive state representation is not. For optimal policy π∗, value-predictive state representation becomes a
+Reward-maximizing state representation
+35 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+(s, a, r , s ) experiences on s0 = s21, →, ↑, → with Reward Predictive and Maximizing state representations (Lucas Lehnert n.d.)
+
+Original State (s21, →, 0, s22) (s22, ↑, 0, s12) (s12, →, 1, s13)
+
+Reward-Predictive (φ1, →, 0, φ2) (φ2, ↑, 0, φ2) (φ2, →, 1, φ3)
+
+Reward-Maximizing (φ, →, 0.5, φ) (φ, ↑, 0, φ) (φ, →, 0.5, φ)
+
+36 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Latent space and Successor Features (SFs)
+
+Reward-maximizing state representations of (Barreto and Dabney 2017) are directly the SFs (ψπ) :
+
+Qπ(s, a) = ψπ(s, a).w
+
+(16)
+
+Latent space φ is one-step rewards : r (s, a, s ) = φ(s, a, s ).w .
+
+Reward-predictive state representations (φs ) of Linear Successor Features Model (LSFM) are tied with SFs (ψπ) via linear matrices
+{F a}a∈A (Lehnert 2020) :
+
+φs F a ≈ ψπ(s, a),
+
+(17)
+
+37 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+With a LSFM {F a}a∈A, a Linear Action Model (LAM) {Ma}a∈A can be constructed as
+
+1
+
+F a = I + γMaF , where F = |A| F a
+
+(18)
+
+a∈A
+
+A LAM {Ma}a∈A model the empirical latent transition probabilities :
+
+φs Ma = E[φs |s, a], and φs w a = E[r (s, a, s )|s, a] (19) φ is (multi) Reward-predictive :
+
+E[rt |s, a1, ..., at ] ≈ φs Ma1...Mat−1.w a
+
+(20)
+
+38 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Value and Reward state representation models :
+
+LSFM (Lehnert 2020)
+
+(s, a)
+
+φ
+
+φs Fa ψπ (s, a)
+
+wa r (s, a)
+
+E[r1, r2, ...|s, a1, a2, ...]
+
+SF (Barreto and Dabney 2017)
+
+(s, a) φ
+ψπ (s, a) w
+Qπ
+
+φs,a w
+r (s, a)
+
+QN (Riedmiller 2005)
+(s, a) φ
+φs
+qa
+Qπ
+
+Reward-predictive Model
+
+Value-predictive Models
+
+39 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Learning
+LSFM Learning
+
+D
+LLSFM =
+i =1
+
+2
+
+D
+
+φsi w ai − ri +αψ
+
+i =1
+
+φsi F a − y si ,ai ,ri ,si
+
+2
+
+D
+
++ αN
+
+2
+
+i =1
+
+2
+
+2
+
+φsi
+
+−1
+2
+
+(21)
+
+=Lr
+
+=Lψ
+
+=LN
+
+and αN , αψ > 0 are hyper-parameters.
+
+y s,a,r,s = φs + γφs F
+
+(22)
+
+F the LSFM that predicts the SF for a policy uniformly at random :
+
+1
+
+F= |A|
+
+Fa
+
+(23)
+
+a∈A
+
+40 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Q Learning A theorem (Lehnert 2020) bounds the prediction error of ﬁnding a linear approximation of the Q-function :
+Qπ(s, a) ≈ φs qa using a state representation φ and a real valued vector qa.
+41 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Learned Representation (Lehnert 2020)
+Puddle Word / Agglomerating clustering for LSFM learned representation
+Expected reward and predictions
+on random action sequence
+Random representation / LSFM representation
+
+42 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Learned transfer (Lehnert 2020)
+
+LSFM representation allow faster transfer learning than tabular model-based agent and Value Predictive representation.
+value iteration construction on optimal policy
+43 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Table of Contents
+
+Reinforcement Learning Markov Decision Process (MDP) Model Free - Model Based Dyna Model
+Successor Representation A time based representation SR matrix construction SR relation with transition function SR policy dependence SR TD-Learning
+Replay EVB Bellman backup
+
+EVB Policy Gain - Need Algorithm limitations Bidirectionnal MB Prioritized Sweeping Trajectory Sampling Bidirectional Algorithm LSFM State of the Art Literature Latent space Latent space and Successor Features Learning Conclusion
+
+44 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Conclusion & future work
+Conclusion
+LSFM is Reward-predictive
+LSFM state representations generalize across variations in transition and reward functions
+(in contrast to (Barreto and Dabney 2017), (Kulkarni 2016), ... in reward functions only).
+LSFMs must be trained on pure exploration policy (reward agnostic).
+The LSFM state representation can be used to predict the value-function of any policy, including the optimal policy.
+=> A working Neural Network LSFM is implemented in TensorFlow 2.
+45 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Futur work
+*** Goal : Construction of a RL model using ofﬂine generated Replay with
+LSFM Successor Features for Video games (and Neuroscience ?) applications.
+*** Replay State of the Art : (Mattar-Daw 2018) and (Khamassi-Girard 2020) proposed mathematical and heuristic models to generate Replay in DYNA algorithm on original tabular state space.
+46 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+Research directions : => Find new or adapt existing Replay models on Successor Features => Find better (than random) exploration policy for LSFM learning :
+Options of (Machado 2018) ?
+Any ideas and helps is welcome
+Thanks for your attention !
+47 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+References I
+Barreto, Andre and Diana Borsa (2019). Transfer in Deep Reinforcement Learning Using Successor Features and Generalised Policy Improvement.
+Barreto, Andre and Will Dabney (2017). Successor Features for Transfer in Reinforcement Learning. 31st Conference on Neural Information Processing Systems (NIPS 2017), Long Beach, CA, USA.
+Borsa, Diana et al. (2018). “universal successor feature approximator.” In:
+Dayan, Peter (1993). Improving Generalization for Temporal Diﬀerence Learning: The Successor Representation. Computational Neurobiology Laboratory, The Salk Institute, P.0. Box 85800, Sun Diego, CA 921865800 USA.
+Gershman, Samuel J. (2018). The Successor Representation: Its Computational Logic and Neural Substrates. The Journal of Neuroscience. ISBN: 9781417642595.
+48 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+References II
+Gregor (Nov. 2016). “Variational Intrinsic Control.” en. In: arXiv:1611.07507 [cs]. arXiv: 1611.07507. URL: http://arxiv.org/abs/1611.07507 (visited on 04/29/2021).
+Hansen, Barreto (2020). “Fast Task Inference with Variational Intrinsic Successor Features.” In:
+Khamassi-Girard (2020). Modeling awake hippocampal reactivations with model-based bidirectional search. Biological Cybernetics (Modeling), Springer Verlag, 2020, 10.1007/s00422-020- 00817-x. hal-02504897.
+Kulkarni, Gershman (2016). Deep Successor Reinforcement Learning. ArXiv vol abs/1606.02396.
+Lehnert, Lucas (2020). Successor Features Combine Elements of ModelFree and Model-based Reinforcement Learning.
+Lin (1992). Self-improving reactive agents based on reinforcement learning, planning and teaching. Machine learning, 8(3):293–321, 1992.
+49 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+References III
+Lucas Lehnert Michael L. Littman, Michael J. Frank (n.d.). “Rewardpredictive representations generalize across tasks in reinforcement learning.” In: ().
+Machado (2018). Eigenoption discovery through the deep successor representation. conference paper at ICLR 2018.
+Mattar-Daw (2018). Prioritized memory access explains planning and hippocampal replay. Nature Neuroscience.
+Mnih (2013). Playing atari with deep reinforcement learning. ICLR 2016arXiv:13 2013.Mnih.
+– (2015). Human-level control through deep reinforcement learning. Nature, 518(7540):529–533, 2015.
+Momennejad, Ida and Marc W. Howard (Oct. 22, 2018). Predicting the Future with Multi-scale Successor Representations. preprint. Neuroscience. DOI: 10 . 1101 / 449470. URL: http : / / biorxiv . org / lookup/doi/10.1101/449470 (visited on 04/21/2021).
+50 / 51
+
+Reinforcement Learning
+
+Successor Representation
+
+Replay
+
+LSFM
+
+Conclusion
+
+References
+
+References IV
+Riedmiller, Martin (2005). “Neural Fitted Q Iteration – First Experiences with a Data Eﬃcient Neural Reinforcement Learning Method.” en. In: Machine Learning: ECML 2005. Ed. by David Hutchison et al. Vol. 3720. Series Title: Lecture Notes in Computer Science. Berlin, Heidelberg: Springer Berlin Heidelberg, pp. 317–328. ISBN: 978-3-54029243-2 978-3-540-31692-3. DOI: 10 . 1007 / 11564096 _ 32. URL: http://link.springer.com/10.1007/11564096_32 (visited on 04/30/2021).
+Schaul (2016). Prioritized experience replay. ICLR. Wen, Chen Ma & Junfeng (2018). “universal successor representations
+for transfer reinforcement learning.” In: Workshop track - ICLR 2018.
+
+51 / 51
+
