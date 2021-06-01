@@ -1,0 +1,457 @@
+Unsupervised Meta-Learning for Reinforcement Learning
+
+arXiv:1806.04640v3 [cs.LG] 30 Apr 2020
+
+Abhishek Gupta * 1 Benjamin Eysenbach * 2 Chelsea Finn 3 Sergey Levine 1
+
+Abstract
+Meta reinforcement learning (meta-RL) algorithms leverage experience from learning previous tasks to learn how to learn new tasks quickly. However, this process requires a large number of meta-training tasks to be provided for metalearning. In effect, meta-RL shifts the human burden from algorithm to task design. In this work we automate the process of task design, devising a meta-learning algorithm that does not require manual design of meta-training tasks. We propose a family of unsupervised meta-RL algorithms based on the insight that task proposals based on mutual information can be used to train optimal meta learners. Experimentally, our unsupervised meta-RL algorithm, which does not require manual task design, substantially improves on learning from scratch, and is competitive with supervised meta-RL approaches on benchmark tasks.
+1. Introduction
+Reusing past experience for faster learning of new tasks is a key challenge for machine learning. Meta-learning methods achieve this by using past experience to explicitly optimize for rapid adaptation (Mishra et al., 2017; Snell et al., 2017; Schmidhuber, 1987; Finn et al., 2017a; Gupta et al., 2018; Wang et al., 2016; Al-Shedivat et al., 2017). In the context of reinforcement learning (RL), meta-reinforcement learning (meta-RL) algorithms can learn to solve new RL tasks more quickly through experience on past tasks (Duan et al., 2016b; Gupta et al., 2018; Finn et al., 2017a). Typical meta-RL algorithms assume the ability to sample from a pre-speciﬁed task distribution, and these algorithms learn to solve new tasks drawn from this distribution very quickly. However, specifying a task distribution is tedious and requires a signiﬁcant amount of supervision (Finn et al., 2017b; Duan et al., 2016b) that may be difﬁcult to provide for large, realworld problem settings. The performance of meta-learning algorithms critically depends on the meta-training task distribution, and meta-learning algorithms generalize best to
+*Equal contribution 1UC Berkeley 2Carnegie Mellon University 3Stanford University. Correspondence to: Abhishek Gupta <abhigupta@eecs.berkeley.edu>.
+
+new tasks which are drawn from the same distribution as the meta-training tasks (Finn & Levine, 2018). In effect, meta-RL ofﬂoads the design burden from algorithm design to task design. While meta-RL acquires representations for fast adaptation to the speciﬁed task distribution, specifying this task distribution is often tedious and challenging. Can we automate the process of task design, thereby doing away with human supervision entirely?
+In this paper, we take a step towards unsupervised metaRL: meta-learning from a task distribution that is acquired automatically, rather than requiring manual design of the meta-training tasks. While unsupervised meta-RL does not make any assumptions about the reward functions on which it will be evaluated at test time, it does assume that the environment dynamics remain the same. This allows an unsupervised meta-RL agent to utilize environment interactions to meta-train a model that is optimized to be effective for learning from previously unseen reward functions in that environment at meta-test time. Our method can also be thought of as automatically acquiring an environmentspeciﬁc learning procedure for deep neural network policies, somewhat related to data-driven initialization procedures explored in supervised learning (Kra¨henbu¨hl et al., 2015; Hsu et al., 2018).
+The primary contribution of our work is a framework for unsupervised meta-RL. We describe a family of unsupervised meta-RL algorithms and provide analysis to show that unsupervised meta-RL methods based on mutual information can be optimal, in a minimax sense. Our experiments shows that, for a variety of robotic control tasks, unsupervised meta-RL can effectively acquire RL procedures. These procedures not only learn faster than standard RL approaches that learn from scratch, but also outperform prior methods that do pure exploration and then ﬁne-tuning at test time. Our results even approach the performance of an oracle method that relies on hand-designed task distributions.
+2. Related Work
+Our work lies at the intersection of meta-RL, goal generation, and unsupervised exploration. Meta-learning algorithms use data from multiple tasks to learn how to learn, acquiring rapid adaptation procedures from experience (Schmidhuber, 1987; Naik & Mammone, 1992; Thrun & Pratt, 1998; Bengio et al., 1992; Hochreiter et al., 2001;
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+environment
+
+Unsupervised Task Acquisition
+
+Meta-RL
+
+Unsupervised Meta-RL
+
+Fast
+
+Meta-learned environment-specific
+RL algorithm
+
+Adaptation
+
+reward-maximizing policy
+
+reward function
+
+Figure 1. Unsupervised meta-reinforcement learning: Given an environment, unsupervised meta-RL produces an environmentspeciﬁc learning algorithm that quickly acquire new policies that maximize any task reward function.
+
+Santoro et al., 2016; Andrychowicz et al., 2016; Ravi & Larochelle, 2017; Finn et al., 2017a; Munkhdalai & Yu, 2017). These approaches have been extended into the setting of RL (Duan et al., 2016b; Wang et al., 2016; Finn et al., 2017a; Sung et al., 2017; Gupta et al., 2018; Mendonca et al., 2019; Houthooft et al., 2018; Stadie et al., 2018; Rakelly et al., 2019; Nagabandi et al., 2018a). In practice, the performance of meta-learning algorithms depends on the user-speciﬁed meta-training task distribution. We aim to lift this limitation and provide a general recipe for avoiding manual task engineering for meta-RL. A handful of prior meta-learning methods have used self-proposed task distributions for learning supervised learning procedures (Hsu et al., 2018; Antoniou & Storkey, 2019; Lin et al., 2019; Ji et al., 2019). In contrast, our work deals with the RL setting, where the environment dynamics provides a rich inductive bias that our meta-learner can exploit. In the RL setting, task distributions can be obtained in a variety of ways, including adversarial goal generation (Sukhbaatar et al., 2017; Held et al., 2017), information-theoretic methods (Gregor et al., 2016; Eysenbach et al., 2018; Co-Reyes et al., 2018; Achiam et al., 2018). The most similar work is Jabri et al. (2019), which also considers the unsupervised application of meta-learning to RL tasks. We build upon this work by proving that an optimal meta-learner can be acquired using mutual information-based task proposal.
+Exploration methods that seek out novel states are also closely related to goal generation methods (Pathak et al., 2017; Schmidhuber, 2009; Bellemare et al., 2016; Osband et al., 2016; Stadie et al., 2015), but do not by themselves aim to generate new tasks or learn to adapt more quickly to new tasks, only to achieve wide coverage of the state space. Model-based RL methods (Deisenroth & Rasmussen, 2011; Chua et al., 2018; Srinivas et al., 2018; Nagabandi et al., 2018b; Finn & Levine, 2017b; Atkeson & Santamaria, 1997) use unsupervised experience to learn a dynamics model but do not learn how to efﬁciently use this model to explore to solve new tasks.
+Goal-conditioned RL (Schaul et al., 2015; Andrychowicz et al., 2017; Pong et al., 2018) is also related to our work, and our analysis will study this special case ﬁrst before generalizing to the general case of arbitrary tasks. As we discuss in Section 3.4, goal-reaching itself is not enough, as goal-reaching agents are not optimized to efﬁciently explore to determine which goal they should reach, relying instead
+
+on a hand-speciﬁed goal parameterization that doesn’t allow these algorithms to work with arbitrary reward functions.
+
+3. Unsupervised Meta-RL
+We consider the problem of learning a reinforcement learning algorithm that can quickly solve new tasks in a given environment. This meta-RL process could, for example, tune the hyperparameters of another RL algorithm, or could replace the RL update rule itself with a learned update rule. Unlike prior work, we aim to do so without depending on any human supervision or information about the tasks that will be provided for meta-testing. A task reward is provided at meta-test time, and the learned RL procedure should adapt to this task reward as quickly as possible. We assume that all test-time tasks have the same dynamics, and differ only in their reward functions. Our algorithm will therefore need to utilize unsupervised environment interaction to learn an RL algorithm. In effect, the dynamics themselves will be the supervision for our learning algorithm.
+
+We formalize the meta-training setting as a controlled Markov process (CMP) – a Markov decision process without a reward function, C = (S, A, P, γ, ρ), with state space S, action space A, transition dynamics P , discount factor γ and initial state distribution ρ. The CMP, along with a reward function r, produces a Markov decision processes M = (S, A, P, γ, ρ, r). We deﬁne a learning algorithm f : D → π as a function that takes as input a dataset of experience from the MDP, D = {(si, ai, ri, si)} ∼ M , and outputs a policy π(a | s). Evaluation of the learning procedure f is carried out over a handful of episodes. In episode i, the learning procedure f observes all previous data {τ1, · · · , τi−1} and outputs a policy to be used in iteration i. We evaluate the learning procedure f by summing its cumulative reward across iterations:
+
+R(f, rz) =
+
+Eπ=f ({τ1,··· ,τi−1})
+
+rz(st, at)
+
+Our aim is to takie this CMPτ∼aπnd producet an environment-
+
+speciﬁc learning algorithm f that can quickly learn an optimal policy πr∗(a | s) for any reward function r. We refer to this problem as unsupervised meta-RL, and illustrate the
+
+problem setting in Fig. 1.
+
+We now sketch a recipe for unsupervised meta-RL, analyze when this recipe is optimal, and then instantiate a practical approximation to this theoretically-motivated approach by building upon known meta-learning algorithms and unsupervised exploration methods.
+
+3.1. A General Recipe
+To construct an unsupervised meta-RL algorithm, we leverage the insight that, to acquire a fast learning algorithm without task supervision, we can simply leverage standard meta-learning techniques, but with unsupervised task proposal mechanisms. Our unsupervised meta-RL framework
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+therefore consists of a task proposal mechanism and a metalearning method. For reasons that will become more apparent later, we will deﬁne the task distribution as a mapping from a latent variable z ∼ p(z) to a reward function rz(s, a) : S × A → R1. That is, for each value of the random variable z, we have a different reward function rz(s, a). Under this formulation, learning a task distribution amounts to optimizing a parametric form for the reward function rz(s, a) that maps each z ∼ p(z) to a different reward function. The choice of this parametric form represents an important design decision for an unsupervised meta-learning method, and the resulting set of tasks is often referred to as a task or goal proposal procedure. In the following section, we will discuss a theoretical framework that allows us to make this choice in the following section so as to minimize worst case regret of the subsequently meta-learned learning algorithm f .
+The second component is the meta-learning algorithm, which takes the family of reward functions induced by p(z) and rz(s, a), along with the associated CMP, and metalearns an RL algorithm f that can quickly adapt to any task from the task distribution deﬁned by p(z) and rz(s, a) in the given CMP. The meta-learned algorithm f can then learn new tasks quickly at meta-test time, when a user-speciﬁed reward function is actually provided. Fig. 1 summarizes this generic design for an unsupervised meta-RL algorithm.
+The “no free lunch theorem” (Wolpert et al., 1995; Whitley & Watson, 2005) might lead us to expect that a truly generic approach to proposing a task distribution would not yield a learning procedure f that is effective on any real tasks. However, the assumption that the dynamics remain the same across tasks affords us an inductive bias with which we pay for our lunch. In the following sections, we will discuss how to formulate acquiring the optimal unsupervised learning procedure, which minimizes regret on new meta-test tasks in the absence of any prior knowledge. Since our analysis will focus on a restricted class of learning procedures, our results are lower bounds for the performance of general learning procedures. We ﬁrst deﬁne an optimal meta-learner and then show how we can train one without requiring task distributions to be hand-speciﬁed.
+3.2. Optimal Meta-Learners
+We begin our analysis by considering the optimal learning procedure when the task distribution is known. For a task distribution p(rz), the optimal learning procedure f ∗ is given by
+f ∗ arg max Ep(rz) [R(f, rz)] .
+f
+Other learning procedures f may achieve lower reward, and we deﬁne the regret incurred by using a suboptimal learning
+1In most cases p(z) is chosen to be a uniform categorical so it is not challenging to specify
+
+procedure as the difference in expected reward, compared with the optimal learning procedure:
+REGRET(f, p(rz)) Ep(rz) [R(f ∗, rz)]−Ep(rz) [R(f, rz)] .
+Minimizing this regret is equivalent to maximizing the expected reward objective used by most meta-RL methods (Finn et al., 2017a; Duan et al., 2016b). Note that different task distributions p(rz) will have different optimal learning procedures f ∗. For example, the optimal behavior for manipulation tasks involves moving a robot’s arms, while the optimal behavior for locomotion tasks involves moving a robot’s legs. Therefore, f ∗ depends on p(rz). We next deﬁne the notion of an optimal unsupervised metalearner, which does not require prior knowledge of p(rz).
+In unsupervised meta-reinforcement learning, the reward distribution p(rz) is unknown. In this setting, we evaluate a learning procedure f based on its regret against the worstcase task distribution for CMP C:
+REGRETWC(f, C) = max REGRET(f, p(rz)). (1)
+p(rz )
+For a CMP C, we deﬁne the optimal unsupervised learning procedure as follows:
+Deﬁnition 1. The optimal unsupervised learning procedure fC∗ for a CMP C is deﬁned as
+fC∗ arg min REGRETWC(f, C).
+f
+Note the optimal unsupervised learning procedure may be different for different CMPs. We can also deﬁne the optimal unsupervised meta-learning algorithm F∗, which takes as input a CMP C and returns the optimal unsupervised learning procedure fC∗ for that CMP: Deﬁnition 2. The optimal unsupervised meta-learner F ∗(C) = fC∗ is a function that takes as input a CMP C and outputs the corresponding optimal unsupervised learning procedure fC∗ :
+F ∗ arg min REGRETWC(F (C), C)
+F
+Note that the optimal unsupervised meta-learner F∗ is universal – it does not depend on any particular task distribution, or any particular CMP. The next sections discuss how to ﬁnd the minimax learning procedure, which minimizes the worst-case regret (Eq. 1).
+3.3. Special Case: Goal-Reaching Tasks
+We start by deriving an optimal unsupervised meta-learner for the special case where all tasks are assumed to be goal state reaching tasks, and then generalize this approach to solve arbitrary tasks in Section 3.4. We restrict our analysis to CMPs with deterministic dynamics, and consider episodes with ﬁnite horizon T and a discount factor of
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+γ = 1. Each tasks corresponds to reaching a goal states sg at the last time step in the episode, so the reward function is
+rg(st) 1(t = T ) · 1(st = g).
+We ﬁrst derive the optimal learning procedure for the case
+where p(sg) is known, and then derive the optimal procedure for the case where p(sg) is unknown.
+
+3.3.1. THE OPTIMAL LEARNING PROCEDURE FOR KNOWN p(sg)
+
+In the case of goal reaching tasks, the optimal fast learning
+procedure f searches through potential goal states until it
+ﬁnds the goal and then navigates to that goal state in all
+subsequent episodes. Deﬁne fπ as the learning procedure that uses policy π to explore until the goal is found, and then
+always returns to the goal state. We will restrict our attention
+to the set of learning procedures Fπ {fπ} constructed in this fashion, so our theoretical results will be lower bound
+on the performance of arbitrary learning procedures. The
+learning procedure fπ incurs one unit of regret for each step before it has found the goal, and zero regret afterwards. The
+expected cumulative regret is therefore the expectation of
+the hitting time. To compute the expected hitting time, we deﬁne ρTπ (s) as the probability that policy π visits state s at time step t = T . If sg is the true goal, then the event that the policy π reaches sg at the ﬁnal step of an episode is a Bernoulli random variable with parameter p = ρTπ (sg). Thus, the expected hitting time of this goal state is
+1 HITTINGTIMEπ(sg) = ρTπ (sg) . The regret of the learning procedure fπ is
+
+REGRET(fπ, p(rg)) = HITTINGTIMEπ(sg)p(sg)dsg
+
+=
+
+p(sg ) ρTπ (sg)
+
+dsg
+
+.
+
+(2)
+
+To now compute the optimal learning procedure fπ, we can
+minimize the regret in Equation 2 w.r.t. the marginal distribution ρTπ . Using the calculus of variations (for more details refer to Appendix C in Lee et al. (2019)), the exploration policy for the optimal meta-learner, π∗, satisﬁes:
+
+ρTπ∗ (sg) =
+
+p(sg) .
+
+(3)
+
+p(sg )dsg
+
+Thus, when the goal sampling distribution p(sg) is known, the optimal learning procedure is obtained by ﬁnding π∗
+satisfying Eq. 3 and then using fπ∗ as the learning procedure. The next section considers the case where p(sg) is not known.
+
+3.3.2. THE OPTIMAL UNSUPERVISED LEARNING PROCEDURE FOR GOAL REACHING TASKS
+In the case of goal-reaching tasks where the goal distribution p(sg) is not known, the optimal unsupervised learning
+
+procedure can be constructed from a policy with a uniform marginal state distribution (proof in Appendix A):
+Lemma 1. Let π be a policy for which ρTπ (s) is uniform. Then fπ is has lowest worst-case regret among learning procedures in Fπ.
+
+One route for constructing this optimal unsupervised learning procedure is to ﬁrst acquire a policy π for which ρTπ (s) is uniform and then return fπ. However, ﬁnding such a policy π is challenging, especially in high-dimensional state spaces and in the absense of resets. Instead, we will take an alternate route, acquiring fπ directly without every computing π. In addition to sidestepping the requirement of computing π, this approach will also have the beneﬁt of generalizing beyond goal-reaching tasks to arbitrary task distributions.
+Our approach for directly computing the optimal unsupervised learning procedure hinges on the observation that the optimal unsupervised learning procedure is the optimal (supervised) learning procedure for goals proposed from a uniform distribution. Thus, the optimal unsupervised learning procedure will come not as a result of a careful construction, but rather as the output of the an optimization procedure (i.e., meta-learning). Thus, we can obtain the optimal unsupervised learning procedure by applying a meta-learning algorithm to a task distribution that samples goals uniformly. To ensure that the resulting learning procedure f lies within the set Fπ, we will only consider “memoryless” meta-learning algorithms that maintain no internal state before the true goal is found.2 While sampling goals uniform is itself a challenging problem, we can use the same trick as before: instead of constructing this uniform goal distribution directly, we instead ﬁnd an optimization problem for which the solution is to sample goals uniformly.
+The optimization problem that we use will involve two latent variables, the ﬁnal state sT and an auxiliary latent variable z sampled from a prior µ(z). The optimization problem will be to ﬁnd a conditional distribution µ(sT | z) such that the mutual information between z and sT is optimized:
+
+max Iµ(sT ; z)
+
+(4)
+
+µ(sT |z)
+
+The conditional distribution µ(sT | z) that optimizes Equation 4 is one with a uniform marginal distribution over terminal states (proof in Appendix A):
+Lemma 2. Assume there exists a conditional distribution µ(sT | z) satisfying the following two properties:
+1. The marginal distribution over terminal states is uniform: µ(sT ) = µ(sT | z)µ(z)dz = UNIF(S); and
+2MAML satisﬁes this requirement, as the internal parameters are updated by policy gradient, which is zero because the reward is zero before the true goal is found.
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+2. The conditional distribution µ(sT | z) is a Dirac:
+∀z, sT ∃sz s.t. µ(sT | z) = 1(sT = sz).
+Then any solution µ(sT | z) to the mutual information objective (Eq. 4) satisﬁes the following:
+µ(sT ) = UNIF(S) and µ(sT | z) = 1(sT = sz).
+3.3.3. OPTIMIZING MUTUAL INFORMATION
+To optimize the above mutual information objective, we note that a conditional distribution µ(sT | z) can be deﬁned implicitly via a latent-conditioned policy µ(a | s, z). This policy is not a meta-learned model, but rather will become part of the task proposal mechanism. For a given prior µ(z) and latent-conditioned policy µ(a | s, z), the joint likelihood is
+µ(τ, z) = µ(z)p(s1) p(st+1 | st, at)µ(at | st, z),
+t
+and the marginal likelihood is simply given by
+µ(sT , z) = µ(τ, z)ds1a1 · · · aT −1.
+The purpose of our repeated indirection now becomes clear: prior work (Eysenbach et al., 2018; Achiam et al., 2018) has proposed efﬁcient algorithms for maximizing the mutual information objective (Eq. 4) when the conditional distribution µ(sT | z) is deﬁned implicitly in terms of a latent-conditioned policy. At this point, we ﬁnally can sample goals uniformly, by sampling z ∼ µ(z) followed by sT ∼ µ(sT | z).
+Recall that we wanted to obtain a uniform goal distribution so that we could apply meta-learning to obtain the optimal learning procedure. However, the input to meta-learning procedures is not a distribution over goals but a distribution over reward functions. We then deﬁne our task proposal distribution p(rz) by sampling z ∼ p(z) and using the corresponding reward function rz(sT , aT ) log p(sT | z), resulting in a uniform distribution as described in Lemma 2.
+3.4. General Case: Trajectory-Matching Tasks
+To extend the analysis in the previous section to the general case, and thereby derive a framework for optimal unsupervised meta-learning, we will consider “trajectory-matching” tasks. These tasks are a trajectory-based generalization of goal reaching: while goal reaching tasks only provide a positive reward when the policy reaches the goal state, trajectory-matching tasks only provide a positive reward when the policy executes the optimal trajectory. The trajectory matching case is more general because, while trajectory matching can represent different goal-reaching tasks, it can also represent tasks that are not simply goal reaching, such as reaching a goal while avoiding a dangerous region or reaching a goal in a particular way. Moreover, the trajectory
+
+matching case is actually also a generalization of the typical reinforcement learning case with Markovian rewards, because any such task can be represented by a trajectory reaching objective as well. Please refer to Section 3.4.3 for a more complete discussion of the same.
+As before, we will restrict our attention to CMPs with deterministic dynamics. These non-Markovian tasks essentially amount to a problem where an RL algorithm must “guess” the optimal policy, and only receives a reward if its behavior is perfectly consistent with that optimal policy.
+We will show that optimizing the mutual information between z and trajectories to obtain a task proposal distribution, and subsequently optimizing a meta-learner for this distribution will give us the optimal unsupervised meta-learner for this class of reward functions. We subsequently show that unsupervised meta-learning for the trajectory-matching task is at least as hard as unsupervised meta-learning for general tasks. As before, let us begin within an analysis of optimal meta-learners in the case where the distribution over trajectory matching tasks p(τ ∗) is known, and subsequently direct our attention to formulating an optimal unsupervised meta-learner.
+
+3.4.1. OPTIMAL META-LEARNER FOR KNOWN p(τ ∗)
+
+Formally, we deﬁne a distribution of trajectory-matching tasks by a distribution over desired trajectories, p(τ ∗). For each goal trajectory τ ∗, the corresponding trajectory-level
+reward function is
+rτ∗(τ ) 1(τ = τ ∗)
+
+Analysis from Section 3.3 can be repurposed here. As before, restrict our attention to learning procedures fπ ∈ Fπ. After running the exploration policy to discover trajectories that obtain reward, the policy will deterministically keep executing the desired trajectory. We can deﬁne the hitting time as the expected number of episodes to match the target trajectory:
+
+HITTINGTIMEπ(τ ∗)
+
+=
+
+1 π(τ ∗)
+
+We then deﬁne regret as the expected hitting time:
+
+REGRET(fπ, p(rτ )) =
+
+HITTINGTIMEπ(τ )p(τ )dτ )
+
+p(τ )
+
+=
+
+dτ. (5)
+
+π(τ )
+
+This deﬁnition of regret allows us to optimize for an optimal learning procedure, and we obtain an exploration policy for the optimal learning procedure satisfying the requirement
+
+π∗(τ ) =
+
+p(τ ) .
+p(τ )dτ
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+3.4.2. OPTIMAL UNSUPERVISED LEARNING PROCEDURE FOR TRAJECTORY-MATCHING TASKS
+As described in Section 3.2, obtaining such a policy requires knowing the trajectory distribution p(τ ), and we must resort to optimizing the worst-case regret. As argued in Lemma 1, the solution to this min-max optimization is a learning procedure which has an exploration policy that is uniform distribution over trajectories.
+Lemma 3. Let π be a policy for which π(τ ) is uniform. Then fπ has lowest worst-case regret among learning procedures in Fπ.
+We can acquire an unsupervised meta-learner of this form by proposing and meta-learning on a task distribution that is uniform over trajectories. How might we actually propose a task distribution that is uniform over trajectories? As argued for the goal reaching case, we can do so by optimizing a trajectory-level mutual information objective:
+I(τ ; z) = H[τ ] − H[τ | z]
+The optimal policy for this objective has a uniform distribution over trajectories that, conditioned on a particular latent z, deterministically produces a single trajectory in a deterministic CMP. The analysis for the case of stochastic dynamics is more involved and is left to future work. By optimizing a task proposal distribution that maximizes trajectory-level mutual information, and subsequently performing meta-learning on the proposed tasks, we can acquire the optimal unsupervised meta-learner for trajectory matching tasks, under the deﬁnition in Section 3.2.
+3.4.3. RELATIONSHIP TO GENERAL REWARD MAXIMIZING TASKS
+Now that we have derived the optimal meta-learner for trajectory-matching tasks, we observe that trajectorymatching is a super-set of the problem of optimizing any possible Markovian reward function at test-time. For a given initial state distribution, each reward function is optimized by a particular trajectory. However, trajectories produced by a non-Markovian policy (i.e., a policy with memory) are not necessarily the unique optimum for any Markovian reward function. Let Rτ denote the set of trajectory-level reward functions, and Rs,a denote the set of all state-action level reward functions. Bounding the worst-case regret on Rτ minimizes an upper bound on the worst-case regret on Rs,a:
+
+min Eπ [rτ (τ )] ≤ min Eπ
+
+r(st, at) ∀π.
+
+rτ ∈Rτ
+
+r∈Rs,a
+
+t
+
+This inequality holds for all policies π, including the policy that maximizes the LHS. While we aim to maximize the RHS, we only know how to maximize the LHS, which gives us a lower bound on the RHS. This inequality holds for all policies π, so it also holds for the policy that maximizes the
+
+LHS. In general, this bound is loose, because the set of all Markovian reward functions is smaller than the set of all trajectory-level reward functions (i.e., trajectory-matching tasks). However, this bound becomes tight when considering meta-learning on the set of all possible (non-Markovian) reward functions.
+In the discussion of meta-learning thus far, we have restricted our attention to tasks where the reward is provided at the last time step T of each episode and to the set of learning procedures Fπ that maintain no internal state before the true goal or trajectory is found. In this restricted setting case, the best that an optimal meta-learner can do is go directly to a goal or execute a particular trajectory at every episode according to the optimal exploration policy as discussed previously, essentially performing a version of posterior sampling. In the more general case with arbitrary reward functions and arbitrary learning procedures, intermediate rewards along a trajectory may be informative, and the optimal exploration strategy may be different from posterior sampling (Rothfuss et al., 2019; Duan et al., 2016b; Wang et al., 2016).
+Nonetheless, the analysis presented in this section provides us insight into the behavior of optimal meta-learning algorithms and allows us to understand the qualities desirable for unsupervised task proposals. The general proposed scheme for unsupervised meta-learning has a signiﬁcant beneﬁt over standard universal value function and goal reaching style algorithms: it can be applied to arbitrary reward functions going beyond simple goal reaching, and doesn’t require the goal to be known in a parametric form beforehand.
+3.5. Summary of Analysis
+Through our analysis, we introduced the notion of optimal meta-learners and analyze their exploration behavior and regret on a class of goal reaching problems. We showed that on these problems, when the test-time task distribution is unknown, the optimal meta-training task distribution for minimizing worst-case test-time regret is uniform over the space of goals. We also showed that this optimal task distribution can be acquired by a simple mutual information maximization scheme. We subsequently extend the analysis to the more general case of matching arbitrary trajectories, as a proxy for the more general class of arbitrary reward functions. In the following section, we will discuss how we can derive a practical algorithm for unsupervised metalearning from this analysis.
+3.6. A Practical Algorithm
+Following the derivation in the previous section, we can instantiate a practical unsupervised meta-RL algorithm by constructing a task proposal mechanism based on a mutual information objective. A variety of different mutual
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+Algorithm 1 Unsupervised Meta-RL Pseudocode
+Input: M \ R, an MDP without a reward function Dφ ← DIAYN() or Dφ ← random while not converged do
+Sample latent task variables z ∼ p(z) Deﬁne task reward rz(s) using Dφ(z|s) Update f using MAML with reward rz(s) end while Return: a learning algorithm f : Dφ → π
+information objectives can be formulated, including mutual information between single states and z (Eysenbach et al., 2018), pairs of start and end states and z (Gregor et al., 2016), and entire trajectories and z (Achiam et al., 2018; Sharma et al., 2019; Warde-Farley et al., 2018). We will use DIAYN and leave a full examination of possible mutual information objectives for future work.
+DIAYN optimizes mutual information by training a discriminator network Dφ(z|·) that predicts which z was used to generate the states in a given rollout according to a latentconditioned policy π(a|s, z). Our task proposal distribution is thus deﬁned by rz(s, a) = log(Dφ(z|s)). The complete unsupervised meta-learning algorithm is as follows: ﬁrst, we acquire rz(s, a) by running DIAYN, which learns Dφ(z|s) and a latent-conditioned policy π(a|s, z) (which is discarded). Then, we use z ∼ p(z) to propose tasks rz(s, a) to a standard meta-RL algorithm. This meta-RL algorithm uses the proposed tasks to learn how to learn, acquiring a fast learn algorithm f which can then learn new tasks quickly. While, in principle, any meta-RL algorithm could be used, we use MAML (Finn et al., 2017a) as our meta-learning algorithm. Note that the learning algorithm f returned by MAML is deﬁned simply as running gradient descent using the initial parameters found by MAML as initialization, as discussed in prior work (Finn & Levine, 2017a). The method is summarized in Algorithm 1.
+In addition to mutual information maximizing task proposals, we will also consider random task proposals, where we also use a discriminator as the reward, according to r(s, z) = log Dφrand (z|s), but where the parameters φrand are chosen randomly (i.e., a random weight initialization for a neural network). While such random reward functions are not optimal, we ﬁnd that they can surprisingly be used to acquire useful task distributions for simple tasks, though they are not as effective as the tasks become more complicated.
+4. Experimental Evaluation
+In our experiments, we aim to understand whether unsupervised meta-learning as described in Section 3.1 can provide us with an accelerated RL procedure on new tasks. Whereas standard meta-learning requires a hand-speciﬁed task distribution at meta-training time, unsupervised meta-learning
+
+learns the task distribution through unsupervised interaction with the environment. A fair baseline that likewise uses requires no reward supervision at training time, and only uses rewards at test time, is learning via RL from scratch without any meta-learning. As an upper bound, we include the unfair comparison to a standard meta-learning approach, where the meta-training distribution is manually designed. This method has access to a hand-speciﬁed task distribution that is not available to our method. We evaluate two variants of our approach: (a) task acquisition based on DIAYN followed by meta-learning using MAML, and (b) task acquisition using a randomly initialized discriminator followed by meta-learning using MAML.
+4.1. Tasks and Implementation Details
+Our experiments study three simulated environments of varying difﬁculty: 2D point navigation, 2D locomotion using the “HalfCheetah,” and 3D locomotion using the “Ant,” with the latter two environments are modiﬁcations of popular RL benchmarks (Duan et al., 2016a). While the 2D navigation environment allows for direct control of position, HalfCheetah and Ant can only control their center of mass via feedback control with high dimensional actions (6D for HalfCheetah, 8D for Ant) and observations (17D for HalfCheetah, 111D for Ant).
+The evaluation tasks, shown in Figure 5, are similar to prior work (Finn et al., 2017a; Pong et al., 2018): 2D navigation and ant require navigating to goal positions, while the half cheetah must run at different goal velocities. These tasks are not accessible to our algorithm during meta-training. Please refer to Appendix C for details about hyperparameters for both MAML and DIAYN.
+4.2. Fast Adaptation after Unsupervised Meta RL
+The comparison between the two variants of unsupervised meta-learning and learning from scratch is shown in Figure 2. We also add a comparison to VIME (Houthooft et al., 2016), a standard novelty-based exploration method, where we pretrain a policy with the VIME reward and then ﬁnetune it on the meta-test tasks. In all cases, the UMLDIAYN variant of unsupervised meta-learning produces an RL procedure that outperforms RL from scratch and VIME-init, suggesting that unsupervised interaction with the environment and meta-learning is effective in producing environment-speciﬁc but task-agnostic priors that accelerate learning on new, previously unseen tasks. The comparison with VIME shows that the speed of learning is not just about exploration but is indeed about fast adaptation. In our experiments thus far, UML-DIAYN always performs better than learning from scratch, although the beneﬁt varies across tasks depending on the actual performance of DIAYN. We also perform signiﬁcantly better than a baseline of simply
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+2D navigation
+
+Half-Cheetah
+
+Ant
+
+Figure 2. Unsupervised meta-learning accelerates learning: After unsupervised meta-learning, our approach (UML-DIAYN and UMLRANDOM) quickly learns a new task signiﬁcantly faster than learning from scratch, especially on complex tasks. Learning the task distribution with DIAYN helps more for complex tasks. Results are averaged across 20 evaluation tasks, and 3 random seeds for testing. UML-DIAYN and random also signiﬁcantly outperform learning with DIAYN initialization or VIME.
+
+2D Navigation
+
+Half-Cheetah
+
+Ant Navigation
+
+Figure 3. Comparison with handcrafted tasks: Unsupervised meta-learning (UML-DIAYN) is competitive with meta-training on handcrafted reward functions (i.e., an oracle). A misspeciﬁed, handcrafted meta-training task distribution often performs worse, illustrating the beneﬁts of learning the task distribution.
+
+initializing from a DIAYN trained contextual policy, and then ﬁnetuning the best skill with the actual task reward.
+Interestingly, in many cases (in Figure 3) the performance of unsupervised meta-learning with DIAYN matches that of the hand-designed task distribution. We see that on the 2D navigation task, while handcrafted meta-learning is able to learn very quickly initially, it performs similarly after 100 steps. For the cheetah environment as well, handcrafted meta-learning is able to learn very quickly to start off, but is quickly matched by unsupervised meta-RL with DIAYN. On the ant task, we see that hand-crafted meta-learning does do better than UML-DIAYN, likely because the task distribution is challenging, and a better unsupervised task proposal algorithm would improve performance.
+The comparison between the two unsupervised metalearning variants is also illuminating: while the DIAYNbased variant of our method generally achieves the best performance, even the random discriminator is often able to provide a sufﬁcient diversity of tasks to produce meaningful acceleration over learning from scratch in the case of 2D navigation and ant. This result has two interesting implications. First, it suggests that unsupervised meta-learning is an effective tool for learning an environment prior. Although the performance of unsupervised meta-learning can be improved with better coverage using DIAYN (as seen in Figure 2), even the random discriminator version provides competitive advantages over learning from scratch. Second,
+
+the comparison provides a clue for identifying the source of the structure learned through unsupervised meta-learning: though the particular task distribution has an effect on performance, simply interacting with the environment (without structured objectives, using a random discriminator) already allows meta-RL to learn effective adaptation strategies in a given environment.
+5. Discussion and Future Work
+We presented an unsupervised approach to meta-RL, where meta-learning is used to acquire an efﬁcient RL procedure without requiring hand-speciﬁed task distributions. This approach accelerates RL without relying on the manual supervision required for conventional meta-learning algorithms. We provide a theoretical derivation that argues that task proposals based on mutual information maximization can provide a minimum worst-case regret meta-learner, under certain assumptions. Our experiments indicate unsupervised meta-RL can accelerate learning on a range of tasks.
+Our approach also opens a number of questions about unsupervised meta-learning algorithms. One limitation of our analysis is that it only considers deterministic dynamics, and only considers task distributions where posterior sampling is optimal. Extending our analysis to stochastic dynamics and more realistic task distributions may allow unsupervised meta-RL to acquire learning algorithms that can more effectively solve real-world tasks.
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+References
+Joshua Achiam, Harrison Edwards, Dario Amodei, and Pieter Abbeel. Variational option discovery algorithms. arXiv preprint arXiv:1807.10299, 2018.
+Maruan Al-Shedivat, Trapit Bansal, Yuri Burda, Ilya Sutskever, Igor Mordatch, and Pieter Abbeel. Continuous adaptation via meta-learning in nonstationary and competitive environments. arXiv preprint arXiv:1710.03641, 2017.
+Marcin Andrychowicz, Misha Denil, Sergio Gomez, Matthew W Hoffman, David Pfau, Tom Schaul, and Nando de Freitas. Learning to learn by gradient descent by gradient descent. In Neural Information Processing Systems (NIPS), 2016.
+Marcin Andrychowicz, Filip Wolski, Alex Ray, Jonas Schneider, Rachel Fong, Peter Welinder, Bob McGrew, Josh Tobin, OpenAI Pieter Abbeel, and Wojciech Zaremba. Hindsight experience replay. In Advances in Neural Information Processing Systems, pp. 5048–5058, 2017.
+Antreas Antoniou and Amos Storkey. Assume, augment and learn: Unsupervised few-shot meta-learning via random labels and data augmentation. arXiv preprint arXiv:1902.09884, 2019.
+Christopher G Atkeson and Juan Carlos Santamaria. A comparison of direct and model-based reinforcement learning. In Proceedings of International Conference on Robotics and Automation, volume 4, pp. 3557–3564. IEEE, 1997.
+Marc G. Bellemare, Sriram Srinivasan, Georg Ostrovski, Tom Schaul, David Saxton, and Re´mi Munos. Unifying count-based exploration and intrinsic motivation. CoRR, abs/1606.01868, 2016. URL http://arxiv.org/abs/1606.01868.
+Samy Bengio, Yoshua Bengio, Jocelyn Cloutier, and Jan Gecsei. On the optimization of a synaptic learning rule. In Optimality in Artiﬁcial and Biological Neural Networks, 1992.
+Kurtland Chua, Roberto Calandra, Rowan McAllister, and Sergey Levine. Deep reinforcement learning in a handful of trials using probabilistic dynamics models. In Advances in Neural Information Processing Systems, pp. 4754–4765, 2018.
+John D Co-Reyes, YuXuan Liu, Abhishek Gupta, Benjamin Eysenbach, Pieter Abbeel, and Sergey Levine. Self-consistent trajectory autoencoder: Hierarchical reinforcement learning with trajectory embeddings. arXiv preprint arXiv:1806.02813, 2018.
+Marc Deisenroth and Carl E Rasmussen. Pilco: A model-based and data-efﬁcient approach to policy search. In Proceedings of the 28th International Conference on machine learning (ICML-11), pp. 465–472, 2011.
+Yan Duan, Xi Chen, Rein Houthooft, John Schulman, and Pieter Abbeel. Benchmarking deep reinforcement learning for continuous control. In International Conference on Machine Learning, pp. 1329–1338, 2016a.
+Yan Duan, John Schulman, Xi Chen, Peter L Bartlett, Ilya Sutskever, and Pieter Abbeel. Rl2: Fast reinforcement learning via slow reinforcement learning. arXiv preprint arXiv:1611.02779, 2016b.
+Benjamin Eysenbach, Abhishek Gupta, Julian Ibarz, and Sergey Levine. Diversity is all you need: Learning skills without a reward function. arXiv preprint arXiv:1802.06070, 2018.
+
+Chelsea Finn and Sergey Levine. Meta-learning and universality: Deep representations and gradient descent can approximate any learning algorithm. CoRR, abs/1710.11622, 2017a. URL http://arxiv.org/abs/1710.11622.
+Chelsea Finn and Sergey Levine. Deep visual foresight for planning robot motion. In 2017 IEEE International Conference on Robotics and Automation (ICRA), pp. 2786–2793. IEEE, 2017b.
+Chelsea Finn and Sergey Levine. Meta-learning and universality: Deep representations and gradient descent can approximate any learning algorithm. International Conference on Learning Representations, 2018.
+Chelsea Finn, Pieter Abbeel, and Sergey Levine. Model-agnostic meta-learning for fast adaptation of deep networks. arXiv preprint arXiv:1703.03400, 2017a.
+Chelsea Finn, Tianhe Yu, Tianhao Zhang, Pieter Abbeel, and Sergey Levine. One-shot visual imitation learning via metalearning. CoRR, abs/1709.04905, 2017b. URL http:// arxiv.org/abs/1709.04905.
+Karol Gregor, Danilo Jimenez Rezende, and Daan Wierstra. Variational intrinsic control. arXiv preprint arXiv:1611.07507, 2016.
+Abhishek Gupta, Russell Mendonca, YuXuan Liu, Pieter Abbeel, and Sergey Levine. Meta-reinforcement learning of structured exploration strategies. arXiv preprint arXiv:1802.07245, 2018.
+David Held, Xinyang Geng, Carlos Florensa, and Pieter Abbeel. Automatic goal generation for reinforcement learning agents. arXiv preprint arXiv:1705.06366, 2017.
+Sepp Hochreiter, A Steven Younger, and Peter R Conwell. Learning to learn using gradient descent. In International Conference on Artiﬁcial Neural Networks, 2001.
+Rein Houthooft, Xi Chen, Yan Duan, John Schulman, Filip De Turck, and Pieter Abbeel. VIME: variational information maximizing exploration. In Advances in Neural Information Processing Systems, 2016.
+Rein Houthooft, Richard Y Chen, Phillip Isola, Bradly C Stadie, Filip Wolski, Jonathan Ho, and Pieter Abbeel. Evolved policy gradients. arXiv preprint arXiv:1802.04821, 2018.
+Kyle Hsu, Sergey Levine, and Chelsea Finn. Unsupervised learning via meta-learning. arXiv preprint arXiv:1810.02334, 2018.
+Allan Jabri, Kyle Hsu, Abhishek Gupta, Ben Eysenbach, Sergey Levine, and Chelsea Finn. Unsupervised curricula for visual meta-reinforcement learning. In Advances in Neural Information Processing Systems, pp. 10519–10530, 2019.
+Zilong Ji, Xiaolong Zou, Tiejun Huang, and Si Wu. Unsupervised few-shot learning via self-supervised training. arXiv preprint arXiv:1912.12178, 2019.
+Philipp Kra¨henbu¨hl, Carl Doersch, Jeff Donahue, and Trevor Darrell. Data-dependent initializations of convolutional neural networks. arXiv preprint arXiv:1511.06856, 2015.
+Lisa Lee, Benjamin Eysenbach, Emilio Parisotto, Eric P. Xing, Sergey Levine, and Ruslan Salakhutdinov. Efﬁcient exploration via state marginal matching. CoRR, abs/1906.05274, 2019. URL http://arxiv.org/abs/1906.05274.
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+Jianxin Lin, Yijun Wang, Yingce Xia, Tianyu He, and Zhibo Chen. Learning to transfer: Unsupervised meta domain translation. arXiv preprint arXiv:1906.00181, 2019.
+Russell Mendonca, Abhishek Gupta, Rosen Kralev, Pieter Abbeel, Sergey Levine, and Chelsea Finn. Guided meta-policy search. CoRR, abs/1904.00956, 2019.
+Nikhil Mishra, Mostafa Rohaninejad, Xi Chen, and Pieter Abbeel. A simple neural attentive meta-learner. In NIPS 2017 Workshop on Meta-Learning, 2017.
+Tsendsuren Munkhdalai and Hong Yu. Meta networks. International Conference on Machine Learning (ICML), 2017.
+Anusha Nagabandi, Ignasi Clavera, Simin Liu, Ronald S Fearing, Pieter Abbeel, Sergey Levine, and Chelsea Finn. Learning to adapt in dynamic, real-world environments through meta-reinforcement learning. arXiv preprint arXiv:1803.11347, 2018a.
+Anusha Nagabandi, Gregory Kahn, Ronald S Fearing, and Sergey Levine. Neural network dynamics for model-based deep reinforcement learning with model-free ﬁne-tuning. In 2018 IEEE International Conference on Robotics and Automation (ICRA), pp. 7559–7566. IEEE, 2018b.
+Devang K Naik and RJ Mammone. Meta-neural networks that learn by learning. In International Joint Conference on Neural Netowrks (IJCNN), 1992.
+Ian Osband, Charles Blundell, Alexander Pritzel, and Benjamin Van Roy. Deep exploration via bootstrapped DQN. CoRR, abs/1602.04621, 2016. URL http://arxiv.org/abs/ 1602.04621.
+Deepak Pathak, Pulkit Agrawal, Alexei A. Efros, and Trevor Darrell. Curiosity-driven exploration by self-supervised prediction. In ICML, 2017.
+Vitchyr Pong, Shixiang Gu, Murtaza Dalal, and Sergey Levine. Temporal difference models: Model-free deep rl for modelbased control. arXiv preprint arXiv:1802.09081, 2018.
+Kate Rakelly, Aurick Zhou, Deirdre Quillen, Chelsea Finn, and Sergey Levine. Efﬁcient off-policy meta-reinforcement learning via probabilistic context variables. arXiv preprint arXiv:1903.08254, 2019.
+Sachin Ravi and Hugo Larochelle. Optimization as a model for few-shot learning. In International Conference on Learning Representations (ICLR), 2017.
+Jonas Rothfuss, Dennis Lee, Ignasi Clavera, Tamim Asfour, and Pieter Abbeel. Promp: Proximal meta-policy search. In International Conference on Learning Representations, ICLR, 2019.
+Adam Santoro, Sergey Bartunov, Matthew Botvinick, Daan Wierstra, and Timothy Lillicrap. Meta-learning with memoryaugmented neural networks. In International Conference on Machine Learning (ICML), 2016.
+Tom Schaul, Daniel Horgan, Karol Gregor, and David Silver. Universal value function approximators. In International Conference on Machine Learning, pp. 1312–1320, 2015.
+
+Ju¨rgen Schmidhuber. Evolutionary principles in self-referential learning, or on learning how to learn: the meta-meta-... hook. PhD thesis, Technische Universita¨t Mu¨nchen, 1987.
+Ju¨rgen Schmidhuber. Driven by compression progress: A simple principle explains essential aspects of subjective beauty, novelty, surprise, interestingness, attention, curiosity, creativity, art, science, music, jokes. In Computational Creativity: An Interdisciplinary Approach, 12.07. 17.07.2009, 2009. URL http://drops.dagstuhl.de/ opus/volltexte/2009/2197/.
+Archit Sharma, Shixiang Gu, Sergey Levine, Vikash Kumar, and Karol Hausman. Dynamics-aware unsupervised discovery of skills. arXiv preprint arXiv:1907.01657, 2019.
+Jake Snell, Kevin Swersky, and Richard Zemel. Prototypical networks for few-shot learning. In Advances in Neural Information Processing Systems, pp. 4080–4090, 2017.
+Aravind Srinivas, Allan Jabri, Pieter Abbeel, Sergey Levine, and Chelsea Finn. Universal planning networks. arXiv preprint arXiv:1804.00645, 2018.
+Bradly C Stadie, Sergey Levine, and Pieter Abbeel. Incentivizing exploration in reinforcement learning with deep predictive models. arXiv preprint arXiv:1507.00814, 2015.
+Bradly C. Stadie, Ge Yang, Rein Houthooft, Xi Chen, Yan Duan, Yuhuai Wu, Pieter Abbeel, and Ilya Sutskever. Some considerations on learning to explore via meta-reinforcement learning. CoRR, abs/1803.01118, 2018. URL http://arxiv.org/ abs/1803.01118.
+Sainbayar Sukhbaatar, Zeming Lin, Ilya Kostrikov, Gabriel Synnaeve, Arthur Szlam, and Rob Fergus. Intrinsic motivation and automatic curricula via asymmetric self-play. arXiv preprint arXiv:1703.05407, 2017.
+Flood Sung, Li Zhang, Tao Xiang, Timothy Hospedales, and Yongxin Yang. Learning to learn: Meta-critic networks for sample efﬁcient learning. arXiv preprint arXiv:1706.09529, 2017.
+Sebastian Thrun and Lorien Pratt. Learning to learn. Springer Science & Business Media, 1998.
+Jane X Wang, Zeb Kurth-Nelson, Dhruva Tirumala, Hubert Soyer, Joel Z Leibo, Remi Munos, Charles Blundell, Dharshan Kumaran, and Matt Botvinick. Learning to reinforcement learn. arXiv preprint arXiv:1611.05763, 2016.
+David Warde-Farley, Tom Van de Wiele, Tejas Kulkarni, Catalin Ionescu, Steven Hansen, and Volodymyr Mnih. Unsupervised control through non-parametric discriminative rewards. arXiv preprint arXiv:1811.11359, 2018.
+Darrell Whitley and Jean Paul Watson. Complexity theory and the no free lunch theorem, 2005.
+David H Wolpert, William G Macready, et al. No free lunch theorems for search. Technical report, Technical Report SFITR-95-02-010, Santa Fe Institute, 1995.
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+A. Proofs
+Lemma 1 Let π be a policy for which ρTπ (s) is uniform. Then π has lowest worst-case regret.
+
+B. Ablations
+
+Proof of Lemma 1. To begin, we note that all goal distributions p(sg) have equal regret for policies where ρTπ (s) = 1/|S| is uniform:
+
+REGRETp(π) =
+
+p(sg ) ρTπ (sg)
+
+dsg
+
+=
+
+p(sg ) 1/|S |
+
+dsg
+
+=
+
+|S |
+
+Now, consider a policy π for which ρTπ (s) is not uniform. For simplicity, we will assume that the argmin is unique,
+though the proof holds for non-unique argmins as well. The worst-case goal distribution will choose the state s− where
+that the policy is least likely to visit:
+
+p−(sg) 1(sg = arg min ρTπ (s)) s
+
+Thus, the worst-case regret for policy π is strictly greater than the regret for a uniform π:
+
+max
+p
+
+REGRETp(π)
+
+=
+
+REGRETp− (π)
+
+=
+
+1(sg
+
+=
+
+arg mins ρTπ (sg)
+
+ρTπ (s)) dsg
+
+1 = mins ρTπ (s) > |S| (6)
+
+Thus, a policy π for which ρTπ is non-uniform cannot be minimax, so the optimal policy has a uniform marginal ρTπ .
+
+Lemma 2: Mutual information I(sT ; z) is maximized by a task distribution p(sg) which is uniform over goal states.
+
+Proof of Lemma 2. We deﬁne a latent variable model, where we sample a latent variable z from a uniform prior p(z) and sample goals from a conditional distribution p(sT | z). To begin, note that the mutual information can be written as a difference of entropies:
+Ip(sT ; z) = Hp[sT ] − Hp[sT | z]
+The conditional entropy Hp[sT | z] attains the smallest possible value (zero) when each latent variable z corresponds to exactly one ﬁnal state, sz. In contrast, the marginal entropy Hp[sT ] attains the largest possible value (log |S|) when the marginal distribution p(sT ) = p(sT | z)p(z)dz is uniform. Thus, a task uniform distribution p(sg) maximizes I(sT ; z). Note that for any non-uniform task distribution q(sT ), we have Hq[sT ] < Hp[sT ]. Since the conditional entropy Hp[sT | z] is zero, no distribution can achieve a smaller conditional entropy. This, for all non-uniform task distributions q, we have Iq(sT ; z) < Ip(sT ; z). Thus, the optimal task distribution must be uniform.
+
+Figure 4. Analysis of effect of additional meta-training on metatest time learning of new tasks. For larger iterations of meta-trained policies, we have improved test time performance, showing that additional meta-training is beneﬁcial.
+To understand the method performance more clearly, we also add an ablation study where we compare the meta-test performance of policies at different iterations along metatraining. This shows the effect that additional meta-training has on the fast learning performance for new tasks. This comparison is shown in Figure 4. As can be seen here, at iteration 0 of meta-training the policy is not a very good initialization for learning new tasks. As we move further along the meta-training process, we see that the meta-learned initialization becomes more and more effective at learning new tasks. This shows a clear correlation between additional meta-training and improved meta test-time performance.
+B.1. Analysis of Learned Task Distributions
+We can analyze the tasks discovered through unsupervised exploration and compare them to tasks we evaluate on at meta-test time. Figure 5 illustrates these distributions using scatter plots for 2D navigation and the Ant, and a histogram for the HalfCheetah. Note that we visualize dimensions of the state that are relevant for the evaluation tasks – positions and velocities – but these dimensions are not speciﬁed in any way during unsupervised task acquisition, which operates on the entire state space. Although the tasks proposed via unsupervised exploration provide fairly broad coverage, they are clearly quite distinct from the meta-test tasks, suggesting the approach can tolerate considerable distributional shift. Qualitatively, many of the tasks proposed via unsupervised exploration such as jumping and falling that are not relevant for the evaluation tasks. Our choice of the evaluation tasks was largely based on prior work, and therefore not tailored to this exploration procedure. The results for unsupervised
+
+Unsupervised Meta-Learning for Reinforcement Learning
+
+2D navigation
+
+Ant
+
+Half-Cheetah
+
+Figure 5. Learned meta-training task distribution and evaluation tasks: We plot the center of mass for various skills discovered by point mass and ant using DIAYN, and a blue histogram of goal velocities for cheetah. Evaluation tasks, which are not provided to the algorithm during meta-training, are plotted as red ‘x’ for ant and pointmass, and as a green histogram for cheetah. While the meta-training distribution is broad, it does not fully cover the evaluation tasks. Nonetheless, meta-learning on this learned task distribution enables efﬁcient learning on a test task distribution.
+
+meta-RL therefore suggest quite strongly that unsupervised task acquisition can provide an effective meta-training set, at least for MAML, even when evaluating on tasks that do not closely match the discovered task distribution.
+
+scratch via vanilla policy gradient, and found that using ADAM with adaptive step size is the most stable and quick at learning.
+
+C. Hyperparameter Details
+
+Half-Cheetah
+
+Ant
+
+Figure 6. Environments: (Left) Half-Cheetah and (Right) Ant
+
+For all our experiments, we used DIAYN to acquire the task proposals using 20 skills for half-cheetah and for ant and 50 skills for the 2D navigation. We illustrate these half cheetah and ant in Fig. 6. We ran the domains using the standard DIAYN hyperparameters described in https://github. com/ben-eysenbach/sac to acquire task proposals. These proposals were then fed into the MAML algorithm https://github.com/cbfinn/maml_rl, with inner learning rate 0.1, meta learning rate 0.01, inner batch size 40, outer batch size, path length 100, using 2 layer networks with 300 units each with ReLu nonlinearities. We vary the meta-batch size according to the number of skills: 50 for pointmass, 20 for cheetah, and 20 ant. The test time learning is done with the same parameters for the UMRL variants, and done using REINFORCE with the Adam optimizer for the comparison with learning from scratch. We swept over learning rates for learning from
+

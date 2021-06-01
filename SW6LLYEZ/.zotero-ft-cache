@@ -1,0 +1,303 @@
+Meta-Learning
+CS 294-112: Deep Reinforcement Learning Sergey Levine
+
+Class Notes
+1. Two weeks until the project milestone! 2. Guest lectures start next week, be sure to attend! 3. Today: part 1: meta-learning 4. Today: part 2: parallelism
+
+How can we frame transfer learning problems?
+No single solution! Survey of various recent research papers
+1. “Forward” transfer: train on one task, transfer to a new task
+a) Just try it and hope for the best b) Finetune on the new task c) Architectures for transfer: progressive networks d) Randomize source task domain
+2. Multi-task transfer: train on many tasks, transfer to a new task
+a) Model-based reinforcement learning b) Model distillation c) Contextual policies d) Modular policy networks
+3. Multi-task meta-learning: learn to learn from many tasks
+a) RNN-based meta-learning b) Gradient-based meta-learning
+
+So far…
+• Forward transfer: source domain to target domain
+• Diversity is good! The more varied the training, the more likely transfer is to succeed
+• Multi-task learning: even more variety
+• No longer training on the same kind of task • But more variety = more likely to succeed at transfer
+• How do we represent transfer knowledge?
+• Model (as in model-based RL): rules of physics are conserved across tasks • Policies – requires finetuning, but closer to what we want to accomplish • What about learning methods?
+
+What is meta-learning?
+• If you’ve learned 100 tasks already, can you figure out how to learn more efficiently?
+• Now having multiple tasks is a huge advantage!
+• Meta-learning = learning to learn • In practice, very closely related to multi-task
+learning • Many formulations
+• Learning an optimizer • Learning an RNN that ingests experience • Learning a representation
+
+image credit: Ke Li
+
+Why is meta-learning a good idea?
+• Deep reinforcement learning, especially model-free, requires a huge number of samples
+• If we can meta-learn a faster reinforcement learner, we can learn new tasks efficiently!
+• What can a meta-learned learner do differently?
+• Explore more intelligently • Avoid trying actions that are know to be useless • Acquire the right features more quickly
+
+Meta-learning with supervised learning
+image credit: Ravi & Larochelle ‘17
+
+Meta-learning with supervised learning
+
+(few shot) training set
+
+input (e.g., image) output (e.g., label)
+
+test label test input
+
+training set
+• How to read in training set?
+• Many options, RNNs can work • More on this later
+
+The meta-learning problem in RL
+
+recent experience state output (e.g., action) new action
+
+experience
+
+new state
+
+Meta-learning in RL with memory
+
+second attempt
+
+third attempt
+
+“water maze” task
+
+first attempt with memory
+
+without memory
+
+Heess et al., “Memory-based control with recurrent neural networks.”
+
+RL2
+Duan et al., “RL2: Fast Reinforcement Learning via Slow Reinforcement Learning”
+
+Connection to contextual policies
+just contextual policies, with experience as context
+
+Back to representations…
+is pretraining a type of meta-learning? better features = faster learning of new task!
+
+Preparing a model for faster learning
+Finn et al., “Model-Agnostic Meta-Learning”
+
+What did we just do??
+Just another computation graph… Can implement with any autodiff
+package (e.g., TensorFlow) But has favorable inductive bias…
+
+Model-agnostic meta-learning: accelerating PG
+after 1 gradient step after 1 gradient step after MAML training (forward reward) (backward reward)
+
+Model-agnostic meta-learning: accelerating PG
+after 1 gradient step after 1 gradient step after MAML training (backward reward) (forward reward)
+
+Meta-learning summary & open problems
+• Meta-learning = learning to learn • Supervised meta-learning = supervised learning with datapoints that
+are entire datasets • RL meta-learning with RNN policies
+• Ingest past experience with RNN • Simply run forward pass at test time to “learn” • Just contextual policies (no actual learning)
+• Model-agnostic meta-learning
+• Use gradient descent (e.g., policy gradient) learning rule • Conceptually not that different • …but can accelerate standard RL algorithms (e.g., learn in one iteration of PG)
+
+Meta-learning summary & open problems
+• The promise of meta-learning: use past experience to simply acquire a much more efficient deep RL algorithm
+• The reality of meta-learning: mostly works well on smaller problems • …but getting better all the time • Main limitations
+• RNN policies are extremely hard to train, and likely not scalable • Model-agnostic meta-learning presents a tough optimization problem • Designing the right task distribution is hard • Generally very sensitive to task distribution (meta-overfitting)
+
+Parallelism in RL
+
+Overview
+1. We learned about a number of policy search methods 2. These algorithms have all been sequential 3. Is there a natural way to parallelize RL algorithms?
+• Experience sampling vs learning • Multiple learning threads • Multiple experience collection threads
+
+Today’s Lecture
+1. What can we parallelize? 2. Case studies: specific parallel RL methods 3. Tradeoffs & considerations • Goals
+• Understand the high-level anatomy of reinforcement learning algorithms • Understand standard strategies for parallelization • Tradeoffs of different parallel methods
+
+High-level RL schematic
+
+generate samples (i.e. run the policy)
+
+fit a model/ estimate the return
+improve the policy
+
+Which parts are slow?
+
+real robot/car/power grid/whatever: 1x real time, until we invent time travel
+MuJoCo simulator: up to 10000x real time
+
+generate samples (i.e. run the policy)
+
+fit a model/ estimate the return
+
+trivial, fast
+expensive, but nontrivial to parallelize
+
+improve the policy
+
+trivial, nothing to do
+expensive, but nontrivial to parallelize
+
+Which parts can we parallelize?
+
+generate samples (i.e. run the policy)
+
+fit a model/ estimate the return
+
+parallel SGD
+
+improve the policy
+
+parallel SGD
+
+Helps to group data generation and training (worker generates data, computes gradients, and gradients are pooled)
+
+High-level decisions
+1. Online or batch-mode? 2. Synchronous or asynchronous?
+
+generate samples generate samples generate samples
+
+policy gradient
+
+generate one step generate one step generate one step
+fit Q-value fit Q-value fit Q-value
+
+Relationship to parallelized SGD
+
+fit a model/ estimate the return improve the policy
+Dai et al. ‘15
+
+1. Parallelizing model/critic/actor training typically involves parallelizing SGD
+2. Simple parallel SGD:
+1. Each worker has a different slice of data 2. Each worker computes gradients, sums them, sends to
+parameter server 3. Parameter server sums gradients from all workers and
+sends back new parameters
+3. Mathematically equivalent to SGD, but not asynchronous (communication delays)
+4. Async SGD typically does not achieve perfect parallelism, but lack of locks can make it much faster
+5. Somewhat problem dependent
+
+Simple example: sample parallelism with PG
+
+(1) generate samples generate samples generate samples
+
+(2, 3, 4) policy gradient
+
+Simple example: sample parallelism with PG
+
+(1) generate samples generate samples generate samples
+
+(2) evaluate reward evaluate reward evaluate reward
+
+(3, 4) policy gradient
+
+Simple example: sample parallelism with PG
+
+(1) generate samples generate samples generate samples
+
+(2) evaluate reward evaluate reward evaluate reward
+
+(3) compute gradient compute gradient compute gradient
+
+Dai et al. ‘15 (4)
+sum & apply gradient
+
+What if we add a critic?
+
+see John’s actor-critic lecture for what the options here are
+
+(1, 2) samples & rewards samples & rewards
+
+(3) critic gradients
+critic gradients (4)
+policy gradients
+policy gradients
+
+(3)
+
+sum & apply critic gradient
+
+(5)
+
+costly synchronization
+
+sum & apply policy gradient
+
+What if we add a critic?
+
+see John’s actor-critic lecture for what the options here are
+
+(1, 2) samples & rewards samples & rewards
+
+(3) critic gradients
+critic gradients (4)
+policy gradients
+policy gradients
+
+(3)
+sum & apply critic gradient
+(5) sum & apply policy
+gradient
+
+What if we run online?
+
+(1, 2) samples & rewards samples & rewards
+
+only the parameter update requires synchronization (actor + critic params)
+
+(3) critic gradients
+critic gradients (4)
+policy gradients
+policy gradients
+
+(3)
+sum & apply critic gradient
+(5) sum & apply policy
+gradient
+
+Actor-critic algorithm: A3C
+• Some differences vs DQN, DDPG, etc:
+• No replay buffer, instead rely on diversity of samples from different workers to decorrelate
+• Some variability in exploration between workers
+• Pro: generally much faster in terms of wall clock • Con: generally must slower in terms of # of samples (more
+on this later…)
+Mnih et al. ‘16
+
+Actor-critic algorithm: A3C
+
+20,000,000 steps
+
+DDPG:
+
+more on this later…
+1,000,000 steps
+
+Model-based algorithms: parallel GPS
+
+(1)
+Rollout execution
+
+Local policy optimization
+(2, 3)
+
+Global policy optimization
+(4)
+
+[parallelize sampling] [parallelize dynamics] [parallelize LQR] [parallelize SGD] (1) (2, 3)
+(4)
+
+Yahya, Li, Kalakrishnan, Chebotar, L., ‘16
+
+Model-based algorithms: parallel GPS
+
+Real-world model-free deep RL: parallel NAF
+Gu*, Holly*, Lillicrap, L., ‘16
+
+Simplest example: sample parallelism with off-policy algorithms
+
+sample sample sample
+
+grasp success predictor training
+

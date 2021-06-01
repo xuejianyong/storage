@@ -1,0 +1,1929 @@
+54
+
+IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 13, NO. 1, JANUARY 2016
+
+Parameter Estimation in Softmax Decision-Making Models With Linear Objective Functions
+Paul Reverdy and Naomi Ehrich Leonard
+
+Abstract—We contribute to the development of a systematic means to infer features of human decision-making from behavioral data. Motivated by the common use of softmax selection in models of human decision-making, we study the maximum-likelihood (ML) parameter estimation problem for softmax decision-making models with linear objective functions. We present conditions under which the likelihood function is convex. These allow us to provide sufﬁcient conditions for convergence of the resulting ML estimator and to construct its asymptotic distribution. In the case of models with nonlinear objective functions, we show how the estimator can be applied by linearizing about a nominal parameter value. We apply the estimator to ﬁt the stochastic Upper Credible Limit (UCL) model of human decision-making to human subject data. The ﬁts show statistically signiﬁcant differences in behavior across related, but distinct, tasks.
+Note to Practitioners—Many problems in online planning and control can be formulated as sequential decision-making tasks in which an agent seeks to maximize rewards gained (or equivalently, minimize costs incurred) from a series of choices among control actions. When the task is highly structured, methods from optimal control can provide effective automated solutions to the control problem. However, when the uncertainties associated with the task are signiﬁcant, solutions to the control problem generally require some input from human supervisors because of the humans’ greater ﬂexibility, for example, to adapt to unforeseen events. For human-centered automation, one seeks to combine the computational abilities of machine automation with the ﬂexibility of a human supervisor in an effective way. In a previous paper (Reverdy et al., Proc. IEEE, vol. 102, no. 4, pp. 544–571, 2014), we studied human decision-making behavior in a reward-driven decision-making task and showed that a signiﬁcant fraction of subjects exhibited very high performance, which we ascribed to their intuition about the task. We developed a model (UCL) of this behavior that represents the human subject’s intuition in terms of a small number of parameters. Estimating the model parameters from observed choice behavior would allow an automated system to quantify and learn the human’s intuition, which the system could use to improve its own performance. To that end, this paper addresses the parameter estimation problem for the UCL model. The softmax functional form of the UCL model is a common
+
+feature of models of human decision-making, which makes the estimator we develop relevant to a wide range of decision-making models.
+Index Terms—Automation, decision-making, estimation.
+I. INTRODUCTION
+I N A VARIETY of decision-making scenarios an agent selects one among a discrete set of options and receives a reward associated with the selection. The agent’s goal is to make a selection or a sequence of selections to maximize reward. For example, a human air trafﬁc controller selects among options for allocating aircraft for takeoff, and the reward is a measure of efﬁciency of ﬂight departures associated with the selected option [24]. Often the decision-making task is challenging, especially when there is uncertainty or there are complex dependencies associated with options and rewards, as in the air trafﬁc control example.
+Much research has gone into studying how humans decide among options and what conditions lead to good decision-making performance. In this research, decision-making models are used together with empirical data. One common approach is to derive a decision-making model as the solution of an optimization problem. An objective function is deﬁned for each option , and the model agent selects the option that maximizes the objective function
+The maximum operation is deterministic and non-differentiable, so for many applications it is replaced by the so-called “softmax” operation, in which option is chosen with probability
+
+Manuscript received February 16, 2015; revised August 18, 2015; accepted November 03, 2015. Date of publication November 24, 2015; date of current version January 01, 2016. This paper was recommended for publication by Associate Editor C. Tomlin and Editor D. Tilbury upon evaluation of the reviewers’ comments. This work was supported in part by Ofﬁce of Naval Research (ONR) under Grant N00014-09-1-1074 and Grant N00014-14-1-0635, and was conducted with Government support under and awarded by DoD, Air Force Ofﬁce of Scientiﬁc Research, National Defense Science and Engineering Graduate (NDSEG) Fellowship, 32 CFR 168a.
+P. Reverdy is with the Department of Electrical and Systems Engineering, University of Pennsylvania, Philadelphia, PA 19104 USA (e-mail: preverdy@seas.upenn.edu).
+N. E. Leonard is with the Department of Mechanical and Aerospace Engineering, Princeton University, Princeton, NJ 08544 USA (e-mail: naomi@princeton.edu).
+Digital Object Identiﬁer 10.1109/TASE.2015.2499244
+
+The softmax operation, which we adopt in this paper, is a stochastic, biologically plausible approximation of the maximum operation [33]. Furthermore, it is differentiable with respect to its argument , which makes it more analytically tractable. Numerous works in the psychology and neuroscience literature, e.g., [4], [5], [7], and [37], have developed models of human decision-making behavior that apply the softmax operation to various objective functions .
+In contexts such as inverse reinforcement learning [28], [23] and neuroscience [20], a central goal is to understand the decision-making process by ﬁnding the objective function values
+
+1545-5955 © 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission. See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+
+REVERDY AND LEONARD: PARAMETER ESTIMATION IN SOFTMAX DECISION-MAKING MODELS WITH LINEAR OBJECTIVE FUNCTIONS
+
+55
+
+that explain observed decisions. In this paper, we consider this problem in the case that each objective function value is linear in a set of known variables , i.e.,
+
+(1)
+
+Models of this form are often used in studies of human decision-making behavior, e.g., [7], [19], [4], [10], and are therefore of interest in developing principled methods for human-centered automation. Further, by assuming the functional form (1), we reduce the problem of ﬁnding the objective function values to that of learning the vector of parameters , which we assume to be constant across options and decisions. We call the reduced problem the parameter estimation problem for softmax decision-making models with linear objective functions. The linear functional form of (1) allows us to derive conditions for convergence of the parameter estimator. In the more general case where the objective function is nonlinear, it can be locally approximated with a linear function of the form (1).
+The problem of learning the objective function that can explain observed decision-making behavior is relevant for several different disciplines. In the behavioral sciences, it is often of interest to develop models that quantify the various factors that contribute to the decision-making process. Similarly, in engineering, system identiﬁcation seeks to develop models of dynamic systems that can be used for engineering design. In either case the problem is generally solved in two steps. The ﬁrst step is to determine which variables affect the process or system in question. In the context of the present paper, this is equivalent to determining the variables in (1). The second step is to quantify the effect of each variable on the system. This is equivalent to learning the value of the parameters in (1), i.e., solving the parameter estimation problem. We call the two-step process ﬁtting. This paper develops an estimator with rigorous performance guarantees for the softmax decision-making model, which provides a tool for the second step in the ﬁtting process.
+For human-centered automation, one seeks to combine the computational abilities of machine automation with the ﬂexibility of a human supervisor in an effective way. One approach is to design an automated system that can infer the intuition or the intent of a human operator and use the intuition to improve its own performance. This could be done if a decision-making model with parameters representing intuition could be ﬁtted to observed human choice data. The estimator developed in the present paper makes this possible when applied to an appropriate decision-making model.
+We demonstrate the estimator using an algorithmic model of human decision-making in a spatial search task, derived in [26]. The model, called the stochastic Upper Credible Limit (UCL) model, was derived by generalizing results in the neuroscience [37] and machine learning [13] literature concerning multi-armed bandit tasks in a Bayesian setting. In [26], the stochastic UCL model was shown to qualitatively reproduce experimentally observed human behavior. We use our estimator to infer from these experimental data the human decision-maker’s intuition in terms of a set of prior beliefs about the task. The estimator is applicable to a more general class of
+
+Fig. 1. The probability (2) from the model (1) with
+
+options and a
+
+scalar
+
+parameter . The probability of picking option 1 is a logistic
+
+function of
+
+and the sensitivity to is controlled by , which
+
+sets the slope at
+
+.
+
+decision-making tasks for which a softmax decision-making
+
+model can be developed.
+
+As a motivating example of the softmax model, consider the
+
+case of deciding between
+
+options each with a single
+
+known variable
+
+, representing the
+
+value of the option, and
+
+a scalar. Then, the probability of
+
+picking option 1 is
+
+(2)
+
+Fig. 1 plots the probability (2) as a function of the difference in
+
+value of the two options
+
+. When the values of
+
+the two options are identical, the probability is equal to 0.5 and
+
+it increases monotonically with increasing . The rate of the
+
+increase is controlled by , which sets the slope of the function
+
+at
+
+. Large values of increase the slope and make the
+
+choice represented by (2) discriminate between and with
+
+more sensitivity, while small values of decrease the slope and
+
+make the choice less sensitive to . Models of this form have
+
+been used to study a variety of decision-making tasks [16], [29],
+
+[7], [21], [32], where ﬁnding the value of that explains a given
+
+set of decisions is an important problem.
+
+The parameter estimation problem for softmax deci-
+
+sion-making models is related to other problems previously
+
+studied in the literature, in particular, the multinomial logistic
+
+regression problem [1], [15] and the conditional log-likelihood
+
+model learning problem [9]. With the linear functional form
+
+(1), the softmax decision-making model and the conditional
+
+log-likelihood model are formally equivalent, meaning that
+
+the parameter estimation problem has been studied in previous
+
+work, e.g., [9]. The novelty of the present paper comes in
+
+the application of parameter estimators to a formal model
+
+56
+
+IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 13, NO. 1, JANUARY 2016
+
+of human decision-making (the stochastic UCL model) and
+
+its use in quantifying a human subject's intuition about a
+
+decision-making task.
+
+The stochastic UCL model for human decision-making in
+
+spatial search tasks [26] is a softmax decision model with an ob-
+
+jective function
+
+that is a nonlinear function of several pa-
+
+rameters. We show how
+
+can be transformed into a linear
+
+function of the form (1) by linearizing about a point in param-
+
+eter space.
+
+We adopt a maximum-likelihood (ML) approach to parameter
+
+estimation. In this framework, the convexity of a model implies
+
+asymptotic convergence of estimators and the convexity of the
+
+associated optimization problem. The convexity of the condi-
+
+tional log-likelihood model is an accepted fact in the natural lan-
+
+guage processing literature [9], so we do not focus on it here. We
+
+apply standard optimization algorithms to the stochastic UCL
+
+parameter estimation problem and demonstrate our results.
+
+There are two major contributions of this paper. First, we
+
+show how to apply standard parameter estimation techniques
+
+to the stochastic UCL model, a rigorously derived model of
+
+human choice behavior. Models with a similar softmax func-
+
+tional form are commonly used in the neuroscience literature to
+
+model choice behavior and are likely to be widely applicable in
+
+the context of human-centered automation. Estimating the pa-
+
+rameters of such models provides a method to quantify human
+
+intention and intuition in choice tasks, which can be leveraged in
+
+human-centered automation systems. Second, we apply the pa-
+
+rameter estimation techniques to empirical human choice data
+
+and ﬁnd statistically signiﬁcant differences between groups of
+
+subjects presented with different experimental conditions.
+
+The remainder of this paper is structured as follows.
+
+Section II deﬁnes the softmax decision model. Section III de-
+
+ﬁnes the parameter estimation problem for the softmax
+
+model and reviews convergence results from the literature.
+
+Section IV summarizes conditions under which the ML esti-
+
+mator converges. Section V provides a numerical example of
+
+the estimator. Section VI linearizes the stochastic UCL model
+
+about a nominal parameter to yield a softmax decision model
+
+with a linear objective function, and applies the estimator to
+
+simulated data. Section VII applies the linearization proce-
+
+dure to ﬁt the stochastic UCL model to human subject data.
+
+Section VIII concludes.
+
+II. THE SOFTMAX DECISION MODEL
+In this section, we deﬁne our notation and the speciﬁc softmax decision model for which we derive estimator convergence bounds. We also provide several examples of this model that appear in related literature.
+
+A. Notation
+
+In the spirit of [15], we set the following notation. We as-
+
+sume we have observations. For each observation , we have
+
+data consisting of
+
+explanatory variables and a re-
+
+sponse, corresponding to the assignment of one of classes.
+
+Speciﬁcally, for each observation
+
+we have data
+
+. For each class
+
+, we have explana-
+
+tory variables
+
+. The vector of explanatory variables
+
+is composed of the concatenation of the
+
+The response variable
+
+represents the class
+
+assignment, where the element
+
+if the observation corre-
+
+sponds to class and zero otherwise.
+
+Motivated by models of decision-making [26], we consider
+
+the following statistical model:
+
+(3)
+
+for
+
+, where
+
+is a weight vector that is
+
+the same for all classes. This is the softmax decision-making
+
+model with linear objective function (1) introduced above,
+
+which has been studied in other literatures under other names.
+
+In the natural language processing literature, (3) is known as
+
+the conditional log-likelihood model, while in the econometrics
+
+literature, it is known as the conditional logit model [17].
+
+B. Example Softmax Decision Models
+In this section, we provide several concrete examples of the softmax decision model (3). The goal is to make the connection between this functional form and others that appear in the literature.
+Example 1 (Softmax With Unknown Temperature): A standard decision model in reinforcement learning [33] is the so-called softmax action selection rule, which selects an option
+with probability
+
+where is the value associated with option and is a positive
+
+parameter known as the temperature. This rule selects options
+
+stochastically, preferentially selecting those with higher values.
+
+The degree of stochasticity is controlled by the temperature .
+
+In the limit
+
+, the rule reduces to the standard maximum
+
+and deterministically selects the option with the highest value
+
+of . In the limit
+
+, all options are equally probable
+
+and the rule selects options according to a uniform distribution.
+
+This model is in the form of (3) with
+
+. Speciﬁcally,
+
+assume that the temperature is constant but unknown, and the
+
+values are known. Then, the two models are identical if we
+
+identify
+
+In the reinforcement learning literature, the quantity
+
+is
+
+sometimes known as the inverse temperature and referred to
+
+by the symbol . Our methods allow one to estimate
+
+from observed choice data.
+
+Example 2 (Softmax With Known Cooling Schedule Form):
+
+A slightly more complicated model might let the softmax tem-
+
+perature of Example 1 follow a known functional form, called
+
+a cooling schedule, that depends on an unknown parameter. For
+
+REVERDY AND LEONARD: PARAMETER ESTIMATION IN SOFTMAX DECISION-MAKING MODELS WITH LINEAR OBJECTIVE FUNCTIONS
+
+57
+
+example, in simulated annealing, Mitra et al. [18] showed that good cooling schedules follow a logarithmic functional form:
+
+where is the decision time and
+
+is a parameter.
+
+If is constant but unknown, this model can be represented
+
+in the form of (3) with
+
+if we identify
+
+Example 3 (Softmax -Learning With Unknown Temperature and Learning Rate): According to a simple -learning model [35], for each choice time the agent assigns an expected value
+to each option . The values are initialized to 0 at and then for each subsequent time, the agent picks option , receives reward , and updates the value of the chosen option
+according to
+
+where
+
+is a free parameter called the learning rate and
+
+is the prediction error at time .
+
+A common model in reinforcement learning [6] has the agent
+
+make decisions using a softmax rule on the value function ,
+
+so the probability of selecting an option at time is
+
+problem can be solved by off-the-shelf optimization algorithms.
+
+Concavity is also central to several results from the economet-
+
+rics literature that provide conditions under which the estimator
+
+is guaranteed to converge asymptotically.
+
+In the optimization literature, it is traditional to consider min-
+
+imization problems, for which convexity plays the same role as
+
+concavity does for maximization problems: a function is con-
+
+cave if the function is convex, and maximizing is equiv-
+
+alent to minimizing . Following the literature, we refer to
+
+concavity and convexity when discussing results from econo-
+
+metrics and optimization, respectively. We distinguish between
+
+two notions of concavity: a function
+
+is weakly con-
+
+cave if its Hessian is negative semideﬁnite, and strongly con-
+
+cave if its Hessian is strictly negative deﬁnite.
+
+A. The Softmax Model Parameter Estimation Problem
+
+In the parameter estimation problem for softmax decision-
+
+making models, we wish to estimate the values of based on the
+
+observed data
+
+. A standard way to perform parameter
+
+estimation is using the ML method [14]. To perform ML esti-
+
+mation of , one maximizes the log-likelihood function .
+
+Problem 1: The ML parameter estimation problem for the
+
+softmax decision model (3) is the optimization problem
+
+(4)
+
+where is the logarithm of the likelihood function of the model (3), deﬁned as
+
+where
+
+is the indicator function, equal to 1 if its argument
+
+is a true statement, and 0 otherwise. Similar models are used in
+
+the analysis of fMRI data, e.g., [38]. If
+
+, and are
+
+known while and are unknown, the model is in the form of
+
+(3) with
+
+if we identify
+
+If only the initial value
+
+is known, then the value
+
+function becomes a nonlinear function of the parameters
+
+and the model is not of the form (3), although it may be possible
+
+to ﬁnd a transformation that puts it in such a form.
+
+In the following section, we deﬁne the parameter estima-
+
+tion problem for the softmax model (3). We then analyze the
+
+problem to develop conditions under which this parameter esti-
+
+mation problem can be solved with provable guarantees about
+
+its convergence.
+
+III. PARAMETER ESTIMATION FOR SOFTMAX DECISION-MAKING MODELS
+In this section, we deﬁne the parameter estimation problem for softmax decision-making models using a likelihood framework, and we review relevant results from the literature. Key to these results is the concept of concavity, which is a property of functions that can guarantee the uniqueness of a maximum. When the likelihood function is concave, the ML estimation
+
+(5)
+
+The ML estimate can be interpreted as the parameter value that makes the observed data most likely under the given
+model. A prior on can be incorporated by adopting a maximum a
+posteriori (MAP) estimate
+(6)
+
+with being the prior on . The MAP estimate penalizes ML estimates that are considered unlikely under the prior.
+
+B. Asymptotic Behavior of the ML Estimator
+
+The ML estimator solves the estimation problem in the
+
+frequentist framework, which posits that there is a true value
+
+of the parameters that we attempt to recover from analyzing the
+
+given data. In this framework, natural questions to be asked are:
+
+1) does
+
+as the number of observations grows and
+
+2) how dispersed is the difference
+
+? These questions
+
+have been studied in the econometrics literature, for which [22]
+
+is a standard reference. The remainder of this section summa-
+
+rizes the relevant results from [22]. The answers to these two
+
+questions depend on two properties of the model, identiﬁcation
+
+and concavity, deﬁned as follows.
+
+58
+
+IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 13, NO. 1, JANUARY 2016
+
+Deﬁnition 1 (Identiﬁcation): A statistical model with likeli-
+
+hood function
+
+and observed data is said to be
+
+identiﬁed if, for all
+
+Deﬁnition 2 (Concavity): A statistical model with likelihood
+
+function
+
+is said to be concave if
+
+is strictly
+
+concave in .
+
+If a model with likelihood function is identiﬁed and con-
+
+cave (see [22, Th. 2.7]) for details), the answer to question 1)
+
+is yes. These two properties imply that the true value of the
+
+parameter is the unique maximum of the expected value of the
+
+log-likelihood .
+
+Concavity and identiﬁcation can depend on both the func-
+
+tional form of and the observed data . As an example of
+
+how the identiﬁcation property may fail due to data, consider the
+
+model (3) with being the zero vector for each . In this case,
+
+for each independent of and the es-
+
+timation procedure will be unable to distinguish among the pos-
+
+sible parameter values. In the following section, we derive con-
+
+ditions on the data that ensure identiﬁcation. These conditions
+
+also ensure that is strictly concave and provide guidelines
+
+for the design of experiments for estimating .
+
+The answer to question 2) is that, under mild regularity condi-
+
+tions, the distribution of approaches a normal distribution
+
+as the number of samples grows. In particular, the following
+
+limit holds:
+
+(7)
+
+where signiﬁes a limit in distribution as
+
+and
+
+is the negative of the expected value of the Hes-
+
+sian of with respect to . See [11, Chap. 9] for more de-
+
+tails about the concept of a limit in distribution and see [22, Th.
+
+3.3] for full details of the conditions under which (7) holds. In
+
+practice, one uses
+
+as an estimate of . This
+
+permits construction of standard frequentist analysis tools, such
+
+as conﬁdence intervals for the parameter estimates and hypoth-
+
+esis tests. The estimate is efﬁcient in the sense that it obeys
+
+the Cramér-Rao lower bound [14] on the variance of estimators
+
+, so no other unbiased estimator can have lower variance than
+
+.
+
+IV. ANALYSIS OF THE MAXIMUM-LIKELIHOOD ESTIMATOR FOR SOFTMAX DECISION MODELS WITH LINEAR OBJECTIVE FUNCTIONS
+
+In this section, we present conditions under which the model
+
+(3) is identiﬁed and concave. These conditions imply that the
+
+ML estimator
+
+converges and that the ML optimization
+
+problem (4) is convex. The concavity of the model is an ac-
+
+cepted fact in the natural language processing literature [9]; we
+
+summarize the result in Theorem 1.
+
+A. Asymptotic and Finite-Sample Behavior
+
+Recall from Section III-B that two properties that guarantee
+
+asymptotic convergence of the ML estimator are identiﬁcation
+
+and concavity. Whether or not the model (3) satisﬁes these prop-
+
+erties can be a function of the data
+
+. Recall
+
+our example where
+
+for each and . In this case, the
+
+probability
+
+for each and for all values
+
+of and the likelihood function is ﬂat, so neither identiﬁ-
+
+cation nor concavity is satisﬁed.
+
+However, a sufﬁcient condition for identiﬁcation is as fol-
+
+lows. Deﬁne the
+
+matrix by transforming the ex-
+
+planatory variable of a single observation
+
+(8)
+
+Note that
+
+. Considering as a random
+
+variable, the following lemma ensures identiﬁcation.
+
+Lemma 1: Let be the explanatory variable for an arbitrary
+
+observation and let be the transformation of deﬁned in (8).
+
+If the second-moment matrix
+
+exists and is positive def-
+
+inite, then the model (3) is identiﬁed.
+
+Proof: The probability of choosing an option under the
+
+model (3) is a monotonic function of the objective value ,
+
+so it sufﬁces to show that the data provides a one-to-one map-
+
+ping between the parameter vector and the objective values
+
+.
+
+Let
+
+and deﬁne the vectors of objective func-
+
+tion values
+
+and
+
+. Deﬁne
+
+. The magnitude of
+
+satisﬁes
+
+. Then, by the assump-
+
+tion that
+
+is positive deﬁnite,
+
+implies
+
+, so
+
+and
+
+. Therefore, the mapping
+
+between the parameters and the objective values
+
+is one-to-one, which implies that
+
+for
+
+and the model is identiﬁed.
+
+The condition of Lemma 1 is given in terms of an expectation,
+
+but in practice one has a given sample of data. In this case, the
+
+expectation can be replaced by the sample average. Speciﬁcally,
+
+deﬁne for each observation following (8). Then,
+
+is estimated by
+
+If this sample average is positive deﬁnite, then the model is identiﬁed. For the sample average to be positive deﬁnite it must be
+, and each observation can add at most to the rank. Therefore, the following inequality must be satisﬁed for the model to be identiﬁed:
+
+This gives a lower bound
+
+on the minimum
+
+number of observations required for identiﬁcation. For most
+
+applications, the number of options will be larger than the
+
+number of parameters , so the lower bound is trivial. How-
+
+ever, for cases with a large number of parameters the bound can
+
+be useful for experimental design.
+
+The following theorem summarizes the conditions under
+
+which the ML estimator (4) converges.
+
+Theorem 1 (Convergence of the ML Estimator): Let be
+
+deﬁned as in (8). If the second-moment matrix
+
+REVERDY AND LEONARD: PARAMETER ESTIMATION IN SOFTMAX DECISION-MAKING MODELS WITH LINEAR OBJECTIVE FUNCTIONS
+
+59
+
+exists and is positive deﬁnite, then 1) The ML optimization problem (4) is convex. 2) The ML estimator for the model (3) is asymptotically approximately distributed as
+
+(9)
+
+where
+
+is the empirical mean Hessian of
+
+the likelihood function evaluated at the estimated param-
+
+eter value.
+
+Proof: See [17] and [25].
+
+Theorem 1 proves convergence of the parameter estimate
+
+and provides its asymptotic distribution. This distribution
+
+can be used to formulate frequentist conﬁdence intervals for the
+
+parameter estimate . Furthermore, the theorem proves that
+
+the optimization problem (4) is convex, which allows us to solve
+
+it using off-the-shelf optimization algorithms. In the following,
+
+we use the phrase the estimator to refer to the procedure of using
+
+an off-the-shelf convex optimization algorithm to solve the ML
+
+problem (4). We use the phrase the estimate to refer to the so-
+
+lution of (4) thus obtained. The next three sections apply the
+
+estimator to increasingly complex data sets, building towards
+
+the application to experimental human subject data.
+
+V. NUMERICAL EXAMPLES
+In this section, we present several numerical examples to demonstrate the theory developed in the previous sections for solving the parameter estimation problem (4). In all cases, the explanatory variables were drawn randomly according to Gaussian distributions and the response variables were drawn according to the model (3) conditional on the explanatory variables . Application to data generated from simulations of the stochastic UCL model is presented in Section VI, and application to data collected from human subjects is presented in Section VII.
+
+A. Scalar Parameter
+
+First, we consider model (3) with
+
+options and a scalar
+
+parameter
+
+that we wish to estimate. This could cor-
+
+respond to a decision-maker choosing among ten options using
+
+a softmax model with unknown constant inverse temperature
+
+, as in Example 1. Alternatively, it could correspond to a
+
+temperature varying with observation number
+
+ac-
+
+cording to a known function with a single unknown parameter
+
+, e.g.,
+
+, as in Example 2. In this case, the
+
+term can be absorbed into the explanatory variables and
+
+we proceed as in the ﬁrst case.
+
+Fig. 2 shows results of applying the estimator to simulated
+
+data. For every , when an observation was taken and a deci-
+
+sion made, the model was simulated 100 times. For each of the
+
+100 simulations, the estimator was applied to estimate the pa-
+
+rameter based on the ﬁrst observations. Running 100 simula-
+
+tions made it possible to examine convergence of the estimate in
+
+distribution. Fig. 2 illustrates how the estimates converge in dis-
+
+tribution to the normal distribution (9) as the number of observa-
+
+tions increases. For the simulations, the explanatory variables
+
+Fig. 2. Scalar parameter estimation example. The parameter estimates con-
+
+verge to the asymptotic normal distribution (9) as the number of observations
+
+grows. The dashed lines show the true value of the scalar parameter
+
+and
+
+the accompanying 95% conﬁdence intervals implied by the asymptotic normal
+
+distribution (9). For each value of , an ensemble of 100 parameter estimates
+
+was formed by repeatedly simulating the data while holding the explanatory
+
+variables ﬁxed, and using the estimator to compute the value of the parameter.
+
+The solid black line shows the mean parameter estimate and the shaded region
+
+the empirical 95% conﬁdence interval.
+
+were drawn from a standard Gaussian distribution
+
+(mean zero and unit variance), and the response variables
+
+were drawn according to probability distribution (3) conditional
+
+on and
+
+. The estimates were computed by solving
+
+the optimization problem (4) using a BFGS quasi-Newton al-
+
+gorithm [2], [8], [12], [30] (Matlab function fminunc [34]).
+
+Theorem 1 guarantees that the optimization problem is convex,
+
+so the algorithm will converge.
+
+The convergence behavior can be seen in Fig. 2 by observing
+
+the mean parameter estimate as well as its conﬁdence in-
+
+tervals. The mean parameter estimate , represented by the
+
+solid black line, converges to the true parameter value
+
+,
+
+represented by the horizontal dashed line. However, Theorem
+
+1 guarantees convergence in distribution, which is a stronger
+
+result. To illustrate this behavior we plot 95% conﬁdence in-
+
+tervals for both the empirical distribution of estimates and
+
+the asymptotic distribution (9), computed from the ensemble of
+
+100 parameter estimates. For values of greater than 100, the
+
+two intervals overlap closely, showing that the distribution of
+
+estimates has converged. Importantly, this shows that statistical
+
+hypothesis tests based on the asymptotic distribution (9) will be
+
+accurate.
+
+For small amounts of data, i.e.,
+
+, the mean parameter
+
+estimate is biased above the true value. The bias is due to an
+
+insufﬁcient amount of data being used in the estimation proce-
+
+dure, and the direction of the bias can be explained as follows.
+
+Larger values of the parameter correspond to more determin-
+
+istic choice behavior. When
+
+, for any given choice, the
+
+model is more likely to pick the option with a larger objective
+
+value, resulting in a parameter estimate that is biased upwards.
+
+60
+
+IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 13, NO. 1, JANUARY 2016
+
+VI. APPLICATION TO NONLINEAR OBJECTIVE FUNCTIONS USING LINEARIZATION
+The development up to this point for addressing the parameter estimation problem (4) has assumed that the objective function takes the linear form (1). However, many relevant objective functions are nonlinear functions of the unknown parameter . One approach is to linearize the nonlinear objective function about a nominal parameter value, and then apply the estimator to the linearized objective function. We apply this approach to the nonlinear objective function from the stochastic UCL algorithm [26], an algorithm that models human decision-making in multi-armed bandit tasks in a Bayesian setting, and show how its parameters can be estimated.
+
+Fig. 3. Vector parameter estimation example. The parameter estimates con-
+
+verge to the asymptotic normal distribution (9) as the number of observations
+
+grows. The dashed lines show the true value of each element of the vector
+
+parameter
+
+. For each value of , an ensemble of 100 parameter
+
+estimates was formed by repeatedly simulating the data while holding the ex-
+
+planatory variables ﬁxed, and using the estimator to compute the value of the
+
+parameter. The solid lines show the mean parameter estimate and the shaded
+
+regions the empirical 95% conﬁdence interval.
+
+This bias can be seen in Fig. 3 as well, which treats a case with a vector parameter.
+
+B. Vector Parameter
+
+Next, we consider the model (3) with
+
+options and
+
+a vector parameter
+
+with
+
+elements that we
+
+wish to estimate. Fig. 3 shows results of applying the estimator
+
+to simulated data in this vector parameter estimation example.
+
+As in the scalar parameter estimation case above, the model
+
+was simulated 100 times for every
+
+. Fig. 3 shows
+
+how the estimate converges to the true value as the total
+
+number of observations increases. The explanatory variables
+
+were drawn according to independent standard Gaussian dis-
+
+tributions, and the response variables drawn according to the
+
+model (3) conditional on and true vector parameter value
+
+. The estimates were computed as in the scalar
+
+case.
+
+The convergence behavior can be seen in Fig. 3 by observing
+
+the mean parameter estimate as well as its conﬁdence in-
+
+tervals. For each of the three parameters
+
+, the cor-
+
+responding mean parameter estimate
+
+, represented as a
+
+solid line, converges to the true parameter value , repre-
+
+sented by a horizontal dashed line. The shaded regions represent
+
+the empirical 95% conﬁdence interval around the corresponding
+
+mean value, computed from the ensemble of 100 parameter es-
+
+timates. For clarity, we omit the conﬁdence intervals implied by
+
+the asymptotic normal distribution (9) from the ﬁgure, but the
+
+behavior is similar to that shown in Fig. 2.
+
+There is an upwards bias in the parameter estimates for small
+
+numbers of observations , as in Fig. 2. The width of the con-
+
+ﬁdence intervals for the three parameters scales roughly with
+
+their true value . This behavior can be seen in the ﬁgures
+
+in the next section as well.
+
+A. The Multi-Armed Bandit Problem
+
+The multi-armed bandit problem, introduced by Robbins [27]
+
+is a sequential decision-making problem which consists of a set
+
+of options (each option is also called an arm in analogy with
+
+the lever of a slot machine). Each option
+
+, has an
+
+associated probability distribution with mean , unknown
+
+to the agent solving the problem. At each sequential decision
+
+time
+
+, the agent picks an arm and receives a
+
+stochastic reward
+
+drawn from the probability distri-
+
+bution associated with that arm. This is a special case of the no-
+
+tation introduced in Section II-A, with
+
+options indexed
+
+by and
+
+decisions indexed by . The agent’s objective is
+
+to maximize the expected value of the cumulative rewards re-
+
+ceived from the decisions
+
+Each choice of is made conditional on the information available to the agent at time . If the mean rewards were known to the agent, the optimal policy would be trivial: pick arm
+for each . However, since the mean rewards are unknown, the agent must simultaneously select arms where the reward value is uncertain to gain information about the rewards and preferentially select arms with high rewards to accumulate reward. The tension between selecting arms with uncertain (but possibly high) rewards and selecting arms that appear to have high rewards based on current information is known as the explore-exploit tradeoff. This tradeoff is common to a variety of problems in machine learning and adaptive control.
+The multi-armed bandit problem is the subject of active research in machine learning as well as in neuroscience. In [26], we showed that a signiﬁcant fraction of human subjects exhibited excellent performance in solving a multi-armed bandit problem, even outperforming algorithms known to have optimal performance in some cases. We attributed this good performance to the human subjects’ having good priors on the structure of the rewards , and we designed the stochastic UCL algorithm as a model of human behavior to capture this dependence on priors. Estimating the parameters of this model from observations of a human solving the multi-armed bandit task would allow a machine to learn the human’s belief priors. This could in turn facilitate the design of a human-machine
+
+REVERDY AND LEONARD: PARAMETER ESTIMATION IN SOFTMAX DECISION-MAKING MODELS WITH LINEAR OBJECTIVE FUNCTIONS
+
+61
+
+system that could achieve better performance than either the Based on the belief state
+
+, the stochastic UCL algo-
+
+human or the machine could on its own.
+
+rithm chooses arm with probability
+
+B. The Stochastic UCL Algorithm
+
+The stochastic UCL algorithm [26] is designed to solve multi-
+
+armed bandit problems with Gaussian rewards, i.e., where the
+
+reward distribution
+
+is Gaussian with un-
+
+known mean and known variance . The algorithm con-
+
+sists of two parts: Bayesian inference that maintains the agent's
+
+belief state and a softmax decision model that uses an objective
+
+function that depends on the belief state. Both the inference
+
+and the decision parts introduce nonlinear dependencies on the
+
+parameters of the algorithm.
+
+As a model of human behavior, the stochastic UCL algorithm
+
+assumes that the agent's prior distribution of (i.e., the agent's
+
+initial beliefs about the mean reward values and their covari-
+
+ance) is multivariate Gaussian with mean and covariance
+
+(13)
+where is the heuristic function value for arm at time and is the temperature corresponding to the cooling schedule at
+time . The cooling schedule is assumed to take the form a constant, so the probabilities (13) become
+(14)
+The heuristic function is (15)
+
+where
+
+and
+
+is a positive-deﬁnite matrix.
+
+In [26], we use a minimal set of three parameters to specify
+
+. For the mean we use a uniform prior
+
+,
+
+where
+
+is a single parameter that encodes the agent’s be-
+
+lief about the mean value of the rewards and is the vector
+
+with each element equal to 1. For the problems considered in
+
+[26], the arms are spatially embedded with each arm at a dif-
+
+ferent location in space (see Fig. 8 in the next section). It is rea-
+
+sonable to assume that arms that are spatially close will have
+
+similar mean rewards. Therefore, for the covariance we set
+
+, where represents a prior that is exponential in
+
+distance, i.e., each element has the form
+
+where
+
+is the posterior mean reward of arm at
+
+time and
+
+its associated standard deviation. The
+
+quantity
+
+is the inverse cumulative distribution function
+
+of the standard normal distribution and
+
+is a
+
+decreasing function of time.
+
+This is a softmax decision model with unknown parameters
+
+, but it is not yet in the form (3) since the quantity
+
+is a nonlinear function of the parameters. However,
+
+we can locally approximate
+
+with a linear function
+
+by linearizing about a nominal value of the prior. By estimating
+
+the parameter values of the linearized model, we can recover the
+
+parameters of the original nonlinear model (14) near the nom-
+
+inal prior.
+
+(10)
+
+where is the location of arm and
+
+is the correlation
+
+length scale. The parameter
+
+can be interpreted as a conﬁ-
+
+dence parameter, with
+
+representing absolute conﬁdence
+
+in the beliefs about the mean , and
+
+representing
+
+complete lack of conﬁdence.
+
+With this prior, the posterior distribution is also Gaussian,
+
+so the Bayesian optimal inference algorithm is linear and can
+
+be written down as follows. At each time , the agent selects
+
+option and receives a reward . Let be the
+
+vector
+
+composed of the . Let be the number of times the agent
+
+has selected option up to time , let be the empirical mean
+
+reward observed for option , and let and be the vectors
+
+composed of the and , respectively. For each time , deﬁne
+
+the precision matrix
+
+. Then, the belief state at time
+
+is ([14, Th. 10.3])
+
+C. Linearization
+
+Let
+
+be the relative precision of a reward mea-
+
+surement compared to the certainty of the prior. Fix a nominal
+
+prior with parameter values
+
+and consider small de-
+
+viations and about and , respectively
+
+In the case that the true value of is unknown, this method is
+
+easily generalized to include deviations in , but for simplicity
+
+of exposition we consider it ﬁxed. Recall that the covariance
+
+prior is
+
+, where is deﬁned by (10), and its inverse
+
+is denoted by
+
+.
+
+In terms of the nominal value , (11) becomes
+
+(11) Therefore, to ﬁrst order in
+
+is given by
+
+(16)
+
+(12)
+
+where diag maps a vector to a diagonal matrix, is the
+
+observation matrix with
+
+if
+
+and zero
+
+otherwise, and is the -dimensional identity matrix.
+
+where
+
+and
+
+the square root in the following, we get:
+
+. Expanding (17)
+
+62
+
+IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 13, NO. 1, JANUARY 2016
+
+Fig. 4. Estimate of the vector of parameters based on simulated data from
+
+the stochastic UCL algorithm. The linearization point was taken to be
+
+. The true algorithm parameters were
+
+,
+
+and
+
+. The estimate converges as the number of observations grows.
+
+The dashed lines show the true value of each parameter . For each value of ,
+
+an ensemble of 100 parameter estimates was formed by repeatedly simulating
+
+the data
+
+, while holding the parameters ﬁxed, and using the
+
+estimator to compute the value of the parameters. The solid lines show the mean
+
+parameter estimate and the 95% conﬁdence interval implied by the asymptotic
+
+normal distribution (9).
+
+Fig. 5. Estimate of the vector of parameters based on simulated data from
+
+the stochastic UCL algorithm. Everything is the same as in Fig. 4 except that
+
+the linearization point was taken to be
+
+.
+
+where the parameters are deﬁned by
+
+(23)
+
+and the explanatory variables are deﬁned as
+
+where is the th element on the diagonal of
+
+and
+
+is the th element on the diagonal of
+
+. The
+
+standard deviation must be nonnegative, which implies an
+
+upper bound on . Similarly, must be nonnegative, which
+
+implies a lower bound on , which is already assumed to be
+
+small. The implied bounds on are
+
+which, together with the requirement that be small with respect to , gives a bound on the values of for which the linearization is valid.
+Similarly, the expression (12) for becomes
+
+(18)
+
+where denotes second-order terms in the deviation variables
+
+and , and
+
+, and are the
+
+vectors
+
+Deﬁne , and as the th components of respectively. Then, the linearized heuristic is
+
+(19) (20) (21) and ,
+(22)
+
+(24) (25) (26)
+
+The linearized heuristic (22) deﬁnes a softmax deci-
+
+sion-making model with a linear objective function of the form
+
+(3). Thus, we can apply our estimation algorithm to estimate
+
+the parameters . Using (23), we can then use the estimate of
+
+to provide an estimate of the parameters
+
+.
+
+D. Example Estimates
+
+We tested the estimation procedure described above by simu-
+
+lating runs of the stochastic UCL algorithm for various param-
+
+eter values. Figs. 4 and 5 show two examples of estimates com-
+
+puted using simulated data from the stochastic UCL algorithm
+
+with the nonlinear objective function
+
+and true pa-
+
+rameters
+
+. These parameters re-
+
+sult in the algorithm achieving high performance (speciﬁcally,
+
+logarithmic regret, see [26] for details). Fig. 4 shows estimates
+
+based on linearization about the point
+
+.
+
+Following (23), the linearized objective function corresponds
+
+to parameters
+
+, and having true values
+
+, and
+
+.
+
+These are the values to which the estimates should converge.
+
+Fig. 5 shows estimates based on linearization about the point
+
+. The linearized objective function in this
+
+case corresponds to the three parameters taking true values
+
+and
+
+.
+
+In both cases the estimator converges to the true value of
+
+within the horizon
+
+of the decision task. Further, the
+
+REVERDY AND LEONARD: PARAMETER ESTIMATION IN SOFTMAX DECISION-MAKING MODELS WITH LINEAR OBJECTIVE FUNCTIONS
+
+63
+
+many orders of magnitude larger than the magnitude of the parameter and they are not displayed. For , the estimate exhibits persistent bias away from the true value, but the width of the associated conﬁdence interval is signiﬁcantly larger than the bias. Therefore, for such parameter values, one must observe more data to be able to shrink the conﬁdence intervals and provide precise estimates of the parameter values.
+
+Fig. 6. Estimate of the vector of parameters based on simulated data from
+
+the UCL algorithm with a weakly-informative prior. This prior makes the al-
+
+gorithm's choice behavior more random, which makes the estimation problem
+
+more difﬁcult. Everything is the same as in Fig. 4 except that the linearization
+
+point was taken to be
+
+and the true algorithm parameters
+
+were
+
+, and
+
+. The 95% conﬁdence interval
+
+implied by the asymptotic normal distribution (9) is shown only in the plot of
+
+. For parameters and , the width of the conﬁdence intervals are much
+
+greater than the magnitudes of the parameter estimates and are omitted for leg-
+
+ibility.
+
+true value of the parameter is within the 95% conﬁdence interval
+
+after 30 observed choices. There are two implications from this
+
+result. First, the estimation procedure is at least somewhat ro-
+
+bust to the choice of linearization point for this set of algorithm
+
+parameters. Second, the estimator is useful for realistic empir-
+
+ical data sets, such as those reported in [26] and studied in the
+
+following section. For these data sets, the horizon is
+
+choices. For this amount of data, the simulations show that the
+
+estimation procedure can identify the true value of the param-
+
+eter in a statistically signiﬁcant way. This result is valuable be-
+
+cause the rigorous convergence result from Theorem 1 does not
+
+directly guarantee convergence in the more general case of non-
+
+linear objective functions.
+
+The amount of data required to get a reliable estimate can de-
+
+pend on the true value of the algorithm parameters, as shown
+
+in Fig. 6. In this case, the true value of the algorithm parame-
+
+ters are
+
+and the linearization
+
+is made about the point
+
+. The linearized
+
+objective function corresponds to the three parameters taking
+
+true values
+
+and
+
+. With
+
+the true values of the prior in the algorithm, the agent is sufﬁ-
+
+ciently uncertain about the rewards and makes most of its ini-
+
+tial 100 choices at random in order to gain information about
+
+the rewards. This choice behavior results in low performance
+
+(speciﬁcally, linear regret, see [26] for details). Since the ini-
+
+tial choices are effectively made at random, they do not provide
+
+useful information about the parameter values (except that they
+
+represent some combination of an uncertain prior and high deci-
+
+sion noise). The uncertainty in the parameter values can be seen
+
+from the width of the conﬁdence interval around the mean pa-
+
+rameter estimates shown in Fig. 6. For and their width is
+
+E. Discussion
+
+The linearization procedure described above yields a local
+
+linear approximation to the likelihood maximization problem
+
+(4), and Theorem 1 provides conditions under which the local
+
+approximation results in an identiﬁed model with a convex opti-
+
+mization problem. However, the effectiveness of the procedure
+
+is sensitive to the choice of nominal prior
+
+about which
+
+to linearize. The linearization point should be chosen such that
+
+the linear approximation is valid at the (unknown) true value
+
+of the parameters. In the worst case, there might not be any in-
+
+tuition for choosing the linearization point, making the above
+
+procedure no better than any other local optimization technique
+
+for which a starting point must be chosen.
+
+Fortunately, there are several advantageous aspects of the
+
+problem. The ﬁrst is generic to any heuristic function, which
+
+is the fact that the likelihood function forms a unique objective
+
+for judging the “goodness” of the estimated parameter. Without
+
+knowing in advance a good choice of linearization point, one
+
+approach is to perform the estimation assuming two different
+
+choices of linearization points and to compare the resulting es-
+
+timates . If the two linearization points result in identical esti-
+
+mates there is no conﬂict, while if the estimates differ, the one
+
+with the higher likelihood value is better.
+
+Second, there may be intuition about an appropriate choice
+
+of linearization point due to the structure of the model. In
+
+[26], we showed that behavior of the stochastic UCL model
+
+falls broadly into three classes as a function of the parameters
+
+. Thus, by categorizing a given data set into one of
+
+the three classes, we narrow the search for a linearization point
+
+to the associated regions of parameter space. And, as we saw in
+
+Figs. 4 and 5, the stochastic UCL model appears to be relatively
+
+insensitive to the choice of linearization point within the region
+
+of parameter space associated with a given behavioral class. In
+
+the following section, we exploit this intuition to estimate the
+
+parameters of the stochastic UCL algorithm based on data from
+
+a human subject experiment.
+
+VII. APPLICATION TO EXPERIMENTAL DATA
+In this section, we apply the estimator to ﬁt the stochastic UCL model (14) to experimental data studied in [26]. By ﬁt, we refer to the process of selecting a nominal parameter for linearization and applying the estimator to the linearized model. The parameter estimates produced by the ﬁtting procedure show that individuals with high performance match their behavior to the task in a statistically signiﬁcant way.
+
+A. Experimental Setup
+This section reviews the experimental setup as presented in Reverdy et al. [26]. As described in [26], we collected data from a human subject experiment where we ran multi-armed bandit
+
+64
+
+IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 13, NO. 1, JANUARY 2016
+
+Fig. 7. The experimental interface used in the human subject experiment. Upon clicking on one of the 100 squares arranged in a 10 10 grid, the red dot would move to the center of the square. The subject was free to select a new square without penalty until the time allotted (1.5 or 6 s per choice) had elapsed, at which time the blue dot would move to the center of the selected square and the subject would receive a reward reported in the text box at the top of the screen. Originally appeared as Fig. 5 in [26]; reproduced with permission.
+
+tasks through web servers at Princeton University (Princeton,
+
+NJ, USA) following protocols approved by the Princeton Uni-
+
+versity Institutional Review Board. Human participants were
+
+recruited using Amazon’s Mechanical Turk (AMT) web-based
+
+task platform [3]. Participants were shown instructions that told
+
+them they would be playing a simple game during which they
+
+could obtain points, and that their goal was to obtain the max-
+
+imum number of total points in each part of the game.
+
+Each participant was presented with a set of
+
+options, presented as squares arranged in a 10 10 grid. See
+
+Fig. 7 for a visualization of the experimental interface. At each
+
+decision time
+
+, the participant made a choice by
+
+moving the cursor to one square in the grid and clicking. After
+
+each choice was made, a numerical reward associated with that
+
+choice was reported on the screen. A variety of aspects of the
+
+game, including timing, game dynamics, and reward structures,
+
+were manipulated as part of the experimental design. As a
+
+result of these manipulations, only 326 of the 417 participants
+
+were assigned to a standard multi-armed bandit task for which
+
+the stochastic UCL model is appropriate. In the remainder
+
+of the section, we focus exclusively on data from these 326
+
+participants.
+
+The mean value of the reward associated with choosing a
+
+particular option was . Since the options were arranged
+
+in a 10 10 grid, the set of mean values can be thought of
+
+as a real-valued function on the discrete two-dimensional grid.
+
+We refer to this function as the reward landscape, and prior
+
+knowledge about the rewards in a given task corresponds to
+
+Fig. 8. The two task reward landscapes: (a) Landscape A and (b) Landscape
+
+B. The two-dimensional reward surfaces for the 10 10 set of options followed
+
+the proﬁle along one dimension (here the direction) and were ﬂat along the
+
+other (here the direction). The Landscape A proﬁle is designed to be simple
+
+in the sense that the surface is concave and there is only one global maximum
+
+, while the Landscape B proﬁle is more complicated since it features
+
+two local maxima (
+
+and 10), only one of which
+
+is the global
+
+maximum. Originally appeared as Fig. 6 in [26]; reproduced with permission.
+
+prior knowledge about the landscape. Mean rewards in each task corresponded to one of two landscapes: Landscapes A and B, shown in Fig. 8. Each landscape was ﬂat along one dimension and followed a proﬁle along the other dimension. The proﬁle of Landscape A was such that a simple gradient-climbing strategy was likely to prove effective, while Landscape B was constructed to require a more sophisticated strategy. Each participant played the game with each landscape once, presented in random order. Due to the structure of the experimental design, only one of the two landscapes was associated with a standard multi-armed bandit task.
+The participants’ performance in a given task can be classiﬁed in terms of the growth rate of their cumulative regret, which is a measure of cumulative loss relative to the (unknown
+
+REVERDY AND LEONARD: PARAMETER ESTIMATION IN SOFTMAX DECISION-MAKING MODELS WITH LINEAR OBJECTIVE FUNCTIONS
+
+65
+
+to the subject) optimal decision. As reported in [26], 70 of the 326 participants, or approximately 21%, achieved high performance, while the remainder, approximately 79%, achieved low performance. Of the 206 subjects assigned to Landscape A, 53 achieved high performance. Likewise, of the 120 subjects assigned to Landscape B, 17 achieved high performance. The high-performing subjects outperformed standard frequentist algorithms on the task, which we attribute to the subjects' having good priors about the task. Since we did not explicitly convey prior knowledge about the reward landscapes to the subjects, we postulate that they used priors developed in the course of other spatial tasks encountered in daily life. Considering the stochastic UCL algorithm as a model of the subjects’ behavior, good priors correspond to good values for the parameters and , which quantify the subjects’ intuition about the task. To learn the priors, we propose estimating them from the data. The estimated priors could then be used, e.g., to improve the performance of an automated system.
+
+TABLE I PARAMETER ESTIMATES AND ASSOCIATED STANDARD DEVIATIONS CONDITIONAL ON REGRET GROWTH ORDER
+AND REWARD LANDSCAPE. THE VALUES FOR HIGH PERFORMANCE ARE SIGNIFICANTLY DIFFERENT BETWEEN SURFACES AT THE 95% CONFIDENCE LEVEL (TWO-SIDED
+WELCH’S -TEST [36]); OTHER COMPARISONS SHOW THAT THE PARAMETER VALUES DO NOT SIGNIFICANTLY
+DIFFER BETWEEN CLASSES
+
+B. Fitting
+
+In ﬁtting the stochastic UCL model to human subject data, we
+
+seek to answer two questions. First, what distinguishes the deci-
+
+sion-making of the subjects with high performance from those
+
+with low performance? And second, do subjects adapt their de-
+
+cision-making strategies to the task, i.e., the reward landscape?
+
+Our experimental design provides data from only one task per
+
+subject, so we cannot, for example, compare a single subject’s
+
+performance on the different landscapes. Thus, we analyze at
+
+the population level to answer the two questions.
+
+Each subject is classiﬁed as having high or low performance
+
+as described above. On the basis of this classiﬁcation and the
+
+reward landscape, the subject is assigned to one of the four per-
+
+formance-landscape combined categories. We assume each sub-
+
+ject represents an independent and identically distributed (iid)
+
+sample from the true parameter associated with its category.
+
+We applied the estimator to data from each subject using nom-
+
+inal parameters
+
+for subjects with low
+
+performance and
+
+for subjects with
+
+high performance. We validated the choice of by performing
+
+estimation on the data from several subjects using a variety of
+
+values of . The optimal value of clearly differed between the
+
+two categories of performance but the estimates for each given
+
+performance category were fairly robust to changes in the value
+
+of . The ﬁtting procedure produces a ML estimate and associ-
+
+ated covariance matrix for each subject. By the iid assumption,
+
+it is tenable to construct a population-level parameter estimate
+
+for each of the four categories by appropriately averaging the
+
+individual subjects’ estimates and covariances.
+
+Table I presents the population-level parameter estimates,
+
+along with the mean log-likelihood values, for the four cat-
+
+egories. The columns labeled report the ML parameter
+
+estimates and those labeled their asymptotic standard devi-
+
+ations implied by (9). Recall that these parameters represent
+
+deviations from the nominal parameter values and therefore
+
+are not directly comparable between performance categories.
+
+However, comparing the magnitude of the standard deviations
+
+shows that the parameter estimates are much more precise
+
+for those categories associated with high performance. This is
+
+TABLE II
+
+PARAMETER ESTIMATES
+
+AND ASSOCIATED STANDARD
+
+DEVIATIONS CONDITIONAL ON REGRET GROWTH ORDER
+
+AND REWARD LANDSCAPE
+
+consistent with our ﬁndings in Section VI-D. Table II presents the ML parameter estimates transformed back into the original variables , and ; these are directly comparable.
+Table II allows us to answer our ﬁrst question about the differences between subjects with different levels of performance. The parameter values clearly differ more between levels of performance rather than between landscapes. Between levels of performance the parameters that differ the most are the decision noise parameter and the prior uncertainty . Larger values of are associated with more random decision-making, while larger values of represent greater uncertainty about the rewards which is associated with placing a higher value on information. Both of these factors tend to encourage exploration, and the values of both and are much greater for subjects with high performance than those with low performance. Thus, for both landscapes, the high-performing subjects explore more than the low-performing ones, which presumably helps them discover the regions of high rewards. Furthermore, the subjects with high performance use correlated priors which allow them to quickly explore large regions of the reward surface.
+We can compare the quality of the model ﬁts by comparing the mean log-likelihood values across categories provided on Table I. Again, we see starker differences between levels of performance than between landscapes. Between landscapes, the ﬁts are approximately equal in quality, while between performance
+
+66
+
+IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 13, NO. 1, JANUARY 2016
+
+levels there is substantial difference, equal to an approximate doubling of the ﬁtted model's predictive power.
+Table I allows us to answer our second question about the degree to which subjects match their strategies to the task. We focus on comparing the parameters across landscape conditions for each of the performance categories separately. For low-performing subjects, comparing the relative magnitudes of the parameter estimates and their standard deviations suggests that there is no signiﬁcant difference between the two landscape conditions. The two-sided Welch’s -test [36] conﬁrms that the difference in the parameter estimates is statistically insigniﬁcant. For high-performing subjects, the parameter estimates are much more precise, and the two-sided Welch’s -test conﬁrms that the difference in the parameter estimates is statistically signiﬁcant at the 95% conﬁdence level. In other words, the ﬁtting procedure is able to distinguish that the high-performing subjects have strategies that are matched to the landscape.
+
+C. Discussion
+
+The results of the ﬁtting exercise demonstrate an estimator
+
+for a model of human decision-making behavior. The estimator
+
+allows one to quantify a human subject’s intuition in a statis-
+
+tically powerful way. We observe that the model ﬁts are of
+
+higher quality for subjects with high performance. This sug-
+
+gests that the stochastic UCL model is better suited to the deci-
+
+sion-making behavior of subjects who are experts at the task; a
+
+different model may be more appropriate for lower performing
+
+subjects. We also observe that subjects with high performance
+
+seem to have effective priors: these priors have low certainty
+
+(large values of ), but exploit correlation in the rewards due
+
+to the smoothness of the reward landscapes by using positive
+
+values of the length scale parameter . When such correlation
+
+structures exist, they can be exploited to greatly improve per-
+
+formance [31], as our human subjects appear to have done. The
+
+estimator provides a way to learn effective priors from a human
+
+operator. In the absence of a correlation structure, the above ﬁt-
+
+ting process can still be applied by setting
+
+, although con-
+
+vergence of the estimator will be slower, requiring longer series
+
+of choice data than those studied here.
+
+By analyzing data from a human subject experiment, we have
+
+shown the effectiveness of the linearization procedure for ex-
+
+tending the estimator to a model with a nonlinear objective func-
+
+tion. The known asymptotic properties of the estimator allowed
+
+us to perform tests for statistical signiﬁcance and ﬁnd differ-
+
+ences in behavior.
+
+VIII. CONCLUSION
+Motivated by the parameter estimation problem for decision-making models, we studied the ML parameter estimation problem for softmax decision-making models with linear objective functions. Such models occur frequently in the neuroscience and machine learning literatures. We derived conditions under which the ML estimator converges on the correct parameter values, characterized the estimator’s asymptotic distribution, and showed how to use this distribution to formulate conﬁdence intervals for the parameter estimates.
+The estimator convergence results we state in Theorem 1 are speciﬁc to the case where the objective function is linear in
+
+the unknown parameters. However, we showed how the estima-
+tion procedure can be extended to nonlinear objective functions
+by linearizing about a nominal point in parameter space. We
+showed that we could estimate the true value of the parameters
+of the stochastic UCL decision-making algorithm developed in
+[26]. The amount of data required to perform useful estimation
+depends on the region of parameter space, with parameters rep-
+resenting priors that strongly inﬂuence behavior being easier to
+estimate. For example, small variances represent strong be-
+liefs and large correlation length scales represent highly struc-
+tured beliefs.
+We then ﬁt the stochastic UCL model to data from a human
+subject experiment. The estimates show a statistically signiﬁ-
+cant difference in behavior between subjects who exhibit good
+performance in similar but different tasks. Quantifying this dif-
+ference is of interest for both the science of decision-making and
+also for the development of automation. The estimator devel-
+oped in this paper, as applied to the stochastic UCL model, pro-
+vides a tool for quantifying human decision-making behavior in
+multi-armed bandit problems. This tool will facilitate the prin-
+cipled development of human-centered automation systems.
+REFERENCES
+[1] D. Böhning, “Multinomial logistic regression algorithm,” Ann. Inst. Statist. Math., vol. 44, no. 1, pp. 197–200, 1992.
+[2] C. G. Broyden, “The convergence of a class of double-rank minimization algorithms,” IMA J. Appl. Math., vol. 6, no. 1, pp. 76–90, 1970.
+[3] M. Buhrmester, T. Kwang, and S. D. Gosling, “Amazon's mechanical turk: A new source of inexpensive, yet high-quality, data?,” Perspectives on Psychological Sci., vol. 6, no. 1, pp. 3–5, 2011.
+[4] J. D. Cohen, S. M. McClure, and A. J. Yu, “Should I stay or should I go? How the human brain manages the trade-off between exploitation and exploration,” Philosph. Trans. Roy. Soc. B: Bio. Sci., vol. 362, no. 1481, pp. 933–942, 2007.
+[5] J. A. Cooper, M. A. Gorlick, T. Denny, D. A. Worthy, C. G. Beevers, and W. T. Maddox, “Training attention improves decision making in individuals with elevated self-reported depressive symptoms,” Cognitive, Affective Behavioral Neurosci., vol. 14, no. 2, pp. 729–741, June, 2014.
+[6] N. D. Daw, “Trial-by-trial data analysis using computational models,” Decision Making, Affect, and Learning: Attention and Performance XXIII, vol. 23, pp. 3–38, 2011.
+[7] N. D. Daw, J. P. O'Docherty, P. Dayan, B. Seymour, and R. J. Dolan, “Cortical substrates for exploratory decisions in humans,” Nature, vol. 441, no. 7095, pp. 876–879, 2006.
+[8] R. Fletcher, “A new approach to variable metric algorithms,” The Comput. J., vol. 13, no. 3, pp. 317–322, 1970.
+[9] K. Gimpel and N. A. Smith, “Softmax-margin training for structured log-linear models,” Carnegie Mellon Univ., Pittsburgh, PA, USA, Tech. Rep. CMU-LTI-10-008, 2010.
+[10] J. Gläscher, N. Daw, P. Dayan, and J. P. O'Doherty, “States versus rewards: Dissociable neural prediction error signals underlying modelbased and model-free reinforcement learning,” Neuron, vol. 66, no. 4, pp. 585–595, 2010.
+[11] A. S. Goldberger, A Course in Econometrics. Cambridge, MA, USA: Harvard Univ. Press, 1991.
+[12] D. Goldfarb, “A family of variable-metric methods derived by variational means,” Math. Comput., vol. 24, no. 109, pp. 23–26, 1970.
+[13] E. Kaufmann, O. Cappé, and A. Garivier, “On Bayesian upper conﬁdence bounds for bandit problems,” in Proc. Int. Conf. Artif. Intell. Statist., La Palma, Canary Islands, Spain, Apr. 2012, pp. 592–600.
+[14] S. Kay, Fundamentals of Statistical Signal Processing, Volume I: Estimation Theory. Englewood Cliffs, NJ, USA: Prentice-Hall, 1993.
+[15] B. Krishnapuram, L. Carin, M. A. T. Figueiredo, and A. J. Hartemink, “Sparse multinomial logistic regression: Fast algorithms and generalization bounds,” IEEE Trans. Pattern Anal. Mach. Intell., vol. 27, no. 6, pp. 957–968, Jun. 2005.
+[16] B. Lau and P. W. Glimcher, “Dynamic response-by-response models of matching behavior in rhesus monkeys,” J. Experimental Anal. Behavior, vol. 84, no. 3, pp. 555–579, Nov. 2005.
+
+REVERDY AND LEONARD: PARAMETER ESTIMATION IN SOFTMAX DECISION-MAKING MODELS WITH LINEAR OBJECTIVE FUNCTIONS
+
+67
+
+[17] D. McFadden, “Conditional logit analysis of qualitative choice behavior,” in Frontiers Econometrics, P. Zarembka, Ed. New York: Academic Press, 1974, pp. 105–142.
+[18] D. Mitra, F. Romeo, and A. Sangiovanni-Vincentelli, “Convergence and ﬁnite-time behavior of simulated annealing,” Adv. Appl. Probability, vol. 18, no. 3, pp. 747–771, 1986.
+[19] P. R. Montague, B. King-Casas, and J. D. Cohen, “Imaging valuation models in human choice,” Annu. Rev. Neurosci., vol. 29, pp. 417–448, 2006.
+[20] M. R. Nassar and J. I. Gold, “A healthy fear of the unknown: Perspectives on the interpretation of parameter ﬁts from computational models in neuroscience,” PLoS Comput. Bio., vol. 9, no. 4, 2013, e1003015.
+[21] A. Nedic, D. Tomlin, P. Holmes, D. A. Prentice, and J. D. Cohen, “A decision task in a social context: Human experiments, models, and analyses of behavioral data,” Proc. IEEE, vol. 100, no. 3, pp. 713–733, 2012.
+[22] W. K. Newey and D. McFadden, “Large sample estimation and hypothesis testing,” in Handbook of Econometrics, R. F. Engle and D. L. McFadden, Eds. Philadelphia, PA, USA: Elsevier, 1994, vol. 4, ch. 36, pp. 2111–2245.
+[23] A. Y. Ng and S. J. Russell, “Algorithms for inverse reinforcement learning,” in Proc. Int. Conf. Mach. Learn., 2000, pp. 663–670.
+[24] V. Ramanujam and H. Balakrishnan, “Estimation of maximum-likelihood discrete-choice models of the runway conﬁguration selection process,” in Proc. Amer. Control Conf., 2011, pp. 2160–2167.
+[25] P. Reverdy, “Human-inspired algorithms for search: a framework for human-machine multi-armed bandit problems,” Ph.D. dissertation, Dept. Mech. Aerosp. Eng., Princeton Univ., Princeton, NJ, USA, 2014.
+[26] P. Reverdy, V. Srivastava, and N. E. Leonard, “Modeling human decision-making in generalized Gaussian multi-armed bandits,” Proc. IEEE, vol. 102, no. 4, pp. 544–571, 2014.
+[27] H. Robbins, “Some aspects of the sequential design of experiments,” Bull. Amer. Math. Soc., vol. 58, pp. 527–535, 1952.
+[28] S. Russell, “Learning agents for uncertain environments,” in Proc. 11th ACM Annu. Conf. Comput. Learn. Theory, 1998, pp. 101–103.
+[29] K. Samejima, Y. Ueda, K. Doya, and M. Kimura, “Representation of action-speciﬁc reward values in the striatum,” Science, vol. 310, no. 5752, pp. 1337–1340, 2005.
+[30] D. F. Shanno, “Conditioning of quasi-Newton methods for function minimization,” Math. Comput., vol. 24, no. 111, pp. 647–656, 1970.
+[31] V. Srivastava, P. Reverdy, and N. E. Leonard, “Correlated multiarmed bandit problem: Bayesian algorithms and regret analysis,” arXiv:1507. 01160v2, 2015.
+[32] A. R. Stewart, M. Cao, A. Nedic, D. Tomlin, and N. E. Leonard, “Towards human-robot teams: Model-based analysis of human decision making in two-alternative choice tasks with social feedback,” Proc. IEEE, vol. 100, no. 3, pp. 751–775, 2012.
+[33] R. S. Sutton and A. G. Barto, Introduction to Reinforcement Learning. Cambridge, MA, USA: MIT Press, 1998.
+
+[34] The Mathworks, Inc., Fminunc 2015. [Online]. Available: http://www. mathworks.com/help/optim/ug/fminunc.html
+[35] C. J. C. H. Watkins and P. Dayan, “ -learning,” Mach. Learn., vol. 8, no. 3–4, pp. 279–292, 1992.
+[36] B. L. Welch, “The generalization of “Student’s” problem when several different population variances are involved,” Biometrika, vol. 34, no. 1–2, pp. 28–35, 1947.
+[37] R. C. Wilson, A. Geana, J. M. White, E. A. Ludvig, and J. D. Cohen, “Humans use directed and random exploration to solve the exploreexploit dilemma,” J. Experimental Psychology: Gen., vol. 143, no. 6, pp. 2074–2081, 2014.
+[38] R. C. Wilson and Y. Niv, “Is model ﬁtting necessary for model-based fMRI?,” in Proc. Multi-Disciplinary Conf. Reinforcement Learn. Decision Making, 2013, p. S41.
+Paul Reverdy, (M’14) received the B.S. degree in engineering physics and the B.A. degree in applied mathematics from the University of California, Berkeley, Berkeley, CA, USA, in 2007, and the M.A. and Ph.D. degrees in mechanical and aerospace engineering from Princeton University, Princeton, NJ, USA, in 2011 and 2014, respectively.
+From 2007 to 2009, he worked as a Research Assistant at the Federal Reserve Board of Governors, Washington, DC, USA. He is currently a Postdoctoral Fellow with the Department of Electrical and Systems Engineering, University of Pennsylvania, Philadelphia, PA, USA. His research interests are in the areas of control and robotics with current interests in human and automated decision making, machine learning, engineering design, and navigation.
+Naomi Ehrich Leonard (F’07) received the B.S.E. degree in mechanical engineering from Princeton University, Princeton, NJ, USA, in 1985, and the M.S. and Ph.D. degrees in electrical engineering from the University of Maryland, College Park, MD, USA, in 1991 and 1994, respectively.
+From 1985 to 1989, she worked as an Engineer in the electric power industry. She is the Edwin S. Wilsey Professor of Mechanical and Aerospace Engineering and Director of the Council on Science and Technology at Princeton University. She is also an associated faculty member of Princeton University’s Program in Applied and Computational Mathematics. Her research and teaching are in control and dynamical systems with current interests in coordinated control for multi-agent systems, mobile sensor networks, collective animal behavior, and human decision-making dynamics.
+

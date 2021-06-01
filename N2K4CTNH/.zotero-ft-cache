@@ -1,0 +1,2790 @@
+arXiv:1903.05926v4 [cs.LG] 8 Sep 2019
+
+Reinforcement Learning with Dynamic Boltzmann Softmax Updates
+Ling Pan1, Qingpeng Cai1, Qi Meng2, Wei Chen2, Longbo Huang1, Tie-Yan Liu2
+1IIIS, Tsinghua University 2Microsoft Research Asia
+Abstract
+Value function estimation is an important task in reinforcement learning, i.e., prediction. The Boltzmann softmax operator is a natural value estimator and can provide several beneﬁts. However, it does not satisfy the non-expansion property, and its direct use may fail to converge even in value iteration. In this paper, we propose to update the value function with dynamic Boltzmann softmax (DBS) operator, which has good convergence property in the setting of planning and learning. Experimental results on GridWorld show that the DBS operator enables better estimation of the value function, which rectiﬁes the convergence issue of the softmax operator. Finally, we propose the DBS-DQN algorithm by applying dynamic Boltzmann softmax updates in deep Q-network, which outperforms DQN substantially in 40 out of 49 Atari games.
+1 Introduction
+Reinforcement learning has achieved groundbreaking success for many decision making problems, including roboticsKober et al. (2013), game playingMnih et al. (2015); Silver et al. (2017), and many others. Without full information of transition dynamics and reward functions of the environment, the agent learns an optimal policy by interacting with the environment from experience.
+Value function estimation is an important task in reinforcement learning, i.e., prediction Sutton (1988); DEramo et al. (2016); Xu et al. (2018). In the prediction task, it requires the agent to have a good estimate of the value function in order to update towards the true value function. A key factor to prediction is the actionvalue summary operator. The action-value summary operator for a popular oﬀ-policy method, Q-learning Watkins (1989), is the hard max operator, which always commits to the maximum action-value function according to current estimation for updating the value estimator. This results in pure exploitation of current estimated values and lacks the ability to consider other potential actions-values. The “hard max” updating scheme may lead to misbehavior due to noise in stochastic environments Hasselt (2010); van Hasselt (2013); Fox et al. (2015). Even in deterministic environments, this may not be accurate as the value estimator is not correct in the early stage of the learning process. Consequently, choosing an appropriate action-value summary operator is of vital importance.
+The Boltzmann softmax operator is a natural value estimator Sutton & Barto (1998); Azar et al. (2012); Cesa-Bianchi et al. (2017) based on the Boltzmann softmax distribution, which is a natural scheme to address the exploration-exploitation dilemma and has been widely used in reinforcement learning Sutton & Barto (1998); Azar et al. (2012); Cesa-Bianchi et al. (2017). In addition, the Boltzmann softmax operator also provides beneﬁts for reducing overestimation and gradient noise in deep Q-networks Song et al. (2018). However, despite the advantages, it is challenging to apply the Boltzmann softmax operator in value function estimation. As shown in Littman & Szepesv´ari (1996); Asadi & Littman (2016), the Boltzmann softmax operator is not a non-expansion, which may lead to multiple ﬁxed-points and thus the optimal value function
+1
+
+of this policy is not well-deﬁned. Non-expansion is a vital and widely-used suﬃcient property to guarantee the convergence of the planning and learning algorithm. Without such property, the algorithm may misbehave or even diverge.
+We propose to update the value function using the dynamic Boltzmann softmax (DBS) operator with good convergence guarantee. The idea of the DBS operator is to make the parameter β time-varying while being state-independent. We prove that having βt approach ∞ suﬃces to guarantee the convergence of value iteration with the DBS operator. Therefore, the DBS operator rectiﬁes the convergence issue of the Boltzmann softmax operator with ﬁxed parameters. Note that we also achieve a tighter error bound for the ﬁxed-parameter softmax operator in general cases compared with Song et al. (2018). In addition, we show that the DBS operator achieves good convergence rate.
+Based on this theoretical guarantee, we apply the DBS operator to estimate value functions in the setting of model-free reinforcement learning without known model. We prove that the corresponding DBS Q-learning algorithm also guarantees convergence. Finally, we propose the DBS-DQN algorithm, which generalizes our proposed DBS operator from tabular Q-learning to deep Q-networks using function approximators in highdimensional state spaces.
+It is crucial to note the DBS operator is the only one that meets all desired properties proposed in Song et al. (2018) up to now, as it ensures Bellman optimality, enables overestimation reduction, directly represents a policy, can be applicable to double Q-learning Hasselt (2010), and requires no tuning.
+To examine the eﬀectiveness of the DBS operator, we conduct extensive experiments to evaluate the eﬀectiveness and eﬃciency. We ﬁrst evaluate DBS value iteration and DBS Q-learning on a tabular game, the GridWorld. Our results show that the DBS operator leads to smaller error and better performance than vanilla Q-learning and soft Q-learning Haarnoja et al. (2017). We then evaluate DBS-DQN on large scale Atari2600 games, and we show that DBS-DQN outperforms DQN in 40 out of 49 Atari games.
+The main contributions can be summarized as follows:
+• Firstly, we analyze the error bound of the Boltzmann softmax operator with arbitrary parameters, including static and dynamic.
+• Secondly, we propose the dynamic Boltzmann softmax (DBS) operator, which has good convergence property in the setting of planning and learning.
+• Thirdly, we conduct extensive experiments to verify the eﬀectiveness of the DBS operator in a tabular game and a suite of 49 Atari video games. Experimental results verify our theoretical analysis and demonstrate the eﬀectiveness of the DBS operator.
+
+2 Preliminaries
+
+A Markov decision process (MDP) is deﬁned by a 5-tuple (S, A, p, r, γ), where S and A denote the set of
+
+states and actions, p(s |s, a) represents the transition probability from state s to state s under action a, and
+
+r(s, a) is the corresponding immediate reward. The discount factor is denoted by γ ∈ [0, 1), which controls
+
+the degree of importance of future rewards.
+
+At each time, the agent interacts with the environment with its policy π, a mapping from state to
+
+action. The objective is to ﬁnd an optimal policy that maximizes the expected discounted long-term reward
+
+E[ of
+
+s
+
+∞ t=0
+
+γtrt|π],
+
+which
+
+can
+
+be
+
+solved
+
+by
+
+and a under policy π are deﬁned
+
+estimating value as V π(s) = Eπ[
+
+functions. The state value of s and state-action value
+
+∞ t=0
+
+γtrt|s0
+
+=
+
+s]
+
+and
+
+Qπ(s, a)
+
+=
+
+Eπ [
+
+∞ t=0
+
+γtrt|s0
+
+=
+
+s, a0 = a]. The optimal value functions are deﬁned as V ∗(s) = maxπ V π(s) and Q∗(s, a) = maxπ Qπ(s, a).
+
+The optimal value function V ∗ and Q∗ satisfy the Bellman equation, which is deﬁned recursively as in
+
+Eq. (1):
+
+V ∗(s) = max Q∗(s, a),
+
+a∈A
+
+Q∗(s, a) = r(s, a) + γ p(s |s, a)V ∗(s ).
+
+(1)
+
+s ∈S
+
+2
+
+Starting from an arbitrary initial value function V0, the optimal value function V ∗ can be computed by value iteration Bellman (1957) according to an iterative update Vk+1 = T Vk, where T is the Bellman operator deﬁned by
+
+(T V )(s) = max r(s, a) + p(s |s, a)γV (s ) .
+
+(2)
+
+a∈A
+
+s ∈S
+
+When the model is unknown, Q-learning Watkins & Dayan (1992) is an eﬀective algorithm to learn by
+
+exploring the environment. Value estimation and update for a given trajectory (s, a, r, s ) for Q-learning is
+
+deﬁned as:
+
+Q(s, a) = (1 − α)Q(s, a) + α r + γ max Q(s , a ) ,
+
+(3)
+
+a
+
+where α denotes the learning rate. Note that Q-learning employs the hard max operator for value function
+
+updates, i.e.,
+
+max(X) = max xi.
+
+(4)
+
+i
+
+Another common operator is the log-sum-exp operator Haarnoja et al. (2017):
+
+1 Lβ(X) = β log(
+
+n
+
+eβxi ).
+
+(5)
+
+i=1
+
+The Boltzmann softmax operator is deﬁned as:
+
+boltzβ(X) =
+
+n i=1
+
+eβxi
+
+xi
+
+n i=1
+
+eβxi
+
+.
+
+(6)
+
+3 Dynamic Boltzmann Softmax Updates
+
+In this section, we propose the dynamic Boltzmann softmax operator (DBS) for value function updates. We show that the DBS operator does enable the convergence in value iteration, and has good convergence rate guarantee. Next, we show that the DBS operator can be applied in Q-learning algorithm, and also ensures the convergence.
+The DBS operator is deﬁned as: ∀s ∈ S,
+
+boltzβt (Q(s, ·)) =
+
+a∈A eβtQ(s,a)Q(s, a) , a∈A eβtQ(s,a)
+
+(7)
+
+where βt is non-negative. Our core idea of the DBS operator boltzβt is to dynamically adjust the value of βt during the iteration.
+We now give theoretical analysis of the proposed DBS operator and show that it has good convergence
+guarantee.
+
+3.1 Value Iteration with DBS Updates
+Value iteration with DBS updates admits a time-varying, state-independent sequence {βt} and updates the value function according to the DBS operator boltzβt by iterating the following steps:
+
+∀s, a, Qt+1(s, a) ← p(s |s, a) [r(s, a) + γVt(s )]
+
+s
+
+(8)
+
+∀s, Vt+1(s) ← boltzβt (Qt+1(s, ·))
+
+For the ease of the notations, we denote Tβt the function that iterates any value function by Eq. (8). Thus, the way to update the value function is according to the exponential weighting scheme which is
+related to both the current estimator and the parameter βt.
+
+3
+
+3.1.1 Theoretical Analysis
+It has been shown that the Boltzmann softmax operator is not a non-expansion Littman & Szepesv´ari (1996), as it does not satisfy Ineq. (9).
+
+|boltzβ(Q1(s, ·)) − boltzβ(Q2(s, ·))|
+
+≤
+
+max
+a
+
+|Q1
+
+(s,
+
+a)
+
+−
+
+Q2
+
+(s,
+
+a)|,
+
+∀s ∈ S.
+
+(9)
+
+Indeed, the non-expansion property is a vital and widely-used suﬃcient condition for achieving convergence of learning algorithms. If the operator is not a non-expansion, the uniqueness of the ﬁxed point may not be guaranteed, which can lead to misbehaviors in value iteration.
+In Theorem 1, we provide a novel analysis which demonstrates that the DBS operator enables the convergence of DBS value iteration to the optimal value function.
+
+Theorem 1 (Convergence of value iteration with the DBS operator) For any dynamic Boltzmann
+softmax operator boltzβt , if βt approaches ∞, the value function after t iterations Vt converges to the optimal value function V ∗.
+
+Proof Sketch. By the same way as Eq. (8), let Tm be the function that iterates any value function by the max operator.
+Thus, we have
+
+||(Tβt V1) − (TmV2)||∞ ≤ ||(Tβt V1) − (TmV1)||∞
+(A)
++ ||(TmV1) − (TmV2)||∞
+(B)
+
+(10)
+
+For the term (A), we have
+
+log(|A|)
+
+||(Tβt V1) − (TmV1)||∞ ≤ βt
+
+(11)
+
+For the proof of the Ineq. (11), please refer to the supplemental material. For the term (B), we have
+
+||(TmV1) − (TmV2)||∞ ≤ γ||V1 − V2||
+
+(12)
+
+Combining (10), (11), and (12), we have
+
+log(|A|)
+
+||(Tβt V1) − (TmV2)||∞ ≤ γ||V1 − V2||∞ + βt
+
+(13)
+
+As the max operator is a contraction mapping, then from Banach ﬁxed-point theorem Banach (1922) we have TmV ∗ = V ∗.
+By the deﬁnition of DBS value iteration in Eq. (8),
+
+||Vt − V ∗||∞
+
+=||(Tβt ...Tβ1 )V0 − (Tm...Tm)V ∗||∞
+
+≤γ||(Tβt−1 ...Tβ1 )V0
+
+−
+
+(Tm...Tm)V
+
+∗||∞
+
++
+
+log(|A|) βt
+
+≤γt||V0
+
+−
+
+V
+
+∗||∞
+
++
+
+log(|A|)
+
+t k=1
+
+γ t−k βk
+
+(14) (15) (16)
+(17)
+
+4
+
+If βt → ∞, then limt→∞
+
+t k=1
+
+γ t−k βk
+
+=
+
+0,
+
+where
+
+the
+
+full
+
+proof
+
+is
+
+referred
+
+to
+
+the
+
+supplemental
+
+material.
+
+Taking the limit of the right hand side of Eq. (50), we obtain limt→∞ ||Vt+1 − V ∗||∞ = 0.
+
+Theorem 1 implies that DBS value iteration does converge to the optimal value function if βt approaches
+
+inﬁnity. During the process of dynamically adjusting βt, although the non-expansion property may be
+
+violated for some certain values of β, we only need the state-independent parameter βt to approach inﬁnity
+
+to guarantee the convergence.
+
+Now we justify that the DBS operator has good convergence rate guarantee, where the proof is referred
+
+to the supplemental material.
+
+Theorem 2 (Convergence rate of value iteration with the DBS operator) For any power series βt =
+
+tp(p
+
+>
+
+0),
+
+let
+
+V0
+
+be
+
+an
+
+arbitrary
+
+initial
+
+value
+
+function
+
+such
+
+that
+
+||V0||∞
+
+≤
+
+R 1−γ
+
+,
+
+where
+
+R
+
+=
+
+maxs,a |r(s, a)|,
+
+we have that for any non-negative
+
+< 1/4,
+
+after max{O
+
+log(
+
+1
+
+)+log(
+
+1 1−γ
+
+log(
+
+1 γ
+
+)
+
+)+log(R)
+
+),
+
+O
+
+1
+
+(
+
+1 (1−γ)
+
+)p
+
+} steps, the
+
+error ||Vt − V ∗||∞ ≤ .
+
+For the larger value of p, the convergence rate is faster. Note that when p approaches ∞, the convergence rate is dominated by the ﬁrst term, which has the same order as that of the standard Bellman operator, implying that the DBS operator is competitive with the standard Bellman operator in terms of the convergence rate in known environment.
+From the proof techniques in Theorem 1, we derive the error bound of value iteration with the Boltzmann softmax operator with ﬁxed parameter β in Corollary 2, and the proof is referred to the supplemental material.
+
+Corollary 1 (Error bound of value iteration with Boltzmann softmax operator) For any Boltzmann softmax operator with ﬁxed parameter β, we have
+
+lim
+t→∞
+
+||Vt
+
+−
+
+V
+
+∗||∞
+
+≤
+
+min
+
+log(|A|) 2R β(1 − γ) , (1 − γ)2
+
+.
+
+(18)
+
+Here, we show that after an inﬁnite number of iterations, the error between the value function Vt computed by the Boltzmann softmax operator with the ﬁxed parameter β at the t-th iteration and the optimal value function V ∗ can be upper bounded. However, although the error can be controlled, the direct use of the Boltzmann softmax operator with ﬁxed parameter may introduce performance drop in practice, due to the fact that it violates the non-expansion property.
+Thus, we conclude that the DBS operator performs better than the traditional Boltzmann softmax operator with ﬁxed parameter in terms of convergence.
+
+3.1.2 Relation to Existing Results
+
+In this section, we compare the error bound in Corollary 2 with that in Song et al. (2018), which studies the error bound of the softmax operator with a ﬁxed parameter β.
+Diﬀerent from Song et al. (2018), we provide a more general convergence analysis of the softmax operator covering both static and dynamic parameters. We also achieve a tighter error bound when
+
+2
+
+β≥
+
+,
+
+max{
+
+γ(|A|−1) log(|A|)
+
+,
+
+2γ(|A|−1)R 1−γ
+
+}
+
+−
+
+1
+
+(19)
+
+where R can be normalized to 1 and |A| denotes the number of actions. The term on the RHS of Eq. (19) is
+
+quite small as shown in Figure 1(a), where we set γ to be some commonly used values in {0.85, 0.9, 0.95, 0.99}.
+
+The shaded area corresponds to the range of β within our bound is tighter, which is a general case.
+
+Please note that the case where β is extremely small, i.e., approaches 0, is usually not considered in
+
+practice.
+
+Figure
+
+1(b)
+
+shows
+
+the
+
+improvement
+
+of
+
+the
+
+error
+
+bound,
+
+which
+
+is
+
+deﬁned
+
+as
+
+their
+
+bound−our bound their bound
+
+×
+
+100%. Note that in the Arcade Learning Environment Bellemare et al. (2013), |A| is generally in [3, 18].
+
+Moreover, we also give an analysis of the convergence rate of the DBS operator.
+
+5
+
+0.175
+
+= 0.99 = 0.95
+
+0.150
+
+= 0.9 = 0.85
+
+0.125
+
+0.100
+
+0.075
+
+0.050
+
+0.025
+
+0.000 2 4 6 8 10 12 14 |1A6| 18 20 22 24 26 28 30
+
+(a) Range of β within which our bound is tighter.
+
+improvement ratio (%)
+
+100
+
+90
+
+80
+
+70
+
+60
+
+|A| = 3, = 0.99
+
+50
+
+|A| = 3, = 0.9 |A| = 10, = 0.99
+
+40
+
+|A| = 10, = 0.9
+
+30
+
+|A| = 18, = 0.99 |A| = 18, = 0.9
+
+1
+
+10
+
+20
+
+30
+
+40
+
+50
+
+(b) Improvement ratio.
+
+Figure 1: Error bound comparison.
+
+3.1.3 Empirical Results
+We ﬁrst evaluate the performance of DBS value iteration to verify our convergence results in a toy problem, the GridWorld (Figure 2(a)), which is a larger variant of the environment of O’Donoghue et al. (2016).
+
+(a) GridWorld.
+
+-Loss
+
+1.0 0.8 0.6 0.4 0.2 0.0
+0
+
+t t t t t t
+
+= = = = = =
+
+0.1 1 10 100 1000 t
+
+t =t2
+
+t =t3
+
+100
+
+200Episode300
+
+400
+
+500
+
+(b) Value loss.
+
+-Loss(Log-Scale) 6.9 × 10 1 6.4 × 10 1 3.3 × 10 1 2 × 10 1 3.68 × 10 5 1.57 × 10 8 9.92 × 10 25 9.92 × 10 25
+
+101 10 2 10 5 10 8 10 11 10 14 10 17 10 20 10 23
+0.1 1 10 100 t 1000 t2 t3
+t
+(c) Value loss of the last episode in log scale.
+
+T
+
+10000 8000 6000 4000 2000
+0.00
+
+t=t t =t2 mta=xt10
+
+t {t2, t10, max}
+
+0.05
+
+0.10
+
+0.15
+
+0.20
+
+0.25
+
+(d) Convergence rate.
+
+Figure 2: DBS value iteration in GridWorld.
+The GridWorld consists of 10 × 10 grids, with the dark grids representing walls. The agent starts at the upper left corner and aims to eat the apple at the bottom right corner upon receiving a reward of +1. Otherwise, the reward is 0. An episode ends if the agent successfully eats the apple or a maximum number of steps 300 is reached. For this experiment, we consider the discount factor γ = 0.9.
+
+6
+
+The value loss of value iteration is shown in Figure 2(b). As expected, for ﬁxed β, a larger value leads
+to a smaller loss. We then zoom in on Figure 2(b) to further illustrate the diﬀerence between ﬁxed β and
+dynamic βt in Figure 2(c), which shows the value loss for the last episode in log scale. For any ﬁxed β, value iteration suﬀers from some loss which decreases as β increases. For dynamic βt, the performance of t2 and t3 are the same and achieve the smallest loss in the domain game. Results for the convergence rate is shown in Figure 2(d). For higher order p of βt = tp, the convergence rate is faster. We also see that the convergence rate of t2 and t10 is very close and matches the performance of the standard Bellman operator as discussed
+before.
+From the above results, we ﬁnd a convergent variant of the Boltzmann softmax operator with good
+convergence rate, which paves the path for its use in reinforcement learning algorithms with little knowledge
+little about the environment.
+
+3.2 Q-learning with DBS Updates
+In this section, we show that the DBS operator can be applied in a model-free Q-learning algorithm.
+
+Algorithm 1 Q-learning with DBS updates
+
+1: Initialize Q(s, a), ∀s ∈ S, a ∈ A arbitrarily, and Q(terminal state, ·) = 0
+
+2: for each episode t = 1, 2, ... do
+
+3: Initialize s
+
+4: for each step of episode do
+
+5:
+
+action selection
+
+6: choose a from s using -greedy policy
+
+7: take action a, observe r, s
+
+8:
+
+value function estimation
+
+9:
+
+V (s ) = boltzβt (Q(s , ·))
+
+10:
+
+Q(s, a) ← Q(s, a) + αt [r + γV (s ) − Q(s, a)]
+
+11:
+
+s←s
+
+12: end for
+
+13: end for
+
+According to the DBS operator, we propose the DBS Q-learning algorithm (Algorithm 1). Please note that the action selection policy is diﬀerent from the Boltzmann distribution.
+As seen in Theorem 2, a larger p results in faster convergence rate in value iteration. However, this is not the case in Q-learning, which diﬀers from value iteration in that it knows little about the environment, and the agent has to learn from experience. If p is too large, it quickly approximates the max operator that favors commitment to current action-value function estimations. This is because the max operator always greedily selects the maximum action-value function according to current estimation, which may not be accurate in the early stage of learning or in noisy environments. As such, the max operator fails to consider other potential action-value functions.
+
+3.2.1 Theoretical analysis
+We get that DBS Q-learning converges to the optimal policy under the same additional condition as in DBS value iteration. The full proof is referred to the supplemental material.
+Besides the convergence guarantee, we show that the Boltzmann softmax operator can mitigate the overestimation phenomenon of the max operator in Q-learning Watkins (1989) and the log-sum-exp operator in soft Q-learning Haarnoja et al. (2017).
+Let X = {X1, ..., XM } be a set of random variables, where the probability density function (PDF) and the mean of variable Xi are denoted by fi and µi respectively. Please note that in value function estimation, the random variable Xi corresponds to random values of action i for a ﬁxed state. The goal of value function estimation is to estimate the maximum expected value µ∗(X), and is deﬁned as µ∗(X) = maxi µi =
+
+7
+
+maxi
+
++∞ −∞
+
+xfi
+
+(x)dx.
+
+However,
+
+the
+
+PDFs
+
+are
+
+unknown.
+
+Thus,
+
+it
+
+is
+
+impossible
+
+to
+
+ﬁnd
+
+µ∗ (X )
+
+in
+
+an
+
+analytical
+
+way. Alternatively, a set of samples S = {S1, ..., SM } is given, where the subset Si contains independent
+
+samples of Xi. The corresponding sample mean of Si is denoted by µˆi, which is an unbiased estimator of µi. Let Fˆi denote the sample distribution of µˆi, µˆ = (µˆ1, ..., µˆM ), and Fˆ denote the joint distribution of µˆ. The bias of any action-value summary operator is deﬁned as Bias(µˆ∗ ) = Eµˆ∼Fˆ [ µˆ] − µ∗(X), i.e., the diﬀerence between the expected estimated value by the operator over the sample distributions and the
+
+maximum expected value.
+
+We now compare the bias for diﬀerent common operators and we derive the following theorem, where
+
+the full proof is referred to the supplemental material.
+
+Theorem 3 Let µˆ∗Bβt , µˆ∗max, µˆ∗Lβ denote the estimator with the DBS operator, the max operator, and the log-sum-exp operator, respectively. For any given set of M random variables, we have ∀t, ∀β,
+
+Bias(µˆ∗Bβt ) ≤ Bias(µˆ∗max) ≤ Bias(µˆ∗Lβ ).
+
+(20)
+
+In Theorem 3, we show that although the log-sum-exp operator Haarnoja et al. (2017) is able to encourage exploration because its objective is an entropy-regularized form of the original objective, it may worsen the overestimation phenomenon. In addition, the optimal value function induced by the log-sum-exp operator is biased from the optimal value function of the original MDP Dai et al. (2018). In contrast, the DBS operator ensures convergence to the optimal value function as well as reduction of overestimation.
+3.2.2 Empirical Results
+We now evaluate the performance of DBS Q-learning in the same GridWorld environment. Figure 3 demonstrates the number of steps the agent spent until eating the apple in each episode, and a fewer number of steps the agent takes corresponds to a better performance.
+
+Number of Steps
+
+300 250 200 150 100 50
+0
+
+Q-learning Soft Q-learning DBS Q-learning ( t = t) DBS Q-learning ( t = t2) DBS Q-learning ( t = t3)
+
+100
+
+200Episode300
+
+400
+
+500
+
+Figure 3: Performance comparison of DBS Q-learning, Soft Q-learning, and Q-learning in GridWorld.
+For DBS Q-learning, we apply the power function βt = tp with p denoting the order. As shown, DBS Q-learning with the quadratic function achieves the best performance. Note that when p = 1, it performs worse than Q-learning in this simple game, which corresponds to our results in value iteration (Figure 2) as p = 1 leads to an unnegligible value loss. When the power p of βt = tp increases further, it performs closer to Q-learning.
+Soft Q-learning Haarnoja et al. (2017) uses the log-sum-exp operator, where the parameter is chosen with the best performance for comparison. Readers please refer to the supplemental material for full results with diﬀerent parameters. In Figure 3, soft Q-learning performs better than Q-learning as it encourages exploration according to its entropy-regularized objective. However, it underperforms DBS Q-learning (βt = t2) as DBS Q-learning can guarantee convergence to the optimal value function and can eliminate the overestimation phenomenon. Thus, we choose p = 2 in the following Atari experiments.
+
+8
+
+4 The DBS-DQN Algorithm
+
+In this section, we show that the DBS operator can further be applied to problems with high dimensional state space and action space.
+The DBS-DQN algorithm is shown in Algorithm 2. We compute the parameter of the DBS operator by applying the power function βt(c) = c · t2 as the quadratic function performs the best in our previous analysis. Here, c denote the coeﬃcient, and contributes to controlling the speed of the increase of βt(c). In many problems, it is critical to choose the hyper-parameter c. In order to make the algorithm more practical in problems with high-dimensional state spaces, we propose to learn to adjust c in DBS-DQN by the meta gradient-based optimization technique based on Xu et al. (2018).
+The main idea of gradient-based optimization technique is summarized below, which follows the online cross-validation principle Sutton (1992). Given current experience τ = (s, a, r, snext), the parameter θ of the function approximator is updated according to
+
+∂J(τ, θ, c)
+
+θ =θ−α
+
+,
+
+(21)
+
+∂θ
+
+where α denotes the learning rate, and the loss of the neural network is
+
+1 J(τ, θ, c) =
+
+V (τ, c; θ−) − Q(s, a; θ) 2 ,
+
+2
+
+(22)
+
+V (τ, c; θ−) = r + γboltzβt(c) Q(snext, ·; θ−) ,
+
+with θ− denoting the parameter of the target network. The corresponding gradient of J(τ, θ, c) over θ is
+
+∂J(τ, θ, c) ∂θ
+
+=
+
+−
+
+r
+
++ γboltzβt(c)(Q(snext, ·; θ−))
+
+(23)
+
+∂Q(s, a; θ)
+
+− Q(s, a; θ)
+
+.
+
+∂θ
+
+Then, the coeﬃcient c is updated based on the subsequent experience τ = (s , a, r , snetx) according to the gradient of the squared error J(τ , θ , c¯) between the value function approximator Q(snext, a ; θ ) and the target value function V (τ , c¯; θ−), where c¯ is the reference value. The gradient is computed according to the
+
+chain rule in Eq. (24).
+
+∂J (τ , θ , c¯) ∂J (τ , θ , c¯) dθ
+
+=
+
+.
+
+(24)
+
+∂c
+
+∂θ
+
+dc
+
+A
+
+B
+
+For the term (B), according to Eq. (21), we have
+
+dθ = αγ ∂boltzβt(c¯)(Q(snext, ·; θ−)) ∂Q(s, a; θ) .
+
+(25)
+
+dc
+
+∂c
+
+∂θ
+
+Then, the update of c is
+
+∂J (τ , θ , c¯)
+
+c =c−β
+
+,
+
+(26)
+
+∂c
+
+with η denoting the learning rate.
+
+Note that it can be hard to choose an appropriate static value of sensitive parameter β. Therefore, it
+
+requires rigorous tuning of the task-speciﬁc ﬁxed parameter β in diﬀerent games in Song et al. (2018), which
+
+may limit its eﬃciency and applicability Haarnoja et al. (2018). In contrast, the DBS operator is eﬀective
+
+and eﬃcient as it does not require tuning.
+
+9
+
+Algorithm 2 DBS Deep Q-Network
+
+1: initialize experience replay buﬀer B 2: initialize Q-function and target Q-function with random weights θ and θ−
+
+3: initialize the coeﬃcient c of the parameter βt of the DBS operator 4: for episode = 1, ..., M do
+
+5: initialize state s1 6: for step = 1, ..., T do
+
+7:
+
+choose at from st using -greedy policy
+
+8:
+
+execute at, observe reward rt, and next state st+1
+
+9:
+
+store experience (st, at, rt, st+1) in B
+
+10:
+
+calculate βt(c) = c · t2
+
+11:
+
+sample random minibatch of experiences (sj, aj, rj, sj+1) from B
+
+12:
+
+if sj+1 is terminal state then
+
+13:
+
+set yj = rj
+
+14:
+
+else
+
+15:
+
+set yj = rj + γboltzβt Qˆ(sj+1, ·; θ−)
+
+16:
+
+end if
+
+17:
+
+perform a gradient descent step on (yj − Q(sj, aj; θ))2 w.r.t. θ
+
+18: update c according to the gradient-based optimization technique
+
+19:
+
+reset Qˆ = Q every C steps
+
+20: end for
+
+21: end for
+
+4.1 Experimental Setup
+We evaluate the DBS-DQN algorithm on 49 Atari video games from the Arcade Learning Environment Bellemare et al. (2013), a standard challenging benchmark for deep reinforcement learning algorithms, by comparing it with DQN. For fair comparison, we use the same setup of network architectures and hyperparameters as in Mnih et al. (2015) for both DQN and DBS-DQN. Our evaluation procedure is 30 no-op evaluation which is identical to Mnih et al. (2015), where the agent performs a random number (up to 30) of “do nothing” actions in the beginning of an episode. See the supplemental material for full implementation details.
+
+4.2 Eﬀect of the Coeﬃcient c
+The coeﬃcient c contributes to the speed and degree of the adjustment of βt, and we propose to learn c by the gradient-based optimization technique Xu et al. (2018). It is also interesting to study the eﬀect of the coeﬃcient c by choosing a ﬁxed parameter, and we train DBS-DQN with diﬀernt ﬁxed paramters c for 25M steps (which is enough for comparing the performance). As shown in Figure 4, DBS-DQN with all of the diﬀerent ﬁxed parameters c outperform DQN, and DBS-DQN achieves the best performance compared with all choices of c.
+
+4.3 Performance Comparison
+
+We evaluate the DBS-DQN algorithm on 49 Atari video games from the Arcade Learning Environment (ALE) Bellemare et al. (2013), by comparing it with DQN. For each game, we train each algorithm for 50M steps for 3 independent runs to evaluate the performance. Table 1 shows the summary of the median in human normalized score Van Hasselt et al. (2016) deﬁned as:
+
+scoreagent − scorerandom × 100%, scorehuman − scorerandom
+
+(27)
+
+10
+
+Score
+
+3500
+
+Seaquest
+
+3000
+
+2500
+
+2000
+
+1500
+
+DBS-DQN(c = 0.1)
+
+DBS-DQN(c = 0.3)
+
+1000
+
+DBS-DQN(c = 0.5)
+
+DBS-DQN(c = 0.7)
+
+500
+
+DBS-DQN(c = 0.9)
+
+DBS-DQN
+
+0
+
+DQN
+
+0
+
+20
+
+40 Epochs 60
+
+80
+
+100
+
+Figure 4: Eﬀect of the coeﬃcient c in the game Seaquest.
+
+where human score and random score are taken from Wang et al. (2015). As shown in Table 1, DBS-DQN signiﬁcantly outperforms DQN in terms the median of the human normalized score, and surpasses human level. In all, DBS-DQN exceeds the performance of DQN in 40 out of 49 Atari games, and Figure 5 shows the learning curves (moving averaged).
+
+Table 1: Summary of Atari games.
+
+Algorithm
+
+Median
+
+DQN
+
+84.72%
+
+DBS-DQN
+
+104.49%
+
+DBS-DQN (ﬁne-tuned c) 103.95%
+
+To demonstrate the eﬀectiveness and eﬃciency of DBS-DQN, we compare it with its variant with ﬁnetuned ﬁxed coeﬃcient c in βt(c), i.e., without graident-based optimization, in each game. From Table 1, DBS-DQN exceeds the performance of DBS-DQN (ﬁne-tuned c), which shows that it is eﬀective and eﬃcient as it performs well in most Atari games which does not require tuning. It is also worth noting that DBSDQN (ﬁne-tuned c) also achieves fairly good performance in term of the median and beats DQN in 33 out of 49 Atari games, which further illustrate the strength of our proposed DBS updates without gradient-based optimization of c. Full scores of comparison is referred to the supplemental material.
+
+5 Related Work
+The Boltzmann softmax distribution is widely used in reinforcement learning Littman et al. (1996); Sutton & Barto (1998); Azar et al. (2012); Song et al. (2018). Singh et al. Singh et al. (2000) studied convergence of on-policy algorithm Sarsa, where they considered a dynamic scheduling of the parameter in softmax action selection strategy. However, the state-dependent parameter is impractical in complex problems, e.g., Atari. Our work diﬀers from theirs as our DBS operator is state-independent, which can be readily scaled to complex problems with high-dimensional state space. Recently, Song et al. (2018) also studied the error bound of the Boltzmann softmax operator and its application in DQNs. In contrast, we propose the DBS operator which rectiﬁes the convergence issue of softmax, where we provide a more general analysis of the convergence property. A notable diﬀerence in the theoretical aspect is that we achieve a tighter error bound for softmax in general cases, and we investigate the convergence rate of the DBS operator. Besides the guarantee of Bellman optimality, the DBS operator is eﬃcient as it does not require hyper-parameter tuning. Note that it can be hard to choose an appropriate static value of β in Song et al. (2018), which is game-speciﬁc and can result in diﬀerent performance.
+A number of studies have studied the use of alternative operators, most of which satisfy the non-expansion property Haarnoja et al. (2017). Haarnoja et al. (2017) utilized the log-sum-exp operator, which enables
+
+11
+
+Return
+
+Return
+
+1400
+
+frostbite
+
+1200
+
+1000
+
+800
+
+600
+
+400
+
+200
+
+DBS-DQN
+
+DQN
+
+00
+
+25
+
+50
+
+75 Ep1o0c0hs 125 150 175 200
+
+(a) Frostbite
+
+riverraid
+6000
+
+5000
+
+4000
+
+3000
+
+2000
+
+1000
+
+DBS-DQN DQN
+
+0
+
+25
+
+50
+
+75 Ep1o0c0hs 125 150 175 200
+
+(c) Riverraid
+
+5000
+
+seaquest
+
+4000
+
+3000
+
+2000
+
+1000
+
+DBS-DQN
+
+0
+
+DQN
+
+0
+
+25
+
+50
+
+75 Ep1o0c0hs 125 150 175 200
+
+(e) Seaquest
+
+Return
+
+Return
+
+Return
+
+ice_hockey
+9
+
+10
+
+11
+
+12
+
+13
+
+14
+
+15
+
+16
+
+DBS-DQN DQN
+
+17 0
+
+25
+
+50
+
+75 Ep1o0c0hs 125 150 175 200
+
+(b) IceHockey
+
+25000 20000 15000 10000 5000
+0 0
+
+road_runner
+DBS-DQN DQN 25 50 75 Ep1o0c0hs 125 150 175 200
+(d) RoadRunner
+
+zaxxon
+3000
+
+2500
+
+2000
+
+1500
+
+1000
+
+500
+
+DBS-DQN
+
+0
+
+DQN
+
+0
+
+25
+
+50
+
+75 Ep1o0c0hs 125 150 175 200
+
+(f) Zaxxon
+
+Figure 5: Learning curves in Atari games.
+
+Return
+
+better exploration and learns deep energy-based policies. The connection between our proposed DBS operator and the log-sum-exp operator is discussed above. Bellemare et al. (2016) proposed a family of operators which are not necessarily non-expansions, but still preserve optimality while being gap-increasing. However, such conditions are still not satisﬁed for the Boltzmann softmax operator.
+6 Conclusion
+We propose the dynamic Boltzmann softamax (DBS) operator in value function estimation with a timevarying, state-independent parameter. The DBS operator has good convergence guarantee in the setting of planning and learning, which rectiﬁes the convergence issue of the Boltzmann softmax operator. Results validate the eﬀectiveness of the DBS-DQN algorithm in a suite of Atari games. For future work, it is worth studying the sample complexity of our proposed DBS Q-learning algorithm. It is also promising to apply
+
+12
+
+the DBS operator to other state-of-the-art DQN-based algorithms, such as Rainbow Hessel et al. (2017). 13
+
+A Convergence of DBS Value Iteration
+
+Proposition 1
+
+1n
+
+log(n)
+
+Lβ(X) − boltzβ(X) = β
+
+−pi log(pi) ≤
+
+, β
+
+(28)
+
+i=1
+
+where pi =
+
+eβxi
+
+n j=1
+
+eβxj
+
+denotes the weights of the Boltzmann distribution, Lβ(X) denotes the log-sum-exp
+
+function
+
+Lβ (X)
+
+=
+
+1 β
+
+log(
+
+n i=1
+
+eβxi
+
+),
+
+and
+
+boltzβ (X)
+
+denotes
+
+the
+
+Boltzmann
+
+softmax
+
+function
+
+boltzβ (X)
+
+=
+
+. n
+i=1
+
+eβxi
+
+xi
+
+n j=1
+
+eβxj
+
+Proof Sketch.
+
+1n β −pi log(pi)
+i=1
+
+1n
+
+eβxi
+
+= β
+i=1
+
+−
+
+n j=1
+
+eβxj
+
+log
+
+eβxi
+
+n j=1
+
+eβxj
+
+
+
+1n
+
+=
+
+−
+
+β
+
+i=1
+
+
+
+
+
+
+
+eβxi
+
+n j=1
+
+eβxj
+
+βxi
+
+n
+− log  eβxj 
+j=1
+
+n
+=−
+i=1
+
+
+
+
+
+eβxi xi
+
+n j=1
+
+eβxj
+
++
+
+1 β
+
+n
+log  eβxj 
+j=1
+
+n i=1
+
+eβxi
+
+n j=1
+
+eβxj
+
+= − boltzβ(X) + Lβ(X)
+
+(29) (30) (31) (32) (33)
+
+Thus, we obtain
+
+1n
+
+Lβ(X) − boltzβ(X) = β −pi log(pi),
+
+(34)
+
+i=1
+
+where
+
+1 β
+
+n i=1
+
+−pi
+
+log(pi)
+
+is
+
+the
+
+entropy
+
+of
+
+the
+
+Boltzmann
+
+distribution.
+
+It
+
+is
+
+easy
+
+to
+
+check
+
+that
+
+the
+
+maximum
+
+entropy
+
+is
+
+achieved
+
+when
+
+pi
+
+=
+
+1 n
+
+,
+
+where
+
+the
+
+entropy
+
+equals
+
+to
+
+log(n).
+
+Theorem 1 (Convergence of value iteration with the DBS operator) For any dynamic Boltzmann softmax operator βt, if βt → ∞, Vt converges to V ∗, where Vt and V ∗ denote the value function after t iterations and the optimal value function.
+Proof Sketch. By the deﬁnition of Tβt and Tm, we have
+
+||(Tβt V1) − (TmV2)||∞ ≤ ||(Tβt V1) − (TmV1)||∞ + ||(TmV1) − (TmV2)||∞
+
+(A)
+
+(B)
+
+(35)
+
+For the term (A), we have
+
+||(Tβt V1) − (TmV1)||∞
+
+(36)
+
+=
+
+max
+s
+
+|boltzβt
+
+(Q1
+
+(s,
+
+·))
+
+−
+
+maax(Q1
+
+(s,
+
+a))|
+
+(37)
+
+≤
+
+max
+s
+
+|boltzβt
+
+(Q1
+
+(s,
+
+·))
+
+−
+
+Lβt
+
+(Q1
+
+(s,
+
+a))|
+
+(38)
+
+log(|A|)
+
+≤
+
+,
+
+(39)
+
+βt
+
+14
+
+where Ineq. (39) is derived from Proposition 1. For the term (B), we have
+
+||(TmV1) − (TmV2)||∞
+
+(40)
+
+= max | max(Q1(s, a1)) − max(Q2(s, a2))|
+
+(41)
+
+s
+
+a1
+
+a2
+
+≤
+
+max
+s
+
+max
+a
+
+|Q1(s,
+
+a)
+
+−
+
+Q2
+
+(s,
+
+a)|
+
+(42)
+
+≤ max max γ p(s |s, a)|V1(s ) − V2(s )|
+
+(43)
+
+sa
+
+s
+
+≤γ||V1 − V2||
+
+(44)
+
+Combing (35), (39), and (44), we have
+
+log(|A|)
+
+||(Tβt V1) − (TmV2)||∞ ≤ γ||V1 − V2||∞ + βt
+
+(45)
+
+As the max operator is a contraction mapping, then from Banach ﬁxed-point theorem we have TmV ∗ = V ∗ By deﬁnition we have
+
+||Vt − V ∗||∞
+
+(46)
+
+=||(Tβt ...Tβ1 )V0 − (Tm...Tm)V ∗||∞
+
+(47)
+
+≤γ||(Tβt−1 ...Tβ1 )V0
+
+−
+
+(Tm...Tm)V
+
+∗||∞
+
++
+
+log(|A|) βt
+
+(48)
+
+≤...
+
+(49)
+
+≤γt||V0
+
+−
+
+V
+
+∗||∞
+
++
+
+log(|A|)
+
+t k=1
+
+γ t−k βk
+
+(50)
+
+We prove that limt→∞
+
+t k=1
+
+γ t−k βk
+
+= 0.
+
+Since
+
+limk→∞
+
+1 βk
+
+=
+
+0,
+
+we
+
+have
+
+that
+
+∀
+
+1
+
+>
+
+0, ∃K(
+
+1)
+
+>
+
+0,
+
+such
+
+that
+
+∀k
+
+>
+
+K(
+
+1
+
+),
+
+|
+
+1 βk
+
+|
+
+<
+
+1. Thus,
+
+t γt−k
+
+k=1 βk
+
+K( 1) γt−k
+
+t
+
+γ t−k
+
+=
+
++
+
+k=1 βk
+
+k=K( 1)+1 βk
+
+1 ≤
+
+K( 1)
+γt−k +
+
+mink≤t βk k=1
+
+t
+
+1
+
+γ t−k
+
+k=K( 1)+1
+
+1
+
+γt−K( 1)(1 − γK( 1))
+
+1(1 − γt−K( 1))
+
+= mink≤t βk
+
+1−γ
+
++1
+
+1−γ
+
+1
+
+γt−K( 1)
+
+≤ 1−γ
+
++ mink≤t βk
+
+1
+
+(51) (52) (53) (54) (55)
+
+If
+
+t
+
+>
+
+log((
+
+2(1−γ)− 1) mink≤t βk) log γ
+
++ K(
+
+1)
+
+and
+
+1<
+
+2(1 − γ), then
+
+t γt−k k=1 βk < 2.
+
+(56)
+
+15
+
+So we obtain that ∀ 2 > 0, ∃T > 0, such that
+
+t γt−k
+
+∀t > T, |
+k=1
+
+βk
+
+|<
+
+2.
+
+(57)
+
+Thus, limt→∞
+
+t k=1
+
+γ t−k βk
+
+= 0.
+
+Taking the limit of the right side of the inequality (50), we have that
+
+lim
+t→∞
+
+γt||V1
+
+−
+
+V
+
+∗||∞
+
++
+
+log(|A|)
+
+t k=1
+
+γ t−k βk
+
+=0
+
+(58)
+
+Finally, we obtain
+
+lim
+t→∞
+
+||Vt
+
+−
+
+V
+
+∗||∞
+
+=
+
+0.
+
+(59)
+
+B Convergence Rate of DBS Value Iteration
+
+Theorem 2 (Convergence rate of value iteration with the DBS operator) For any power series βt =
+
+tp(p
+
+>
+
+0),
+
+let
+
+V0
+
+be
+
+an
+
+arbitrary
+
+initial
+
+value
+
+function
+
+such
+
+that
+
+||V0||∞
+
+≤
+
+R 1−γ
+
+,
+
+where
+
+R
+
+=
+
+maxs,a |r(s, a)|,
+
+we have that for any non-negative error ||Vt − V ∗||∞ ≤ .
+
+< 1/4,
+
+after max{O
+
+log(
+
+1
+
+)+log(
+
+1 1−γ
+
+log(
+
+1 γ
+
+)
+
+)+log(R)
+
+),
+
+O
+
+1
+
+(
+
+1 (1−γ)
+
+)p
+
+} steps, the
+
+Proof Sketch.
+
+t
+
+γ t−k kp
+
+= γt
+
+∞ γ−1 kp −
+
+∞
+
+γ−1 kp
+
+k=1
+
+k=1
+
+k=t+1
+
+= γt Lip(γ−1) −γ−(t+1) Φ(γ−1, p, t + 1)
+
+Polylogarithm
+
+Lerch transcendent
+
+(60) (61)
+
+By Ferreira & L´opez (2004), we have
+
+Eq. (61) = Θ
+
+γt
+
+γ −(t+1) γ−1 − 1
+
+(t
+
+1 + 1)p
+
+(62)
+
+1
+
+= (1 − γ)(t + 1)p
+
+(63)
+
+From Theorem 2, we have
+
+||Vt
+
+−
+
+V
+
+∗||
+
+≤
+
+γt||V1
+
+−
+
+V
+
+∗||
+
++
+
+(1
+
+log(|A|) − γ)(t + 1)p
+
+(64)
+
+≤
+
+2
+
+max{γt||V1
+
+−
+
+V
+
+∗||,
+
+(1
+
+log(|A|) − γ)(t +
+
+1)p
+
+}
+
+(65)
+
+Thus, for any ||Vt − V ∗|| ≤ .
+
+>
+
+0,
+
+after
+
+at
+
+most
+
+t
+
+=
+
+max{
+
+log(
+
+1
+
+)+log(
+
+1 1−γ
+
+)+log(R)+log(4)
+
+log(
+
+1 γ
+
+)
+
+,
+
+2 log(|A|) (1−γ)
+
+1
+p − 1} steps, we have
+
+16
+
+C Error Bound of Value Iteration with Fixed Boltzmann Softmax Operator
+
+Corollary 2 (Error bound of value iteration with Boltzmann softmax operator) For any Boltzmann softmax operator with ﬁxed parameter β, we have
+
+lim ||Vt − V ∗||∞ ≤ min
+t→∞
+
+log(|A|) 2R β(1 − γ) , (1 − γ)2
+
+.
+
+(66)
+
+Proof Sketch. By Eq. (50), it is easy to get that for ﬁxed β,
+
+lim ||Vt
+t→∞
+
+−
+
+V
+
+∗||∞
+
+≤
+
+log(|A|) .
+β(1 − γ)
+
+(67)
+
+On the other hand, we get that
+
+||(TβV1) − (TmV1)||∞
+
+(68)
+
+= max |boltzβ(Q1(s, ·)) − max Q1(s, a)|
+
+(69)
+
+s
+
+a
+
+≤
+
+max
+s
+
+|
+
+max
+a
+
+Q1
+
+(s,
+
+a)
+
+−
+
+min
+a
+
+Q1
+
+(s,
+
+a)|
+
+(70)
+
+≤ max |(max r(s, a) − min r(s, a))
+
+(71)
+
+s
+
+a
+
+a
+
++γ(max V1(s ) − min V1(s ))|
+
+(72)
+
+s
+
+s
+
+≤2R + γ(max V1(s ) − min V1(s )).
+
+(73)
+
+s
+
+s
+
+Combing (35), (44) and (73), we have
+
+||(TβV1) − (TmV2)||∞
+
+≤γ||V1
+
+−
+
+V2||∞
+
++
+
+2R
+
++
+
+γ(max
+s
+
+V1(s
+
+)
+
+−
+
+min
+s
+
+V1(s
+
+)).
+
+(74)
+
+Then by the same way in the proof of Theorem 1,
+
+||Vt − V ∗||∞ ≤ γt||V0 − V ∗||∞
+
+(75)
+
+t
+
++ γt−k(2R + γ(max Vk−1(s ) − min Vk−1(s ))).
+
+s
+
+s
+
+k=1
+
+(76)
+
+Now for the Boltzmann softmax operator, we derive the upper bound of the gap between the maximum value and the minimum value at any timestep k.
+For any k, by the same way, we have
+
+max
+s
+
+Vk (s
+
+)
+
+−
+
+min
+s
+
+Vk (s
+
+)
+
+(77)
+
+≤2R
+
++
+
+γ(max
+s
+
+Vk−1(s
+
+)
+
+−
+
+min
+s
+
+Vk−1(s
+
+)).
+
+(78)
+
+Then by (78),
+
+max
+s
+
+Vk (s
+
+)
+
+−
+
+min
+s
+
+Vk (s
+
+)
+
+≤
+
+2R(1 − γk) 1−γ
+
++
+
+γ k (max
+s
+
+V0(s
+
+)
+
+−
+
+min
+s
+
+V0(s
+
+)).
+
+(79)
+
+17
+
+Combining (76) and (79), and Taking the limit, we have
+
+lim
+t→∞
+
+||Vt
+
+−
+
+V
+
+∗||∞
+
+≤
+
+2R (1 − γ)2 .
+
+(80)
+
+D Convergence of DBS Q-Learning
+
+Theorem 3 (Convergence of DBS Q-learning) The Q-learning algorithm with dynamic Boltzmann softmax policy given by
+
+Qt+1(st, at) =(1 − αt(st, at))Qt(st, at) + αt(st, at)
+
+(81)
+
+[rt + γboltzβt (Qt(st+1, ·))]
+
+converges to the optimal Q∗(s, a) values if
+
+1. The state and action spaces are ﬁnite, and all state-action pairs are visited inﬁnitely often.
+
+2. t αt(s, a) = ∞ and 3. limt→∞ βt = ∞
+
+t αt2(s, a) < ∞
+
+4. Var(r(s, a)) is bounded.
+Proof Sketch. Let ∆t(s, a) = Qt(s, a) − Q∗(s, a) and Ft(s, a) = rt + γboltzβt (Qt(st+1, ·)) − Q∗(s, a) Thus, from Eq. (81) we have
+
+∆t+1(s, a) = (1 − αt(s, a))∆t(s, a) + αt(s, a)Ft(s, a),
+
+(82)
+
+which has the same form as the process deﬁned in Lemma 1 in Singh et al. (2000). Next, we verify Ft(s, a) meets the required properties.
+
+Ft(s, a)
+
+(83)
+
+=rt + γboltzβt (Qt(st+1, ·)) − Q∗(s, a)
+
+(84)
+
+= rt + γ max Qt(st+1, at+1) − Q∗(s, a) +
+at+1
+
+(85)
+
+γ
+
+boltzβt
+
+(Qt(st+1,
+
+·))
+
+−
+
+max
+at+1
+
+Qt(st+1,
+
+at+1)
+
+=∆Gt(s, a) + Ht(s, a)
+
+(86) (87)
+
+For Gt, it is indeed the Ft function as that in Q-learning with static exploration parameters, which satisﬁes
+
+||E[Gt(s, a)]|Pt||w ≤ γ||∆t||w
+
+(88)
+
+For Ht, we have
+
+|E[Ht(s, a)]|
+
+(89)
+
+=γ
+
+p(s
+
+|s,
+
+a)[boltzβt (Qt(s
+
+,
+
+·))
+
+−
+
+max
+a
+
+Qt(s
+
+,
+
+a
+
+)]
+
+(90)
+
+s
+
+≤γ
+
+max[b
+s
+
+oltzβt
+
+(Qt
+
+(s
+
+,
+
+·))
+
+−
+
+max
+a
+
+Qt(s
+
+,
+
+a
+
+)]
+
+(91)
+
+≤γ max
+s
+
+boltzβt
+
+(Qt(s
+
+,
+
+·))
+
+−
+
+max
+a
+
+Qt(s
+
+,
+
+a
+
+)
+
+(92)
+
+≤γ
+
+max
+s
+
+|boltzβt (Qt(s
+
+,
+
+·))
+
+−
+
+Lβt (Qt(s
+
+,
+
+·))|
+
+(93)
+
+γ log(|A|)
+
+≤
+
+(94)
+
+βt
+
+18
+
+Let
+
+ht
+
+=
+
+γ
+
+log(|A|) βt
+
+,
+
+so
+
+we
+
+have
+
+||E[Ft(s, a)]|Pt||w ≤ γ||∆t||w + ht,
+
+(95)
+
+where ht converges to 0.
+
+E Analysis of the Overestimation Eﬀect
+
+Proposition 2 For βt , β > 0 and M dimensional vector x, we have
+
+M i=1
+
+eβt xi
+
+xi
+
+M i=1
+
+eβt xi
+
+≤ max xi
+i
+
+≤
+
+1 β
+
+log
+
+M
+eβxi
+i=1
+
+.
+
+(96)
+
+Proof Sketch. As the dynamic Boltzman softmax operator summarizes a weighted combination of the vector
+
+X, it is easy to see
+
+∀βt > 0,
+
+M i=1
+
+eβt xi
+
+xi
+
+M i=1
+
+eβt xi
+
+≤ max xi.
+i
+
+(97)
+
+Then, it suﬃces to prove
+
+1
+
+max xi
+i
+
+≤
+
+β
+
+log
+
+M
+eβxi .
+
+i=1
+
+(98)
+
+Multiply β on both sides of Ineq. (98), it suﬃces to prove that
+
+n
+max βxi ≤ log( eβxi ).
+i i=1
+
+(99)
+
+As Ineq. (98) is satisﬁed.
+
+n
+max βxi = log(emaxi βxi ) ≤ log( eβxi ),
+i i=1
+
+(100)
+
+Theorem 4 Let µˆ∗Bβt , µˆ∗max, µˆ∗Lβ denote the estimator with the DBS operator, the max operator, and the log-sum-exp operator, respectively. For any given set of M random variables, we have
+
+∀t, ∀β, Bias(µˆ∗Bβt ) ≤ Bias(µˆ∗max) ≤ Bias(µˆ∗Lβ )
+. Proof Sketch. By deﬁnition, the bias of any action-value summary operator
+
+is deﬁned as
+
+By Proposition 2, we have
+
+Bias(µˆ∗ ) = Eµˆ∼Fˆ [ µˆ] − µ∗(X).
+
+(101)
+
+Eµˆ∼Fˆ [
+
+M i=1
+
+eβt µˆi
+
+µˆi
+
+M i=1
+
+eβt µˆi
+
+]
+
+≤Eµˆ∼Fˆ
+
+[max
+i
+
+µˆi]
+
+1 ≤Eµˆ∼Fˆ [ β log
+
+M
+eβµˆi ].
+
+i=1
+
+19
+
+(102)
+
+As the ground true maximum value µ∗(X) is invariant for diﬀerent operators, combining (101) and (102), we get
+
+∀t, ∀β, Bias(µˆ∗Bβt ) ≤ Bias(µˆ∗max) ≤ Bias(µˆ∗Lβ ).
+
+(103)
+
+F Empirical Results for DBS Q-learning
+The GridWorld consists of 10×10 grids, with the dark grids representing walls. The agent starts at the upper left corner and aims to eat the apple at the bottom right corner upon receiving a reward of +1. Otherwise, the reward is 0. An episode ends if the agent successfully eats the apple or a maximum number of steps 300 is reached.
+
+Figure 6: Detailed results in the GridWorld.
+Figure 1 shows the full performance comparison results among DBS Q-learning, soft Q-learning Haarnoja et al. (2017), G-learning Fox et al. (2015), and vanilla Q-learning.
+As shown in Figure 1, diﬀerent choices of the parameter of the log-sum-exp operator for soft Q-learning leads to diﬀerent performance. A small value of β (102) in the log-sum-exp operator results in poor performance, which is signiﬁcantly worse than vanilla Q-learning due to extreme overestimation. When β is in
+103, 104, 105 , it starts to encourage exploration due to entropy regularization, and performs better than Q-learning, where the best performance is achieved at the value of 105. A too large value of β (106) performs very close to the max operator employed in Q-learning. Among all, DBS Q-learning with β = t2 achieves the best performance.
+
+G Implementation Details
+For fair comparison, we use the same setup of network architectures and hyper-parameters as in Mnih et al. (2015) for both DQN and DBS-DQN. The network architecture is the same as in (Mnih et al. (2015)). The input to the network is a raw pixel image, which is pre-processed into a size of 84×84×4. Table 2 summarizes the network architecture.
+
+H Relative human normalized score on Atari games
+
+To better characterize the eﬀectiveness of DBS-DQN, its improvement over DQN is shown in Figure 7, where the improvement is deﬁned as the relative human normalized score:
+
+scoreagent − scorebaseline
+
+× 100%,
+
+max{scorehuman, scorebaseline} − scorerandom
+
+(104)
+
+with DQN serving as the baseline.
+
+20
+
+layer 1st
+2nd
+3rd 4th output
+
+type convolutional
+convolutional
+convolutional fully-connected fully-connected
+
+conﬁguration #ﬁlters=32 size=8 × 8 stride=4 #ﬁlters=64 size=4 × 4 stride=2 #ﬁlters=64 size=3 × 3 stride=1 #units=512 #units=#actions
+
+activation ReLU
+ReLU
+ReLU ReLU —
+
+Table 2: Network architecture.
+
+Figure 7: Relative human normalized score on Atari games. 21
+
+I Atari Scores
+
+games Alien Amidar Assault Asterix Asteroids Atlantis Bank Heist Battle Zone Beam Rider Bowling Boxing Breakout Centipede Chopper Command Crazy Climber Demon Attack Double Dunk Enduro Fishing Derby Freeway Frostbite Gopher Gravitar H.E.R.O. Ice Hockey James Bond Kangaroo Krull Kung-Fu Master Montezumas Revenge Ms. Pac-Man Name This Game Pong Private Eye Q*Bert River Raid Road Runner Robotank Seaquest Space Invaders Star Gunner Tennis Time Pilot Tutankham Up and Down Venture Video Pinball Wizard Of Wor Zaxxon
+
+random 227.8 5.8 222.4 210.0 719.1 12,850.0 14.2 2,360.0 363.9 23.1 0.1 1.7 2,090.9 811.0 10,780.5 152.1 -18.6 0.0 -91.7 0.0 65.2 257.6 173.0 1,027.0 -11.2 29.0 52.0 1,598.0 258.5 0.0 307.3 2,292.3 -20.7 24.9 163.9 1,338.5 11.5 2.2 68.4 148.0 664.0 -23.8 3,568.0 11.4 533.4 0.0 16,256.9 563.5 32.5
+
+human 7,127.7 1,719.5 742.0 8,503.3 47,388.7 29,028.1 753.1 37,187.5 16,926.5 160.7 12.1 30.5 12,017.0 7,387.8 35,829.4 1,971.0 -16.4 860.5 -38.7 29.6 4,334.7 2,412.5 3,351.4 30,826.4 0.9 302.8 3,035.0 2,665.5 22,736.3 4,753.3 6,951.6 8,049.0 14.6 69,571.3 13,455.0 17,118.0 7,845.0 11.9 42,054.7 1,668.7 10,250.0 -8.3 5,229.2 167.6 11,693.2 1,187.5 17,667.9 4,756.5 9,173.3
+
+dqn 1,620.0 978.0 4,280.4 4,359.0 1,364.5 279,987.0 455.0 29,900.0 8,627.5 50.4 88.0 385.5 4,657.7 6,126.0 110,763.0 12,149.4 -6.6 729.0 -4.9 30.8 797.4 8,777.4 473.0 20,437.8 -1.9 768.5 7,259.0 8,422.3 26,059.0 0.0 3,085.6 8,207.8 19.5 146.7 13,117.3 7,377.6 39,544.0 63.9 5,860.6 1,692.3 54,282.0 12.2 4,870.0 68.1 9,989.9 163.0 196,760.4 2,704.0 5,363.0
+
+dbs-dqn 1,960.9 874.9 5,336.6 6,311.2 1,606.7 3,712,600.0 645.3 40,321.4 9,849.3 57.6 87.4 386.4 7,681.4 2,900.0 119,762.1 9,263.9 -6.5 896.8 19.8 30.9 2,299.9 10,286.9 484.8 23,567.8 -1.5 1,101.9 11,318.0 22,948.4 29,557.6 400.0 3,142.7 8,511.3 20.3 5,606.5 12,972.7 7,914.7 48,400.0 42.3 6,882.9 1,561.5 42,447.2 2.0 6,289.7 265.0 26,520.0 168.3 654,327.0 4,058.7 6,049.1
+
+dbs-dqn (ﬁxed c) 2,010.4 1,158.4 4,912.8 4,911.6 1,502.1 3,768,100.0 613.3 38,393.9 9,479.1 61.2 87.7 386.6 5,779.7 1,600.0 115,743.3 8,757.2 -9.1 910.3 12.2 30.8 1,788.8 12,248.4 423.7 20,231.7 -2.0 837.5 12,740.5 7,735.0 29,450.0 400.0 2,795.6 8,677.0 20.3 2,098.4 10,854.7 8,138.7 44,900.0 41.9 6,974.8 1,311.9 38,183.3 2.0 6,275.7 277.0 20,801.5 102.9 662,373.0 2,856.3 6,188.7
+
+Figure 8: Raw scores for a single seed across all games, starting with 30 no-op actions. Reference values from Wang et al. (2015).
+
+22
+
+References
+Asadi, K. and Littman, M. L. An alternative softmax operator for reinforcement learning. In Proceedings of the 34th International Conference on Machine Learning, ICML 2017, Sydney, NSW, Australia, 6-11 August 2017, pp. 243–252, 2016.
+Azar, M. G., G´omez, V., and Kappen, H. J. Dynamic policy programming. Journal of Machine Learning Research, 13(Nov):3207–3245, 2012.
+Banach, S. Sur les op´erations dans les ensembles abstraits et leur application aux ´equations int´egrales. Fund. math, 3(1):133–181, 1922.
+Bellemare, M. G., Naddaf, Y., Veness, J., and Bowling, M. The arcade learning environment: An evaluation platform for general agents. Journal of Artiﬁcial Intelligence Research, 47:253–279, 2013.
+Bellemare, M. G., Ostrovski, G., Guez, A., Thomas, P. S., and Munos, R. Increasing the action gap: New operators for reinforcement learning. In AAAI, pp. 1476–1483, 2016.
+Bellman, R. E. Dynamic programming. 1957.
+Cesa-Bianchi, N., Gentile, C., Lugosi, G., and Neu, G. Boltzmann exploration done right. In Advances in Neural Information Processing Systems, pp. 6284–6293, 2017.
+Dai, B., Shaw, A., Li, L., Xiao, L., He, N., Liu, Z., Chen, J., and Song, L. Sbeed: Convergent reinforcement learning with nonlinear function approximation. In International Conference on Machine Learning, pp. 1133–1142, 2018.
+DEramo, C., Restelli, M., and Nuara, A. Estimating maximum expected value through gaussian approximation. In International Conference on Machine Learning, pp. 1032–1040, 2016.
+Ferreira, C. and L´opez, J. L. Asymptotic expansions of the hurwitz–lerch zeta function. Journal of Mathematical Analysis and Applications, 298(1):210–224, 2004.
+Fox, R., Pakman, A., and Tishby, N. Taming the noise in reinforcement learning via soft updates. arXiv preprint arXiv:1512.08562, 2015.
+Haarnoja, T., Tang, H., Abbeel, P., and Levine, S. Reinforcement learning with deep energy-based policies. arXiv preprint arXiv:1702.08165, 2017.
+Haarnoja, T., Zhou, A., Ha, S., Tan, J., Tucker, G., and Levine, S. Learning to walk via deep reinforcement learning. arXiv preprint arXiv:1812.11103, 2018.
+Hasselt, H. V. Double q-learning. In Advances in Neural Information Processing Systems, pp. 2613–2621, 2010.
+Hessel, M., Modayil, J., Van Hasselt, H., Schaul, T., Ostrovski, G., Dabney, W., Horgan, D., Piot, B., Azar, M., and Silver, D. Rainbow: Combining improvements in deep reinforcement learning. arXiv preprint arXiv:1710.02298, 2017.
+Kober, J., Bagnell, J. A., and Peters, J. Reinforcement learning in robotics: A survey. The International Journal of Robotics Research, 32(11):1238–1274, 2013.
+Littman, M. L. and Szepesv´ari, C. A generalized reinforcement-learning model: Convergence and applications. In Machine Learning, Proceedings of the Thirteenth International Conference (ICML ’96), Bari, Italy, July 3-6, 1996, pp. 310–318, 1996.
+Littman, M. L., Moore, A. W., et al. Reinforcement learning: A survey. Journal of Artiﬁcial Intelligence Research, 4(11, 28):237–285, 1996.
+23
+
+Mnih, V., Kavukcuoglu, K., Silver, D., Rusu, A. A., Veness, J., Bellemare, M. G., Graves, A., Riedmiller, M., Fidjeland, A. K., Ostrovski, G., et al. Human-level control through deep reinforcement learning. Nature, 518(7540):529, 2015.
+O’Donoghue, B., Munos, R., Kavukcuoglu, K., and Mnih, V. Combining policy gradient and q-learning. arXiv preprint arXiv:1611.01626, 2016.
+Silver, D., Schrittwieser, J., Simonyan, K., Antonoglou, I., Huang, A., Guez, A., Hubert, T., Baker, L., Lai, M., Bolton, A., et al. Mastering the game of go without human knowledge. Nature, 550(7676):354, 2017.
+Singh, S., Jaakkola, T., Littman, M. L., and Szepesv´ari, C. Convergence results for single-step on-policy reinforcement-learning algorithms. Machine learning, 38(3):287–308, 2000.
+Song, Z., Parr, R. E., and Carin, L. Revisiting the softmax bellman operator: Theoretical properties and practical beneﬁts. arXiv preprint arXiv:1812.00456, 2018.
+Sutton, R. S. Learning to predict by the methods of temporal diﬀerences. Machine learning, 3(1):9–44, 1988. Sutton, R. S. Adapting bias by gradient descent: An incremental version of delta-bar-delta. In AAAI, pp.
+171–176, 1992. Sutton, R. S. and Barto, A. G. Introduction to reinforcement learning, volume 135. MIT press Cambridge,
+1998. van Hasselt, H. Estimating the maximum expected value: an analysis of (nested) cross validation and the
+maximum sample average. arXiv preprint arXiv:1302.7175, 2013. Van Hasselt, H., Guez, A., and Silver, D. Deep reinforcement learning with double q-learning. In AAAI,
+volume 2, pp. 5. Phoenix, AZ, 2016. Wang, Z., Schaul, T., Hessel, M., Van Hasselt, H., Lanctot, M., and De Freitas, N. Dueling network
+architectures for deep reinforcement learning. arXiv preprint arXiv:1511.06581, 2015. Watkins, C. J. and Dayan, P. Q-learning. Machine learning, 8(3-4):279–292, 1992. Watkins, C. J. C. H. Learning from delayed rewards. PhD thesis, King’s College, Cambridge, 1989. Xu, Z., van Hasselt, H., and Silver, D. Meta-gradient reinforcement learning. arXiv preprint
+arXiv:1805.09801, 2018.
+24
+
