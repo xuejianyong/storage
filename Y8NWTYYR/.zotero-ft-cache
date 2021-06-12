@@ -1,0 +1,161 @@
+Réseaux Récurrents avec gate (LSTM et GRU)
+Philippe Giguère
+
+LSTM (1997)
+
+• Toujours d’actualité
+
+• Résoudre les problèmes du RNN :
+
+– difficulté de la longue portée
+
+– vanishing gradient
+
+• Idée maîtresse : cellule(s) à état (cell state) ct
+– peut y ajouter/retirer/exposition de l’information via des gates (contrôle flux d’information)
+
+Rappel
+
+réseau A
+
+signal a
+sigmoïde
+
+réseau C
+
+signal de contrôle b
+
+f=a∘s(b)
+(element-wise multiplication)
+∘ : produit Hadamard (element-wise)
+
+– similitude avec highway network/ResNet
+
+2
+
+LSTM : cellule + 3 gates
+(beaucoup de diagrammes)
+Cellule : (déroulée)
+
+Forget gate
+ht-1
+
+c (linéaire, t peu modifiée, highway)
+
+Input gate
+
+Output gate
+
+3
+Illustrations : Christopher Olah, avec permission
+
+LSTM : récursivité déroulée
+• « État caché » est (ht,ct)
+temps
+c
+4
+Illustrations : Christopher Olah, avec permission
+
+LSTM : Étape 1
+
+• Quelle information retirer de la cellule ?
+
+• forget gate (pensez plus : remember gate)
+
+ft  s (Wf xt  U f ht1  bf )
+Peut le voir comme une modification dynamique des
+c constantes de temps
+t-1
+
+(Exemple pour LSTM à 4 unités)
+
+5
+Illustrations : Christopher Olah, avec permission
+
+LSTM : Étape 2
+• Choisir l’information à ajouter à la cellule
+
+Vecteur pour quantité de changement
+it  s (Wi xt  Uiht1  bi )
+Illustrations : Christopher Olah, avec permission
+
+Vecteur d’information à ajouter
+Ct  tanh(Wc xt  Ucht1  bc )
+6
+
+LSTM : Étape 3
+• La cellule est mise-à-jour indirectement par l’état caché
+– voir comme des ajustements incrémentaux
+(résiduel) Ct  ft Ct1  it Ct
+7
+Illustrations : Christopher Olah, avec permission
+
+LSTM : Étape 4
+• ht est une sortie de tanh(ct) • Modulée par l’output gate
+ot  s (Wo xt  Uoht1  bo )
+ht  ot tanh(Ct )
+8
+Illustrations : Christopher Olah, avec permission
+
+LSTM
+• La cellule est affectée lentement (slow state) • L’état h est affecté plus rapidement (fast state)
+ht
+ct
+
+xt
+Illustrations : Christopher Olah, avec permission
+
+ht
+9
+
+Flot du gradient
+• Gradient se propage mieux que RNN
+– via la cellule – pensez ResNet
+(Aussi à condition que forget gate ait des entrées proches de 1)
+10
+Illustrations adaptée de Christopher Olah, avec permission
+
+variante de LSTM
+
+GRU : Gated Recurrent Unit
+• Combine forget et input gate ensemble
+– update gate
+• Plus de séparation hidden/cell
+• Moins de paramètres
+12
+Illustrations : Christopher Olah, avec permission
+
+Peephole connection
+
+• Pour permettre à l’état de la cellule de
+
+contrôler les gates
+
+ft  s (Wf xt  U f ht1  Pf ct1  bf )
+it  s (Wi xt  Uiht1  Pict1  bi )
+ot  s (Wo xt  Uoht1  Poct  bo )
+
+Note : certaines variantes, U = 0
+
+13
+Illustrations : Christopher Olah, avec permission
+
+LSTM: A Search Space Odyssey
+• 5400 tests de 8 variantes d’architecture sur 3 tâches :
+– modélisation acoustique – reconnaissance d’écriture manuscrite – modélisation musique polyphonique
+• Aucune variante ne domine réellement
+– variante GRU a l’avantage d’avoir moins de paramètres
+• Parties les plus importantes :
+– forget gate – output activation
+14
+
+An Empirical Exploration of Recurrent Network Architectures
+• Essais de 10,000 architectures trouvées par processus d’évolution
+• Ont identifié une architecture qui parfois dépasse le LSTM et le GRU, mais sur certaines tâches seulement
+• Bref, LSTM/GRU encore compétitif!
+– réduit l’écart GRU-LSTM en ajoutant un biais de bf=1 pour le forget gate du LSTM
+15
+
+Évolution RNN  LSTM  Attention
+17
+

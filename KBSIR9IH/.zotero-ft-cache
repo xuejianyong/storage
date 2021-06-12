@@ -1,0 +1,1950 @@
+arXiv:1909.09586v1 [cs.NE] 12 Sep 2019
+
+– Understanding LSTM – a tutorial into Long Short-Term Memory
+Recurrent Neural Networks
+Ralf C. Staudemeyer Faculty of Computer Science Schmalkalden University of Applied Sciences, Germany E-Mail: r.staudemeyer@hs-sm.de
+Eric Rothstein Morris (Singapore University of Technology and Design, Singapore
+E-Mail: eric rothstein@sutd.edu.sg)
+September 23, 2019
+Abstract Long Short-Term Memory Recurrent Neural Networks (LSTM-RNN) are one of the most powerful dynamic classiﬁers publicly known. The network itself and the related learning algorithms are reasonably well documented to get an idea how it works. This paper will shed more light into understanding how LSTM-RNNs evolved and why they work impressively well, focusing on the early, ground-breaking publications. We signiﬁcantly improved documentation and ﬁxed a number of errors and inconsistencies that accumulated in previous publications. To support understanding we as well revised and uniﬁed the notation used.
+1 Introduction
+This article is an tutorial-like introduction initially developed as supplementary material for lectures focused on Artiﬁcial Intelligence. The interested reader can deepen his/her knowledge by understanding Long Short-Term Memory Recurrent Neural Networks (LSTM-RNN) considering its evolution since the early nineties. Todays publications on LSTM-RNN use a slightly diﬀerent notation and a much more summarized representation of the derivations. Nevertheless the authors found the presented approach very helpful and we are conﬁdent this publication will ﬁnd its audience.
+Machine learning is concerned with the development of algorithms that automatically improve by practice. Ideally, the more the learning algorithm is run, the better the algorithm becomes. It is the task of the learning algorithm to create a classiﬁer function from the training data presented. The performance of this built classiﬁer is then measured by applying it to previously unseen data.
+Artiﬁcial Neural Networks (ANN) are inspired by biological learning systems and loosely model their basic functions. Biological learning systems are
+1
+
+complex webs of interconnected neurons. Neurons are simple units accepting a vector of real-valued inputs and producing a single real-valued output. The most common standard neural network type are feed-forward neural networks. Here sets of neurons are organised in layers: one input layer, one output layer, and at least one intermediate hidden layer. Feed-forward neural networks are limited to static classiﬁcation tasks. Therefore, they are limited to provide a static mapping between input and output. To model time prediction tasks we need a so-called dynamic classiﬁer.
+We can extend feed-forward neural networks towards dynamic classiﬁcation. To gain this property we need to feed signals from previous timesteps back into the network. These networks with recurrent connections are called Recurrent Neural Networks (RNN) [74], [75]. RNNs are limited to look back in time for approximately ten timesteps [38], [56]. This is due to the fed back signal is either vanishing or exploding. This issue was addressed with Long Short-Term Memory Recurrent Neural Networks (LSTM-RNN) [22], [41], [23], [60]. LSTM networks are to a certain extend biologically plausible [58] and capable to learn more than 1,000 timesteps, depending on the complexity of the built network [41].
+In the early, ground-breaking papers by Hochreiter [41] and Graves [34], the authors used diﬀerent notations which made further development prone to errors and inconvenient to follow. To address this we developed a uniﬁed notation and did draw descriptive ﬁgures to support the interested reader in understanding the related equations of the early publications.
+In the following, we slowly dive into the world of neural networks and speciﬁcally LSTM-RNNs with a selection of its most promising extensions documented so far. We successively explain how neural networks evolved from a single perceptron to something as powerful as LSTM. This includes vanilla LSTM, although not used in practice anymore, as the fundamental evolutionary step. With this article, we support beginners in the machine learning community to understand how LSTM works with the intention motivate its further development.
+This is the ﬁrst document that covers LSTM and its extensions in such great detail.
+2 Notation
+In this article we use the following notation:
+• The learning rate of the network is η.
+• A time unit is τ . Initial times of an epoch are denoted by t and ﬁnal times by t.
+• The set of units of the network is N , with generic (unless stated otherwise) units u, v, l, k ∈ N .
+• The set of input units is I, with input unit i ∈ I.
+• The set of output units is O, with output unit o ∈ O.
+• The set of non-input units is U .
+2
+
+• The output of a unit u (also called the activation of u) is yu, and unlike the input, it is a single value.
+• The set of units with connections to a unit u; i.e., its predecessors, is Pre (u)
+• The set of units with connections from a unit u; i.e., its successors, is Suc (u)
+• The weight that connects the unit v to the unit u is W[v,u]. • The input of a unit u coming from a unit v is denoted by X[v,u] • The weighted input of the unit u is zu. • The bias of the unit u is bu. • The state of the unit u is su. • The squashing function of the unit u is fu. • The error of the unit u is eu. • The error signal of the unit u is ϑu. • The output sensitivity of the unit k with respect to the weight W[u,v] is
+pkuv .
+
+3 Perceptron and Delta Learning Rule
+Artiﬁcial Neural Networks consist of a densely interconnected group of simple neuron-like threshold switching units. Each unit takes a number of real-valued inputs and produces a single real-valued output. Based on the connectivity between the threshold units and element parameters, these networks can model complex global behaviour.
+
+3.1 The Perceptron
+
+The most basic type of artiﬁcial neuron is called a perceptron. Perceptrons consist of a number of external input links, a threshold, and a single external output link. Additionally, perceptrons have an internal input, b, called bias. The perceptron takes a vector of real-valued input values, all of which are weighted by a multiplier. In a previous perceptron training phase, the perceptron learns these weights on the basis of training data. It sums all weighted input values and ‘ﬁres’ if the resultant value is above a pre-deﬁned threshold. The output of the perceptron is always Boolean, and it is considered to have ﬁred if the output is ‘1’. The deactivated value of the perceptron is ‘−1’, and the threshold value is, in most cases, ‘0’.
+As we only have one unit for the perceptron, we omit the subindexes that refer to the unit. Given the input vector x = x1, ..., xn and trained weights W1, ..., Wn, the perceptron outputs y; which is computed by the formula
+
+1 y=
+
+if
+
+n i=1
+
+Wixi
+
++
+
+b
+
+>
+
+0;
+
+−1 otherwise.
+
+3
+
+We refer to z =
+
+n i=1
+
+Wixi
+
+as
+
+the
+
+weighted
+
+input,
+
+and
+
+to
+
+s
+
+=
+
+z
+
++
+
+b
+
+as
+
+the
+
+state
+
+of the perceptron. For the perceptron to ﬁre, its state s must exceed the value
+
+of the threshold.
+
+Single perceptron units can already represent a number of useful functions.
+
+Examples are the Boolean functions AND, OR, NAND and NOR. Other func-
+
+tions are only representable using networks of neurons. Single perceptrons are
+
+limited to learning only functions that are linearly separable. In general, a prob-
+
+lem is linear and the classes are linearly separable in an n-dimensional space if
+
+the decision surface is an (n − 1)-dimensional hyperplane.
+
+The general structure of a perceptron is shown in Figure 1.
+
+Figure 1: The general structure of the most basic type of artiﬁcial neuron, called a perceptron. Single perceptrons are limited to learning linearly separable functions.
+3.2 Linear Separability
+To understand linear separability, it is helpful to visualise the possible inputs of a perceptron on the axes of a two-dimensional graph. Figure 2 shows representations of the Boolean functions OR and XOR. The OR function is linearly separable, whereas the XOR function is not. In the ﬁgure, pluses are used for an input where the perceptron ﬁres and minuses, where it does not. If the pluses and minuses can be completely separated by a single line, the problem is linearly separable in two dimensions. The weights of the trained perceptron should represent that line.
+4
+
+logical OR
+
+(linearly separable)
+
+1+
+
++
+
+logical XOR
+
+(not linearly separable)
+
+1+
+
+_
+
+0_
+
++
+
+0_
+
++
+
+0
+
+1
+
+0
+
+1
+
+Input 1 Input 2 Output
+
+1
+
+1
+
+1
+
+1
+
+0
+
+1
+
+0
+
+1
+
+1
+
+0
+
+0
+
+0
+
+Input 1 Input 2 Output
+
+1
+
+1
+
+0
+
+1
+
+0
+
+1
+
+0
+
+1
+
+1
+
+0
+
+0
+
+0
+
+Figure 2: Representations of the Boolean functions OR and XOR. The ﬁgures show that the OR function is linearly separable, whereas the XOR function is not.
+
+5
+
+3.3 The Delta Learning Rule
+
+Perceptron training is learning by imitation, which is called ‘supervised learning’. During the training phase, the perceptron produces an output and compares it with a derived output value provided by the training data. In cases of misclassiﬁcation, it then modiﬁes the weights accordingly. [55] show that in a ﬁnite time, the perceptron will converge to reproduce the correct behaviour, provided that the training examples are linearly separable. Convergence is not assured if the training data is not linearly separable.
+A variety of training algorithms for perceptrons exist, of which the most common are the perceptron learning rule and the delta learning rule. Both start with random weights and both guarantee convergence to an acceptable hypothesis. Using the perceptron learning rule algorithm, the perceptron can learn from a set of samples A sample is a pair x, d where x is the input and d is its label. For the sample x, d , given the input x = x1, . . . , xn , the old weight vector W = W1, . . . , Wn is updated to the new vector W using the rule
+Wi = Wi + ∆Wi,
+
+with
+
+∆Wi = η(d − y)xi,
+
+where y is the output calculated using the input x and the weights W and η is the learning rate. The learning rate is a constant that controls the degree to which the weights are changed. As stated before, the initial weight vector W 0 has random values. The algorithm will only converge towards an optimum if the training data is linearly separable, and the learning rate is suﬃciently small. The perceptron rule fails if the training examples are not linearly separable.
+The delta learning rule was speciﬁcally designed to handle linearly separable and linearly non-separable training examples. It also calculates the errors between calculated output and output data from training samples, and modiﬁes the weights accordingly. The modiﬁcation of weights is achieved by using the gradient optimisation descent algorithm, which alters them in the direction that produces the steepest descent along the error surface towards the global minimum error. The delta learning rule is the basis of the error backpropagation algorithm, which we will discuss later in this section.
+
+3.4 The Sigmoid Threshold Unit
+
+The sigmoid threshold unit is a diﬀerent kind of artiﬁcial neuron, very similar to the perceptron, but uses a sigmoid function to calculate the output. The output y is computed by the formula
+
+1 y = (1 − e−l×s) ,
+
+with
+
+n
+s = Wixi + b,
+i=1
+
+where b is the bias and l is a positive constant that determines the steepness of the sigmoid function. The major eﬀect on the perceptron is that the output
+
+6
+
+of the sigmoid threshold unit now has more than two possible values; now, the
+
+output is “squashed” by a continuous function that ranges between 0 and 1.
+
+Accordingly,
+
+the
+
+function
+
+1 (1−e−l×s )
+
+is
+
+called
+
+the
+
+‘squashing’
+
+function,
+
+because
+
+it
+
+maps a very large input domain onto a small range of outputs. For a low total
+
+input value, the output of the sigmoid function is close to zero, whereas it is close
+
+to one for a high total input value. The slope of the sigmoid function is adjusted
+
+by the threshold value. The advantage of neural networks using sigmoid units
+
+is that they are capable of representing non-linear functions. Cascaded linear
+
+units, like the perceptron, are limited to representing linear functions. A sigmoid
+
+threshold unit is sketched in Figure 3.
+
+Figure 3: The sigmoid threshold unit is capable of representing non-linear functions. Its output is a continuous function of its input, which ranges between 0 and 1.
+4 Feed-Forward Neural Networks and Backpropagation
+In feed-forward neural networks (FFNNs), sets of neurons are organised in layers, where each neuron computes a weighted sum of its inputs. Input neurons take signals from the environment, and output neurons present signals to the environment. Neurons that are not directly connected to the environment, but
+7
+
+which are connected to other neurons, are called hidden neurons. Feed-forward neural networks are loop-free and fully connected. This means
+that each neuron provides an input to each neuron in the following layer, and that none of the weights give an input to a neuron in a previous layer.
+The simplest type of neural feed-forward networks are single-layer perceptron networks. Single-layer neural networks consist of a set of input neurons, deﬁned as the input layer, and a set of output neurons, deﬁned as the output layer. The outputs of the input-layer neurons are directly connected to the neurons of the output layer. The weights are applied to the connections between the input and output layer.
+In the single-layer perceptron network, every single perceptron calculates the sum of the products of the weights and the inputs. The perceptron ﬁres ‘1’ if the value is above the threshold value; otherwise, the perceptron takes the deactivated value, which is usually ‘-1’. The threshold value is typically zero.
+Sets of neurons organised in several layers can form multilayer, forwardconnected networks. The input and output layers are connected via at least one hidden layer, built from set(s) of hidden neurons. The multilayer feed-forward neural network sketched in Figure 4, with one input layer and three output layers (two hidden and one output), is classiﬁed as a 3-layer feed-forward neural network. For most problems, feed-forward neural networks with more than two layers oﬀer no advantage.
+Multilayer feed-forward networks using sigmoid threshold functions are able to express non-linear decision surfaces. Any function can be closely approximated by these networks, given enough hidden units.
+Figure 4: A multilayer feed-forward neural network with one input layer, two hidden layers, and an output layer. Using neurons with sigmoid threshold functions, these neural networks are able to express non-linear decision surfaces.
+The most common neural network learning technique is the error backpropagation algorithm. It uses gradient descent to learn the weights in multilayer networks. It works in small iterative steps, starting backwards from the output layer towards the input layer. A requirement is that the activation function of the neuron is diﬀerentiable.
+8
+
+Usually, the weights of a feed-forward neural network are initialised to small, normalised random numbers using bias values. Then, error backpropagation applies all training samples to the neural network and computes the input and output of each unit for all (hidden and) output layers.
+The set of units of the network is N I H O, where is disjoint union, and I, H, O are the sets of input, hidden and output units, respectively. We denote input units by i, hidden units by h and output units by o. For convenience, we deﬁne the set of non-input units U H O. For a non-input unit u ∈ U , the input to u is denoted by xu, its state by su, its bias by bu and its output by yu. Given units u, v ∈ U , the weight that connects u with v is denoted by Wuv.
+To model the external input that the neural network receives, we use the external input vector x = x1, . . . , xn . For each component of the external input vector we ﬁnd a corresponding input unit that models it, so the output of the ith input unit should be equal ith component of the input to the network (i.e., xi), and consequently |I| = n.
+For the non-input unit u ∈ U , the output of u, written yu, is deﬁned using the sigmoid activation function by
+
+1
+
+yu = 1 + e−su
+
+(1)
+
+where su is the state of u, and it is deﬁned by
+
+su = zu + bu;
+
+(2)
+
+where bu is the bias of u, and zu is the weighted input of u, deﬁned in turn by
+
+zu = W[v,u]X[v,u], with v ∈ Pre (u)
+
+v
+
+(3)
+
+= W[v,u]yv;
+
+v
+
+where X[v,u] is the information that v passes as input to u, and Pre (u) is the set of units v that preceed u; that is, input units, and hidden units that feed their outputs yv (see Equation (1)) multiplied by the corresponding weight W[v,u] to the unit u.
+Starting from the input layer, the inputs are propagated forwards through the network until the output units are reached at the output layer. Then, the output units produce an observable output (the network output) y. More precisely, for o ∈ O, its output yo corresponds to the oth component of y.
+Next, the backpropagation learning algorithm propagates the error backwards, and the weights and biases are updated such that we reduce the error with respect to the present training sample. Starting from the output layer, the algorithm compares the network output yo with the corresponding desired target output do. It calculates the error eo for each output neuron using some error function to be minimised. The error eo is computed as
+
+eo = (do − yo)
+
+and we have the following notion of overall error of the network
+
+1 E=
+2
+
+e2o
+
+o∈O
+
+9
+
+To update the weight W[u,v], we will use the formula
+
+∂E
+
+∆W[u,v]
+
+=
+
+−η ∂ W[u,v]
+
+where η
+
+is
+
+the learning
+
+rate.
+
+We
+
+now make use of the factors
+
+∂yu ∂yu
+
+and
+
+∂su ∂su
+
+to
+
+calculate the weight update by deriving the error with respect to the activation,
+
+and the activation in terms of the state, and in turn the derivative of the state
+
+with respect to the weight:
+
+∆W[u,v]
+
+=
+
+∂E −η
+∂yu
+
+∂yu ∂su
+
+∂su ∂ W[u,v]
+
+.
+
+The derivative of the error with respect to the activation for output units is
+
+∂E ∂yo = −(do − yo),
+
+now, the derivative of the activation with respect to the state for output units
+
+is
+
+∂yo ∂so
+
+=
+
+yo(1 − yo),
+
+and the derivative of the state with respect to a weight that connects the hidden
+
+unit h to the output unit o is
+
+∂su ∂ W[u,v]
+
+=
+
+yh
+
+Let us deﬁne, for the output unit o, the error signal by
+
+ϑo
+
+=
+
+∂E −
+∂yo
+
+∂yo ∂so
+
+(4)
+
+for output units we have that
+
+ϑo = (do − yo)yo(1 − yo),
+
+(5)
+
+and we see that we can update the weight between the hidden unit h and the output unit o by
+∆W[h,o] = ηϑoyh.
+
+Now, for a hidden unit h, if we consider that its notion of error is related
+
+to how much it contributed to the production of a faulty output, then we can
+
+backpropagate the error from the output units that h sends signals to; more pre-
+
+cisely,
+
+for
+
+an
+
+input
+
+unit
+
+i,
+
+we
+
+need
+
+to
+
+expand
+
+the
+
+equation
+
+∆W[i,h]
+
+=
+
+−η ∂E
+∂ W[i,h]
+
+to
+
+∆W[i,h] = −η
+
+o
+
+∂E ∂yo ∂so ∂yh ∂sh ∂yo ∂so ∂yh ∂sh ∂W[i,h]
+
+with o ∈ Suc (h) .
+
+where Suc (h) is the set of units that succeed h; that is, the units that are fed with the output of h as part of their input. By solving the partial derivatives, we obtain
+
+∆W[i,h] = −η
+o
+
+ϑoW[h,o]
+
+∂yh ∂sh ∂sh ∂W[i,h]
+
+=η
+
+ϑoW[h,o] yh(1 − yh)yi.
+
+o
+
+10
+
+Figure 5: This ﬁgure shows a feed-forward neural network.
+
+If we deﬁne the error signal of the hidden unit h by
+
+ϑh =
+
+ϑoW[h,o] yh(1 − yh); with o ∈ Suc (h) ,
+
+o
+
+then we have a uniform expression for weight change; that is,
+
+∆W[v,u] = ηϑuyv.
+We calculate ∆W[v,u] again and again until all network outputs are within an acceptable range, or some other terminating condition is reached.
+
+5 Recurrent Neural Networks
+Recurrent neural networks (RNNs) [74, 75] are dynamic systems; they have an internal state at each time step of the classiﬁcation. This is due to circular connections between higher- and lower-layer neurons and optional self-feedback connections. These feedback connections enable RNNs to propagate data from earlier events to current processing steps. Thus, RNNs build a memory of time series events.
+5.1 Basic Architecture
+RNNs range from partly to fully connected, and two simple RNNs are suggested by [46] and [16]. The Elman network is similar to a three-layer neural network, but additionally, the outputs of the hidden layer are saved in so-called ‘context cells’. The output of a context cell is circularly fed back to the hidden neuron along with the originating signal. Every hidden neuron has its own context cell and receives input both from the input layer and the context cells. Elman networks can be trained with standard error backpropagation, the output from the context cells being simply regarded as an additional input. Figures 5 and 6 show a standard feed-forward network in comparison with such an Elman network.
+
+11
+
+Figure 6: This ﬁgure shows an Elman neural network.
+Figure 7: This ﬁgure shows a partially recurrent neural network with selffeedback in the hidden layer.
+Jordan networks have a similar structure to Elman networks, but the context cells are instead fed by the output layer. A partial recurrent neural network with a fully connected recurrent hidden layer is shown in Figure 7. Figure 8 shows a fully connected RNN.
+RNNs need to be trained diﬀerently to the feed-forward neural networks (FFNNs) described in Section 4. This is because, for RNNs, we need to propagate information through the recurrent connections in-between steps. The most common and well-documented learning algorithms for training RNNs in temporal, supervised learning tasks are backpropagation through time (BPTT) and real-time recurrent learning (RTRL). In BPTT, the network is unfolded in time to construct an FFNN. Then, the generalised delta rule is applied to update the weights. This is an oﬄine learning algorithm in the sense that we ﬁrst collect the data and then build the model from the system. In RTRL, the gradient information is forward propagated. Here, the data is collected online from the
+12
+
+Figure 8: This ﬁgure shows a fully recurrent neural network (RNN) with selffeedback connections.
+system and the model is learned during collection. Therefore, RTRL is an online learning algorithm.
+6 Training Recurrent Neural Networks
+The most common methods to train recurrent neural networks are Backpropagation Through Time (BPTT) [62, 74, 75] and Real-Time Recurrent Learning (RTRL) [75, 76], whereas BPTT is the most common method. The main diﬀerence between BPTT and RTRL is the way the weight changes are calculated. The original formulation of LSTM-RNNs used a combination of BPTT and RTRL. Therefore we cover both learning algorithms in short.
+6.1 Backpropagation Through Time
+The BPTT algorithm makes use of the fact that, for a ﬁnite period of time, there is an FFNN with identical behaviour for every RNN. To obtain this FFNN, we need to unfold the RNN in time. Figure 9a shows a simple, fully recurrent neural network with a single two-neuron layer. The corresponding feed-forward neural network, shown in Figure 9b, requires a separate layer for each time step with the same weights for all layers. If weights are identical to the RNN, both networks show the same behaviour.
+The unfolded network can be trained using the backpropagation algorithm described in Section 4. At the end of a training sequence, the network is unfolded in time. The error is calculated for the output units with existing target values using some chosen error measure. Then, the error is injected backwards into the network and the weight updates for all time steps calculated. The weights in the recurrent version of the network are updated with the sum of its deltas over all time steps.
+We calculate the error signal for a unit for all time steps in a single pass, using the following iterative backpropagation algorithm. We consider discrete time steps 1, 2, 3..., indexed by the variable τ . The network starts at a point in time t and runs until a ﬁnal time t. This time frame between t and t is called an epoch. Let U be the set of non input units, and let fu be the diﬀerentiable, non-linear squashing function of the unit u ∈ U ; the output yu(τ ) of u at time
+13
+
+Figure 9: Figure a shows a simple fully recurrent neural network with a twoneuron layer. The same network unfolded over time with a separate layer for each time step is shown in Figure b. The latter representation is a feed-forward neural network.
+
+τ is given by
+
+yu(τ ) = fu(zu(τ ))
+
+(6)
+
+with the weighted input
+
+zu(τ + 1) = W[u,l]X[l,u](τ + 1), with l ∈ Pre (u)
+
+l
+
+(7)
+
+= W[u,v]yv(τ ) + W[u,i]yi(τ + 1)
+
+v
+
+i
+
+where v ∈ U ∩Pre (u) and i ∈ I, the set of input units. Note that the inputs to u at time τ +1 are of two types: the environmental input that arrives at time τ +1 via the input units, and the recurrent output from all non-input units in the network produced at time τ . If the network is fully connected, then U ∩ Pre (u) is equal to the set U of non-input units. Let T (τ ) be the set of non-input units for which, at time τ , the output value yu(τ ) of the unit u ∈ T (τ ) should match some target value du(τ ). The cost function is the summed error Etotal(t , t) for the epoch t , t + 1, . . . , t, which we want to minimise using a learning algorithm. Such total error is deﬁned by
+
+t
+
+Etotal(t , t) = E(τ ),
+
+(8)
+
+τ =t
+
+with the error E(τ ) at time τ deﬁned using the squared error as an objective
+
+function by
+
+1 E(τ ) =
+2
+
+(eu(τ ))2,
+
+(9)
+
+u∈U
+
+and with the error eu(τ ) of the non-input unit u at time τ deﬁned by
+
+eu(τ ) =
+
+du(τ ) − yu(τ ) 0
+
+if u ∈ T (τ ), otherwise.
+
+(10)
+
+14
+
+To adjust the weights, we use the error signal ϑu(τ ) of a non-input unit u at a time τ , which is deﬁned by
+
+∂E(τ )
+
+ϑu(τ )
+
+=
+
+. ∂zu(τ )
+
+(11)
+
+When we unroll ϑu over time, we obtain the equality
+
+ϑu(τ ) =
+
+fu(zu(τ ))eu(τ ) fu(zu(τ )) k∈U W[k,u]ϑk(τ + 1)
+
+if τ = t, .
+if t ≤ τ < t
+
+(12)
+
+After the backpropagation computation is performed down to time t , we calculate the weight update ∆W[u,v] in the recurrent version of the network. This is done by summing the corresponding weight updates for all time steps:
+
+∆W[u,v]
+
+=
+
+−η ∂Etotal(t , ∂ W[u,v]
+
+t)
+
+with
+
+∂Etotal(t , t) ∂ W[u,v]
+
+=
+
+t τ =t
+
+ϑu(τ
+
+)
+
+∂zu(τ ) ∂ W[u,v]
+
+t
+
+= ϑu(τ )X[u,v](τ ).
+
+τ =t
+
+BPTT is described in more detail in [74], [62] and [76].
+
+6.2 Real-Time Recurrent Learning
+
+The RTRL algorithm does not require error propagation. All the information
+
+necessary to compute the gradient is collected as the input stream is presented
+
+to the network. This makes a dedicated training interval obsolete. The algo-
+
+rithm comes at signiﬁcant computational cost per update cycle, and the stored
+
+information is non-local; i.e., we need an additional notion called sensitivity
+
+of the output, which we’ll explain later. Nevertheless, the memory required
+
+depends only on the size of the network and not on the size of the input.
+
+Following the notation from the previous section, we will now deﬁne for the
+
+network units v ∈ I ∪ U and u, k ∈ U , and the time steps t ≤ τ ≤ t. Unlike
+
+BPTT, in RTRL we assume the existence of a label dk(τ ) at every time τ
+
+(given that it is an online algorithm) for every non-input unit k, so the training
+
+objective is to minimise the overall network error, which is given at time step τ
+
+by
+
+1 E(τ ) =
+2
+
+(dk(τ ) − yk(τ ))2.
+
+k∈U
+
+We conclude from Equation 8 that the gradient of the total error is also the sum of the gradient for all previous time steps and the current time step:
+
+∇W Etotal(t , t + 1) = ∇W Etotal(t , t) + ∇W E(t + 1).
+During presentation of the time series to the network, we need to accumulate the values of the gradient at each time step. Thus, we can also keep track of
+
+15
+
+the weight changes ∆W[u,v](τ ). After presentation, the overall weight change for W[u,v] is then given by
+
+t
+
+∆W[u,v] =
+
+∆W[u,v](τ ).
+
+τ =t +1
+
+(13)
+
+To get the weight changes we need to calculate
+
+∂E(τ ) ∆W[u,v](τ ) = −η ∂W[u,v]
+
+for each time step t. After expanding this equation via gradient descent and by applying Equation 9, we ﬁnd that
+
+∆W[u,v](τ )
+
+=
+
+−η
+
+k∈U
+
+∂E(τ ) ∂yk(τ )
+
+∂yk(τ ) ∂ W[u,v]
+
+= −η (dk(τ ) − yk(τ ))
+k∈U
+
+∂yk(τ ) ∂ W[u,v]
+
+.
+
+(14)
+
+Since the error ek(τ ) = dk(τ ) − yk(τ ) is always known, we need to ﬁnd a way to calculate the second factor only. We deﬁne the quantity
+
+pkuv(τ )
+
+=
+
+∂yk(τ ) , ∂ W[u,v]
+
+(15)
+
+which measures the sensitivity of the output of unit k at time τ to a small change in the weight W[u,v], in due consideration of the eﬀect of such a change in the weight over the entire network trajectory from time t to t. The weight W[u,v] does not have to be connected to unit k, which makes the algorithm non-local. Local changes in the network can have an eﬀect anywhere in the network.
+In RTRL, the gradient information is forward-propagated. Using Equations 6 and 7, the output yk(t + 1) at time step t + 1 is given by
+
+yk(t + 1) = fk(zk(t + 1))
+
+(16)
+
+with the weighted input
+
+zk(t + 1) = W[k,l]X[k,l](t + 1), with l ∈ Pre (k)
+l
+
+= W[k,v]yv(t) + W[k,i]yi(t + 1).
+
+v∈U
+
+i∈I
+
+(17)
+
+By diﬀerentiating Equations 15, 16 and 17, we can calculate results for all
+
+16
+
+time steps ≥ t + 1 with
+
+
+
+
+
+pkuv(t + 1)
+
+=
+
+∂yk(t + 1) ∂ W[u,v]
+
+=
+
+∂ ∂ W[u,v]
+
+fk 
+
+W[k,l]X[k,l](t + 1)
+
+l∈Pre(k)
+
+
+
+
+
+
+
+∂
+
+=
+
+fk (zk (t
+
++
+
+1))  ∂ W[u,v]
+
+
+
+W[k,l]X[k,l](t
+
+l∈Pre(k)
+
++
+
+1)
+
+
+
+
+
+
+
+=
+
+fk (zk (t
+
++
+
+1))
+
+
+l∈Pre(k)
+
+∂ W[k,l] ∂ W[u,v]
+
+X[k,l](t
+
++
+
+1)
+
++
+
+
+l∈Pre(k)
+
+W[k,l]
+
+∂X[k,l](t + ∂ W[u,v]
+
+1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=
+
+fk (zk (t
+
++
+
+ 1)) δukX[u,v](t
+
+
++
+
+1)
+
++
+
+   l∈U
+
+W[k,l]
+
+∂yl(t) ∂ W[u,v]
+
++
+
+i∈I
+
+W[k,i]
+
+∂yi(t + 1) ∂ W[u,v]
+
+   
+
+
+
+
+
+
+
+
+
+
+
+
+= 0 because yi(t + 1) is independent of W[u,v]
+
+= fk(zk(t + 1)) δukX[u,v](t + 1) + W[k,l]pluv(t) .
+l∈U
+(18) where δuk is the Kronecker delta; that is,
+
+1 if u = k δuk = 0 if otherwise,
+
+Assuming that the initial state of the network has no functional dependency on the weights, the derivative for the ﬁrst time step is
+
+pkuv (t
+
+)
+
+=
+
+∂yk(t ) ∂ W[u,v]
+
+=
+
+0
+
+.
+
+(19)
+
+Equation 18 shows how pkuv(t + 1) can be calculated in terms of pkuv(t). In this sense, the learning algorithm becomes incremental, so that we can learn
+as we receive new inputs (in real time), and we no longer need to perform
+back-propagation through time. Knowing the initial value for pkuv at time t from Equation 19, we can re-
+cursively calculate the quantities pkuv for the ﬁrst and all subsequent time steps using Equation 18. Note that pkuv(τ ) uses the values of W[u,v] at t , and not values in-between t and τ . Combining these values with the error vector e(τ )
+for that time step, using Equation 14, we can ﬁnally calculate the negative error
+gradient W E(τ ). The ﬁnal weight change for W[u,v] can be calculated using Equations 14 and 13.
+A more detailed description of the RTRL algorithm is given in [75] and [76].
+
+7 Solving the Vanishing Error Problem
+Standard RNN cannot bridge more than 5–10 time steps ([22]). This is due to that back-propagated error signals tend to either grow or shrink with every time
+
+17
+
+step. Over many time steps the error therefore typically blows-up or vanishes ([5, 42]). Blown-up error signals lead straight to oscillating weights, whereas with a vanishing error, learning takes an unacceptable amount of time, or does not work at all.
+The explanation of how gradients are computed by the standard backpropagation algorithm and the basic vanishing error analysis is as follows: we update weights after the network has trained from time t to time t using the formula
+
+∆W[u,v]
+
+=
+
+−η ∂Etotal(t , ∂ W[u,v]
+
+t) ,
+
+with
+
+∂Etotal(t , t) ∂ W[u,v]
+
+=
+
+t τ =t
+
+ϑu(τ )X[u,v](τ ),
+
+where the backpropagated error signal at time τ (with t ≤ τ < t) of the unit u is
+
+ϑu(τ ) = fu(zu(τ ))
+
+Wvuϑv(τ + 1) .
+
+(20)
+
+v∈U
+
+Consequently, given a fully recurrent neural network with a set of non-input units U , the error signal that occurs at any chosen output-layer neuron o ∈ O, at time-step τ , is propagated back through time for t − t time-steps, with t < t to an arbitrary neuron v. This causes the error to be scaled by the following factor:
+
+∂ϑv(t ) = ∂ϑo(t)
+
+fv(zv(t ))W[o,v]
+
+fv(zv(t ))
+
+u∈U
+
+∂
+
+ϑu(t +1) ∂ ϑo (t)
+
+W[u,v]
+
+if t − t = 1, if t − t > 1
+
+To solve the above equation, we unroll it over time. For t ≤ τ ≤ t, let uτ be a non-input-layer neuron in one of the replicas in the unrolled network at time τ . Now, by setting ut = v and ut = o, we obtain the equation
+
+∂ϑv(t ) =
+
+...
+
+∂ϑo(t)
+
+ut ∈U ut−1∈U
+
+t
+fuτ (zuτ (t − τ + t ))W[uτ ,uτ−1] .
+τ =t +1
+
+(21)
+
+Observing Equation 21, it follows that if
+
+|fuτ (zuτ (t − τ + t ))W[uτ ,uτ−1]| > 1
+
+(22)
+
+for all τ , then the product will grow exponentially, causing the error to blow-up; moreover, conﬂicting error signals arriving at neuron v can lead to oscillating weights and unstable learning. If now
+
+|fuτ (zuτ (t − τ + t ))W[uτ ,uτ−1]| < 1
+
+(23)
+
+for all τ , then the product decreases exponentially, causing the error to vanish, preventing the network from learning within an acceptable time period. Finally, the equation
+∂ϑv(t )
+o∈O ∂ϑo(t)
+
+18
+
+shows that if the local error vanishes, then the global error also vanishes. A more detailed theoretical analysis of the problem with long-term depen-
+dencies is presented in [39]. The paper also brieﬂy outlines several proposals on how to address this problem.
+
+8 Long Short-Term Neural Networks
+One solution that addresses the vanishing error problem is a gradient-based method called long short-term memory (LSTM) published by [41], [42], [22] and [23]. LSTM can learn how to bridge minimal time lags of more than 1,000 discrete time steps. The solution uses constant error carousels (CECs), which enforce a constant error ﬂow within special cells. Access to the cells is handled by multiplicative gate units, which learn when to grant access.
+
+8.1 Constant Error Carousel
+Suppose that we have only one unit u with a single connection to itself. The local error back ﬂow of u at a single time-step τ follows from Equation 20 and is given by
+ϑu(τ ) = fu(zu(τ ))W[u,u]ϑu(τ + 1).
+From Equations 22 and 23 we see that, in order to ensure a constant error ﬂow through u, we need to have
+
+fu(zu(τ ))W[u,u] = 1.0 and by integration we have
+
+fu(zu(τ ))
+
+=
+
+zu(τ ) . W[u,u]
+
+From this, we learn that fu must be linear, and that u’s activation must remain constant over time; i.e.,
+
+yu(τ + 1) = fu(zu(τ + 1)) = fu(yu(τ )W[u,u]) = yu(τ ).
+This is ensured by using the identity function fu = id, and by setting W[u,u] = 1.0. This preservation of error is called the constant error carousel (CEC), and it is the central feature of LSTM, where short-term memory storage is achieved for extended periods of time. Clearly, we still need to handle the connections from other units to the unit u, and this is where the diﬀerent components of LSTM networks come into the picture.
+
+8.2 Memory Blocks
+In the absence of new inputs to the cell, we now know that the CEC’s backﬂow remains constant. However, as part of a neural network, the CEC is not only connected to itself, but also to other units in the neural network. We need to take these additional weighted inputs and outputs into account. Incoming connections to neuron u can have conﬂicting weight update signals, because the same weight is used for storing and ignoring inputs. For weighted output
+
+19
+
+connections from neuron u, the same weights can be used to both retrieve u’s contents and prevent u’s output ﬂow to other neurons in the network.
+To address the problem of conﬂicting weight updates, LSTM extends the CEC with input and output gates connected to the network input layer and to other memory cells. This results in a more complex LSTM unit, called a memory block; its standard architecture is shown in Figure 11.
+The input gates, which are simple sigmoid threshold units with an activation function range of [0, 1], control the signals from the network to the memory cell by scaling them appropriately; when the gate is closed, activation is close to zero. Additionally, these can learn to protect the contents stored in u from disturbance by irrelevant signals. The activation of a CEC by the input gate is deﬁned as the cell state. The output gates can learn how to control access to the memory cell contents, which protects other memory cells from disturbances originating from u. So we can see that the basic function of multiplicative gate units is to either allow or deny access to constant error ﬂow through the CEC.
+
+9 Training LSTM-RNNs - the Hybrid Learning
+Approach
+In order to preserve the CEC in LSTM memory block cells, the original formulation of LSTM used a combination of two learning algorithms: BPTT to train network components located after cells, and RTRL to train network components located before and including cells. The latter units work with RTRL because there are some partial derivatives (related to the state of the cell) that need to be computed during every step, no matter if a target value is given or not at that step. For now, we only allow the gradient of the cell to be propagated through time, truncating the rest of the gradients for the other recurrent connections.
+We deﬁne discrete time steps in the form τ = 1, 2, 3, .... Each step has a forward pass and a backward pass; in the forward pass the output/activation of all units are calculated, whereas in the backward pass, the calculation of the error signals for all weights is performed.
+
+9.1 The Forward Pass
+
+Let M be the set of memory blocks. Let mc be the c-th memory cell in the memory block m, and W[u,v] be a weight connecting unit u to unit v.
+In the original formulation of LSTM, each memory block m is associated with
+one input gate inm and one output gate outm. The internal state of a memory cell mc at time τ + 1 is updated according to its state smc (τ ) and according to the weighted input zmc (τ + 1) multiplied by the activation of the input gate yinm (τ + 1). Then, we use the activation of the output gate zoutm (τ + 1) to calculate the activation of the cell ymc (τ + 1).
+The activation yinm of the input gate inm is computed as
+
+yinm (τ + 1) = finm (zinm (τ + 1))
+
+(24)
+
+20
+
+Figure 10: A standard LSTM memory block. The block contains (at least) one cell with a recurrent self-connection (CEC) and weight of ‘1’. The state of the cell is denoted as sc. Read and write access is regulated by the input gate, yin, and the output gate, yout. The internal cell state is calculated by multiplying the result of the squashed input, g, by the result of the input gate, yin, and then adding the state of the last time step, sc(t − 1). Finally, the cell output is calculated by multiplying the cell state, sc, by the activation of the output gate, yout.
+21
+
+youtm (τ + 1)
+
+outputs to next layer
+ymc (τ + 1) output gating
+h(x)
+
+smc (τ )
+
+smc (τ + 1) CEC
+
+1.0 memorising
+
+yinm (τ + 1)
+
+input gating
+
+g(x)
+
+yv(τ )
+
+u: non-input unit i: input unit
+
+yi(τ + 1)
+
+Figure 11: A standard LSTM memory block. The block contains (at least)
+one cell with a recurrent self-connection (CEC) and weight of ‘1’. The state
+of the cell is denoted as sc . Read and write access is regulated by the input gate, yin , and the output gate, yout . The internal cell state is calculated by multiplying the result of the squashed input, g(x), by the result of the input gate and then adding the state of the current time step, smc (τ ), to the next, smc (τ + 1). Finally, the cell output is calculated by multiplying the cell state by the activation of the output gate.
+
+22
+
+Figure 12: A three cell LSTM memory block with recurrent self-connections 23
+
+with the input gate input
+
+zinm (τ + 1) = W[inm,u]X[u,inm](τ + 1), with u ∈ Pre (inm) ,
+u
+
+=
+
+W[inm,v]yv(τ ) + W[inm,i]yi(τ + 1).
+
+v∈U
+
+i∈I
+
+The activation of the output gate outm is
+
+youtm (τ + 1) = foutm (zoutm (τ + 1))
+
+with the output gate input
+
+(25) (26)
+
+zoutm (τ + 1) = W[outm,u]X[u,outm](τ + 1), with u ∈ Pre (outm) .
+u
+
+=
+
+W[outm,v]yv(τ ) + W[outm,i]yi(τ + 1).
+
+v∈U
+
+i∈I
+
+(27)
+
+The results of the gates are scaled using the non-linear squashing function finm = foutm = f, deﬁned by
+
+1
+
+f(s) = 1 + e−s
+
+(28)
+
+so that they are within the range [0, 1]. Thus, the input for the memory cell will only be able to pass if the signal at the input gate is suﬃciently close to ‘1’.
+For a memory cell mc in the memory block m, the weighted input zmc (τ + 1) is deﬁned by
+
+zmc (τ + 1) = W[mc,u]X[u,mc](τ + 1), with u ∈ Pre (mc) .
+u
+
+=
+
+W[mc,v]yv(τ ) + W[mc,i]yi(τ + 1).
+
+v∈U
+
+i∈I
+
+(29)
+
+As we mentioned before, the internal state smc (τ + 1) of the unit in the memory cell at time τ + 1 is computed diﬀerently; the weighted input is squashed and then multiplied by the activation of the input gate, and then the state of the last time step smc (τ ) is added. The corresponding equation is
+
+smc (τ + 1) = smc (τ ) + yinm (τ + 1)g(zmc (τ + 1))
+
+(30)
+
+with smc (0) = 0 and the non-linear squashing function for the cell input
+
+4
+
+g(z) = 1 + e−z − 2
+
+(31)
+
+which, in this case, scales the result to the range [−2, 2].
+The output ymc is now calculated by squashing and multiplying the cell state smc by the activation of the output gate youtm :
+
+ymc (τ + 1) = youtm (τ + 1)h(smc (τ + 1)).
+
+(32)
+
+with the non-linear squashing function
+
+2
+
+h(z) = 1 + e−z − 1
+
+(33)
+
+24
+
+with range [−1, 1]. Assuming a layered, recurrent neural network with standard input, standard
+output and hidden layer consisting of memory blocks, the activation of the output unit o is computed as
+
+yo(τ + 1) = fo(zo(τ + 1))
+
+(34)
+
+with
+
+zo(τ + 1) =
+
+W[o,u]yu(τ + 1).
+
+u∈U −G
+
+(35)
+
+where G is the set of gate units, and we can again use the logistic sigmoid in Equation 28 as a squashing function fo.
+
+9.2 Forget Gates
+The self-connection in a standard LSTM network has a ﬁxed weight set to ‘1’ in order to preserve the cell state over time. Unfortunately, the cell states sm tend to grow linearly during the progression of a time series presented in a continuous input stream. The main negative eﬀect is that the entire memory cell loses its memorising capability, and begins to function like an ordinary RNN network neuron.
+By manually resetting the state of the cell at the beginning of each sequence, the cell state growth can be limited, but this is not practical for continuous input where there is no distinguishable end, or subdivision is very complex and error prone.
+To address this problem, [22] suggested that an adaptive forget gate could be attached to the self-connection. Forget gates can learn to reset the internal state of the memory cell when the stored information is no longer needed. To this end, we replace the weight ‘1.0’ of the self-connection from the CEC with a multiplicative, forget gate activation yϕ, which is computed using a similar method as for the other gates:
+
+yϕm (τ + 1) = fϕm (zϕm (τ + 1) + bϕm ) ,
+
+(36)
+
+where f is the squashing function from Equation 28 with a range [0, 1], bϕm is the bias of the forget gate, and
+
+zϕm (τ + 1) = W[ϕm,u]X[u,ϕm](τ + 1), with u ∈ Pre (ϕm) .
+u
+
+=
+
+W[ϕm,v]yv(τ ) + W[ϕm,i]yi(τ + 1).
+
+v∈U
+
+i∈I
+
+(37)
+
+Originally, bϕm is set to 0, however, following the recommendation by [47], we ﬁx bϕm to 1, in order to improve the performance of LSTM (see Section 10.3).
+The updated equation for calculating the internal cell state smc is
+
+smc (τ + 1) = smc (τ ) yϕm (τ + 1) +yinm (τ + 1)g(zmc (τ + 1))
+=1 without forget gate
+
+(38)
+
+with smc (0) = 0 and using the squashing function in Equation 31, with a range [−2, 2]. The extended forward pass is given simply by exchanging Equation 30
+for Equation 38.
+
+25
+
+The bias weights of input and output gates are initialised with negative values, and the weights of the forget gate are initialised with positive values. From this, it follows that at the beginning of training, the forget gate activation will be close to ‘1.0’. The memory cell will behave like a standard LSTM memory cell without a forget gate. This prevents the LSTM memory cell from forgetting, before it has actually learned anything.
+
+9.3 Backward Pass
+
+LSTM incorporates elements from both BPTT and RTRL. Thus, we separate units into two types: those units whose weight changes are computed using a variation of BPTT (i.e, output units, hidden units, and the output gates), and those whose weight changes are computed using a variation of RTRL (i.e., the input gates, the forget gates and the cells).
+Following the notation used in previous sections, and using Equations 8 and 10, the overall network error at time step τ is
+
+1 E(τ ) =
+2
+
+( do(τ ) − yo(τ ) )2.
+
+o∈O
+
+eo(τ )
+
+(39)
+
+Let us ﬁrst consider units that work with BPTT. We deﬁne the notion of individual error of a unit u at time τ by
+
+∂E(τ )
+
+ϑu(τ ) = − ∂zu(τ ) ,
+
+(40)
+
+where zu is the weighted input of the unit. We can expand the notion of weight contribution as follows
+
+∂E(τ ) ∆W[u,v](τ ) = −η ∂W[u,v]
+
+∂E(τ ) = −η
+
+∂zu(τ ) .
+
+∂zu(τ ) ∂W[u,v]
+
+The
+
+factor
+
+∂zu(τ ) ∂ W[u,v]
+
+corresponds to the input
+
+signal that comes from the unit v
+
+to
+
+the unit u. However, depending on the nature of u, the individual error varies.
+
+If u is equal to an output unit o, then
+
+ϑo(τ ) = fo(zo(τ ))(do(τ ) − yo(τ )); thus, the weight contribution of output units is
+
+∆W[o,v](τ ) = ηϑo(τ )X[v,o](τ ).
+
+Now, if u is equal to a hidden unit h located between cells and output units, then
+
+ϑh(τ ) = fh(zh(τ ))
+
+W[o,h]ϑo(τ ) ;
+
+o∈O
+
+where O is the set of output units, and the weight contribution of hidden units is
+∆W[h,v](τ ) = ηϑh(τ )X[v,h](τ ).
+
+26
+
+Finally, if u is equal to the output gate outm of the memory block m, then
+
+ϑoutm (τ ) =tr foutm (zoutm (τ ))
+
+h(smc (τ )) W[o,mc]ϑo(τ ) ;
+
+mc ∈m
+
+o∈O
+
+where =tr means the equality only holds if the error is truncated so that it does not propagate “too much”; that is, it prevents the error from propagating back to the unit via its own feedback connection. Finally, the weight contribution for output gates is
+
+∆W[outm,v](τ ) = ηϑoutm (τ )X[v,outm](τ ).
+Let us now consider units that work with RTRL. In this case, the individual errors of the input gate and the forget gate revolve around the individual error of the cells in the memory block. We deﬁne the individual error of the cell mc of the memory block m by
+
+ϑmc (τ )
+
+=tr
+
+∂E(τ ) −
+∂smc (τ )
+
++
+
+ϑmc (τ
+
++
+
+1)yϕm (τ
+
++
+
+1)
+
+recurrent connection
+
+=tr ∂ymc (τ )
+
+∂zo(τ )
+
+∂E(τ ) −
+
+∂smc (τ ) o∈O ∂ymc (τ ) ∂zo(τ )
+
++ ϑmc (τ + 1)yϕm (τ + 1)
+
+=tr youtm (τ )h (smc (τ ))
+
+W[o,mc]ϑo(τ ) + ϑmc (τ + 1)yϕm (τ + 1).
+
+o∈O
+(41)
+
+Note that this equation does not consider the recurrent connection between
+
+the cell and other units, propagating back in time only the error through its
+
+recurrent connection (accounting for the inﬂuence of the forget gate). We use
+
+the following partial derivatives to expand the weight contribution for the cell
+
+as follows
+
+∂E(τ ) ∆W[mc,v](τ ) = −η ∂W[mc,v]
+
+∂E(τ ) = −η
+
+∂smc (τ )
+
+∂smc (τ ) ∂W[mc,v]
+
+(42)
+
+=
+
+ηϑmc (τ
+
+)
+
+∂smc (τ ) ∂ W[mc ,v]
+
+and the weight contribution for forget and input gates as follows
+
+∂E(τ ) ∆W[u,v](τ ) = −η ∂W[u,v]
+
+= −η
+
+∂E(τ ) ∂smc (τ )
+
+mc∈m ∂smc (τ ) ∂W[u,v]
+
+=
+
+η
+
+mc ∈m
+
+ϑmc (τ )
+
+∂smc (τ ) ∂ W[u,v]
+
+.
+
+(43)
+
+27
+
+Now,
+
+we
+
+need
+
+to
+
+deﬁne
+
+what
+
+is
+
+the
+
+value
+
+of
+
+. ∂smc (τ +1)
+∂ W[u,v]
+
+As
+
+expected,
+
+these
+
+also
+
+depend on the nature of the unit u. If u is equal to the cell mc, then
+
+∂smc (τ + 1) ∂ W[mc ,v]
+
+=tr
+
+∂smc (τ ) ∂ W[mc ,v]
+
+yϕm
+
+(τ
+
++1)+g
+
+(zmc
+
+(τ
+
++1))finm
+
+(zinm
+
+(τ
+
++1))yv (τ
+
+).
+
+(44)
+
+Now, if u is equal to the input gate inm, then
+
+∂smc (τ + 1) ∂ W[inm ,v]
+
+=tr
+
+∂smc (τ ) ∂ W[inm ,v]
+
+yϕm
+
+(τ
+
++1)+g(zmc
+
+(τ
+
++1))finm
+
+(zinm
+
+(τ
+
++1))yv
+
+(τ
+
+).
+
+(45)
+
+Finally, if u is equal to a forget gate ϕm, then
+
+∂smc (τ + 1) ∂ W[ϕm ,v]
+
+=tr
+
+∂smc (τ ) ∂ W[ϕm ,v]
+
+yϕm
+
+(τ
+
++ 1)
+
++
+
+smc (τ )fϕm (zϕm (τ
+
++
+
+1))yv(τ ).
+
+(46)
+
+with smc (0) = 0. A more detailed version of the LSTM backward pass with forget gates is described in [22].
+
+9.4 Complexity
+
+In this section, we present a complexity measure following the same principles that Gers used in [22]; namely, we assume that every memory block contains the same number of cells (usually one), and that output units only receive signals from cell units and not from other units in the network. Let B, C, In, Out be the number of of memory blocks, memory cells in each block, input units and output units, respectively. Now, for each memory block we need to resolve the (recurrent) connections for each cell, input gate, forget gate and output gate. Solving these connections yields a complexity measure of
+
+
+
+
+
+
+
+B C (B. C) + (B. C) + (B. C)  + B. C  ∼ O B2. C2 . (47)
+
+
+
+
+
+
+
+cells input gates forget gates
+
+output gates
+
+We also need to solve the connections from input units and to output units;
+
+these are, respectively
+
+In. B. S ∼ O (In. B. S) ,
+
+(48)
+
+and
+
+Out. B. S ∼ O (Out. B. S) .
+
+(49)
+
+The numbers B, C, In and Out do not change as the network executes, and, at each step, the number of weight updates is bounded by the number of connections; thus, we can say that LSTM’s computational complexity per step and weight is O(1).
+
+9.5 Strengths and limitations of LSTM-RNNs
+According to [23], LSTM excels on tasks in which a limited amount of data must be remembered for a long time. This property is attributed to the use of memory blocks. Memory blocks are interesting constructions: they have access control in the form of input and output gates; which prevent irrelevant
+
+28
+
+information from entering or leaving the memory block. Memory blocks also have a forget gate which weights the information inside the cells, so whenever previous information becomes irrelevant for some cells, the forget gate can reset the state of the diﬀerent cell inside the block. Forget gates also enable continuous prediction [54], because they can make cells completely forget their previous state; preventing biases in prediction.
+Like other algorithms, LSTM requires the topology of the network to be ﬁxed a priori. The number of memory blocks in networks does not change dynamically, so the memory of the network is ultimately limited. Moreover, [23] point out that it is unlikely to overcome this limitation by increasing the network size homogeneously, and suggest that modularisation promotes eﬀective learning. The process of modularisation is, however, “not generally clear”.
+10 Problem speciﬁc topologies
+LSTM-RNN permits many diﬀerent variants and topologies. These partially problem speciﬁc and can be derived [3] from the basic method [41], [21] covered in Section 8 and 9. More recently the basic method is referenced to as ‘vanilla’ LSTM, which used in practise these days only with various extensions and modiﬁcations. In the following sections we cover the most common in use, namely bidirectional LSTM (BLSTM-CTC) ([34], [27], [31]), Grid LSTM (or N-LSTM) [49] and Gated Recurrent Unit (GRU) ([10], [13]). There are various variants of Grid LSTM. The most important to note are Multidimensional LSTM ( [29], [35]), Stacked LSTM ([18], [33], [68]). Speciﬁcally we would like to also point out the more recent variant Sequence-to-Sequence ([68], [36], [8], [80], [69]) and attention-based learning [12], which are both important to mention in the context of cognitive learning tasks.
+10.1 Bidirectional LSTM
+Conventional RNNs analyse, for any given point in a sequence, just one direction during processing: the past. The work published in [34] explores the possibility of analysing both the future as well as the past of a given point in the context of LSTM. At a very high level, bidirectional means that the input is presented forwards and backwards to two separate LSTM networks, both of which are connected to the same output layer. According to [34], bidirectional training possesses an architectural advantage over unidirectional training if used to classify phonemes.
+Bidirectional LSTM removes the one-step truncation originally present in LSTM, and implements a full error gradient calculation. This full error gradient approach eased the implementation of bidirectional LSTM, and allowed it to be trained using standard BPTT.
+In 2006 [28] introduced an RNN objective function named Connectionist Temporal Classiﬁcation (CTC). The advantage of CTC is that it enables the LSTM-RNN to handle input data not segmented into sequences. This is important if the correct segmentation of data is diﬃcult to achieve (e.g. separation of letters in handwriting). Later this lead to the now common variant BLSTMCTC as documented by [52, 19, 27].
+29
+
+10.2 Grid LSTM
+Grid LSTM presented by [49] is an attempt to generalise the advantages of LSTM – including its ability to select or ignore inputs– into deep networks of a uniﬁed architecture. An N -dimensional grid LSTM or N -LSTM is a network arranged in a grid of N dimensions, with LSTM cells along and in-between some (or all) of the dimensions, enabling communication among consecutive layers.
+Grid LSTM is analogous to the stacked LSTM [33], but it adds cells along the depth dimension too, i.e., in-between layers. Additionally, N -LSTM networks with N > 2 are analogous to multidimensional LSTM [29], but they diﬀer again by the cells along the depth dimension, and by the ability of grid LSTM networks to modulate the interaction among layers such that it is not prone to the instability present in Multidimensional LSTM.
+Consider a trained LSTM network with weights W , whose hidden cells emit a collection of signals represented by the vector yh and whose memory units emit a collection of signals represented by the vector yh. Whenever this LSTM network is provided an input vector x, there is a change in the signals emitted by both hidden units and memory cells; let yh and sm represent the new values of signals. Let P be a projection matrix, the concatenation of the new input signals and the recurrent signals is given by
+
+X=
+
+Px yh
+
+(50)
+
+An LSTM transform, which changes the values of hidden and memory signals as previously mentioned, can be formulated as follows:
+
+(X, sm) −W→ (yh , sm )
+
+(51)
+
+Before we explain in detail the architecture of Grid LSTM blocks, we quickly review Stacked LSTM and Multidimensional LSTM architectures.
+
+10.2.1 Stacked LSTM
+
+A stacked LSTM [33], as its name suggests, stacks LSTM layers on top of each other in order to increase capacity. At a high level, to stack N LSTM networks, we make the ﬁrst network have X1 as deﬁned in Equation (52), but we make the i-th network have Xi deﬁned by
+
+Xi =
+
+yhi−1 yhi
+
+(52)
+
+instead, replacing the input signals x with the hidden signals from the previous LSTM transform, eﬀectively “stacking” them.
+
+10.2.2 Multidimensional LSTM
+In Multidimensional LSTM networks [29], inputs are structured in an N -dimensional grid instead of being sequences of values; for example, a solid expressed as a three-dimensional array of voxels. To use this structure of inputs, Multidimensional LSTM networks increase the number of recurrent connections from 1 to N ; thus, an N -dimensional LSTM receives N hidden vectors yh1, . . . , yhN and
+
+30
+
+N memory vectors sm1, . . . , smN as input, then the network outputs a single hidden vector yh and a single memory vector sm. For multidimensional LSTM networks, we deﬁne X by
+
+Px
+
+ yh1 
+
+X =  
+
+...
+
+  
+
+(53)
+
+yhN
+
+and the memory signal vector sm is calculated using
+
+N
+sm = ϕi smi + inm zm
+i=1
+
+(54)
+
+where is the Hadamard product, ϕ is a vector consisting of N forget signals (one for each yhi), and inm and zm respectively correspond to the signals of the input gate and the weighted input of the memory cell (see Equation (38) to compare Equation (54) with the standard calculation of sm).
+
+10.2.3 Grid LSTM Blocks
+
+Due to the high number of connections, large multidimensional LSTM net-
+works are usually unstable [49]. Grid LSTM oﬀers an alternate way of comput-
+ing the new memory vector. However, unlike multidimensional LSTM, a Grid
+LSTM block outputs N hidden vectors yh1, . . . , yhN and N memory vectors sm1, . . . , smN that are all distinct. To do so, the model concatenates the hidden vectors from the N dimensions as follows
+
+ yh1 
+
+X = 
+
+...
+
+ 
+
+(55)
+
+yhN
+
+The grid LSTM block computes N LSTM transforms, one for each dimension, as follows
+
+(X, sm1) −W−→1 (yh1, sm1) ...
+(X, smN ) −W−N → (yhN , smN )
+
+(56)
+
+Each transform applies standard LSTM across its respective dimension. Having X as input to all transforms represents the sharing of hidden signals across the diﬀerent dimension of the grid; note that each transform independently manages its memory signals.
+
+10.3 Gated Recurrent Unit (GRU)
+[10] propose the Gated Recurrent Unit (GRU) architecture for RNN as an alternative to LSTM. GRU has empirically been found to outperform LSTM on nearly all tasks, except language modelling with naive initialization [47]. GRU units, unlike LSTM memory blocks, do not have a memory cell; although they
+
+31
+
+do have gating units: a reset gate and an update gate. More precisely, let H
+be the set of GRU units; if u ∈ H, then we deﬁne the activation yresu (τ + 1) of the reset gate resu at time τ + 1 by
+
+yresu (τ + 1) = fresu (sresu (τ + 1)) ,
+
+(57)
+
+where fresu is the squashing function of the reset gate (usually a sigmoid function), and sresu (τ + 1) is the state of the reset gate resu at time τ + 1, which is deﬁned by
+
+sresu (τ + 1) = zresu (τ + 1) + bresu ,
+
+(58)
+
+where bresu is the bias of the reset gate, and zresu (τ + 1) is the weighted input of the reset gate at time τ + 1, which is in turn deﬁned by
+
+zresu (τ + 1) = W[resu,u]X[u,resu](τ + 1), with u ∈ Pre (resu) ;
+u
+
+=
+
+W[resu,h]yh(τ ) + W[resu,i]yi(τ + 1),
+
+h∈H
+
+i∈I
+
+(59) (60)
+
+where I is the set of input units.
+Similarly, we deﬁne deﬁne the activation yupdu (τ + 1) of the update gate updu at time τ + 1 by
+
+yupdu (τ + 1) = fupdu supdu (τ + 1)
+
+(61)
+
+where fupdu is the squashing function of the update gate (again, usually a sigmoid function), and supdu (τ + 1) is the state of the update gate updu at time τ + 1, deﬁned by
+
+supdu (τ + 1) = zupdu (τ + 1) + bupdu ,
+
+(62)
+
+where bupdu is the bias of the update gate, and zupdu (τ + 1) is the weighted input of the update gate at time τ + 1, which in turn is deﬁned by
+
+zupdu (τ + 1) = W[updu,u]X[u,updu](τ + 1), with u ∈ Pre (updu) ;
+u
+
+=
+
+W[updu,h]yh(τ ) + W[updu,i]yi(τ + 1),
+
+h∈H
+
+i∈I
+
+(63) (64)
+
+GRU reset and input gates behave like normal units in a recurrent network. The main characteristic of GRU is the way the activation of the GRU units is deﬁned. A GRU unit u ∈ H has an associated candidate activation yu(τ + 1) at time τ + 1, formally deﬁned by
+
+
+
+
+
+
+
+yu(τ
+
++
+
+1)
+
+=
+
+fu
+
+ 
+
+
+
+
+
+W[u,i]yi(τ + 1)
+i∈I
+
+
+
++ yresu (τ + 1)
+
+W[u,h]yh(τ )
+
++
+
+bu
+
+ 
+
+
+
+h∈H
+
+Bias 
+
+External input at time τ + 1
+
+Gated recurrent connection
+
+(65)
+
+32
+
+where fu is usually tanh, and the activation yu(τ + 1) of the GRU unit u at time τ + 1 is deﬁned by
+
+yu(τ + 1) = yupdu (τ + 1)yu(τ ) + (1 − yupdu (τ + 1))yu(τ + 1)
+
+(66)
+
+Note the similarities between Equations (38) and (66). The factor yupdu (τ + 1) appears to emulate the function of the forget gate of LSTM, while the factor
+(1−yupdu (τ +1)) appears to emulate the function of the the input gate of LSTM.
+
+11 Applications of LSTM-RNN
+In this ﬁnal section we cover a selection of well-known publications which proved relevant over time.
+
+11.1 Early learning tasks
+In early experiments LSTM proved applicable to various learning tasks, previously considered impossible to learn. This included recalling high precision real numbers over extended noisy sequences [41], learning context free languages [21], and various tasks that require precise timing and counting [23]. In [43] LSTM was successfully introduced to meta-learning with a program search tasks to approximate a learning algorithm for quadratic functions. The successful application of reinforcement learning to solve non-Markovian learning tasks with long-term dependencies was shown by [2].
+
+11.2 Cognitive learning tasks
+LSTM-RNNs proved great strengths in solving a large variety of cognitive learning tasks. Speech and handwriting recognition, and more recently machine translation are the most predominant in literature. Other cognitive learning tasks include emotion recognition from speech [78], text generation [67], handwriting generation [24], constituency parsing [71], and conversational modelling [72].
+
+11.2.1 Speech recognition
+A ﬁrst indication of the capabilities of neural networks in tasks related to natural language was given by [4] with a neural language modelling task. In 2003 good results applying standard LSTM-RNN networks with a mix of LSTM and sigmoidal units to speech recognition tasks were obtained by [25, 26]. Better results comparable to Hidden-Markov-Model (HMM)-based systems [7] were achieved using bidirectional training with BLSTM [6, 34]. A variant named BLSTM-CTC [28, 19, 17] ﬁnally outperformed HMMs, with recent improvements documented in [44, 77]. A deep variant of stacked BLSTM-CTC was used in 2013 by [33] and later extended with a modiﬁed CTC objective function by [30], both achieving outstanding results. The performance of diﬀerent LSTM-RNN architectures on large vocabulary speech recognition tasks was investigated by [63], with best results using an LSTM/HMM hybrid architecture. Comparable results were achieved by [20].
+
+33
+
+More recently LSTM was improving results using the sequence-to-sequence framework ([68]) and attention-based learning ([11] [12]). In 2015 [8] introduced an specialised architecture for speech recognition with two functions, the ﬁrst called ‘listener’ and the latter called ‘attend and spell’. The ‘listener’ function uses BLSTM with a pyramid structure (pBLSTM), similar to clockwork RNNs introduced by [50]. The other function, ‘attend and spell’, uses an attentionbased LSTM transducer developed by [1] and [12]. Both functions are trained with methods introduced in the sequence-to-sequence framework [68] and in attention-based learning [1].
+11.2.2 Handwriting recognition
+In 2007 [52] introduced BLSTM-CTC and applied it to online handwriting recognition, with results later outperforming Hidden-Markov-based recognition systems presented by [32]. [27] combined BLSTM-CTC with a probabilistic language model and by this developed a system capable of directly transcribing raw online handwriting data. In a real-world use case this system showed a very high automation rate with an error rate comparable to a human on this kind of task ( [57]). In another approach [35] combined BLSTM-CTC with multidimensional LSTM and applied it to an oﬄine handwriting recognition task, as well outperforming classiﬁers based on Hidden-Markov models. In 2013 [81, 61] applied the very successful regularisation method dropout as proposed by [37, 64]).
+11.2.3 Machine translation
+In 2014 [10] the authors applied the RNN encoder-decoder neural network architecture to machine translation and improved the performance of a statistical machine translation system. The RNN Encoder-Decoder architecture is based on an approach communicated by [48]. A very similar deep LSTM architecture, referred to as sequence-to-sequence learning, was investigated by [68] conﬁrming these results. [53] addressed the rare word problem using sequence-to-sequence, which improves the ability to translate words not in the vocabulary. The architecture was further improved by [1] addressing issues related to the translation of long sentences by implementing an attention mechanism into the decoder.
+11.2.4 Image processing
+In 2012 BSLTM was applied to keyword spotting and mode detection distinguishing diﬀerent types of content in handwritten documents, such as text, formulas, diagrams and ﬁgures, outperforming HMMs and SVMs [44, 45, 59]. At approximately the same period of time [51] investigated the classiﬁcation of high-resolution images from the ImageNet database with considerable better results then previous approaches. In 2015 the more recent LSTM variant using the Sequence-to-Sequence framework was successfully trained by [73, 79] to generate natural sentences in plain English describing images. Also in 2015 [14] the authors combined LSTMs with a deep hierarchical visual feature extractor and applied the model to image interpretation and classiﬁcation tasks, like activity recognition and image/video description.
+34
+
+11.3 Other learning tasks
+Early papers applied LSTM-RNN to a number of real world problems pushing its evolution further. Covered problems include protein secondary structure prediction [40, 9] and music generation [15]. Network security was covered in [65, 66] were the authors apply LSTM-RNN to the DARPA intrusion detection dataset.
+In [80, 70] the authors apply computational tasks to LSTM-RNN. In 2014 the authors of [80] evaluate short computer programs using the Sequence-toSequence framework. One year later the authors of [70] use a modiﬁed version of the framework to learn solutions of combinatorial optimisation problems.
+12 Conclusions
+In this article, we covered the derivation of LSTM in detail, summarising the most relevant literature. Speciﬁcally, we highlighted the vanishing error problem, which is a serious shortcoming of RNNs. LSTM provides a possible solution to this problem by introducing a constant error ﬂow through the internal states of special memory cells. In this way, LSTM is able to tackle long time-lag problems, bridging time intervals in excess of 1,000 time steps. Finally, we introduced two LSTM extensions that enable LSTM to learn self-resets and precise timing. With self-resets, LSTM is able to free memory of irrelevant information.
+Acknowledgements
+This work was mainly pushed as a private project from Ralf C. Staudemeyer spanning a period of ten years from 2007–17. During the time 2013–15 it was partially supported by post-doctoral fellowship research funds provided by the South African National Research Foundation, Rhodes University, the University of South Africa, and the University of Passau. The co-author Eric Rothstein Morris picked-up the loose ends, developed the uniﬁed notation for this article in 2015–16.
+We acknowledge support for this work from Ralf’s Ph.D. supervisor Christian W. Omlin for raising the authors interest to investigate the capabilities of Long Short-Term Memory Recurrent Neural Networks. Very special thanks go to Arne Janza for doing the internal review. Without his dedicated support to eliminate a number of hard to ﬁnd logical inconsistencies this publication would not have found its way to the reader.
+References
+[1] Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio. Neural machine translation by jointly learning to align and translate. In Proc. of the Int. Conf. on Learning Representations (ICLR 2015), volume 26, page 15, sep 2015.
+[2] Bram Bakker. Reinforcement learning with long short-term memory. In Advances in Neural Information Processing Systems (NIPS’02), 2002.
+35
+
+[3] Justin Bayer, Daan Wierstra, Julian Togelius, and Ju¨rgen Schmidhuber. Evolving memory cell structures for sequence learning. In Int. Conf. on Artiﬁcial Neural Networks, pages 755–764, 2009.
+[4] Yoshua Bengio, R´ejean Ducharme, Pascal Vincent, and Christian Janvin. A Neural Probabilistic Language Model. The Journal of Machine Learning Research, 3:1137–1155, 2003.
+[5] Yoshua Bengio, Patrice Simard, Paolo Frasconi, and Paolo Frasconi Yoshua Bengio, Patrice Simard. Learning long-term dependencies with gradient descent is diﬃcult. IEEE trans. on Neural Networks / A publication of the IEEE Neural Networks Council, 5(2):157–66, jan 1994.
+[6] N Beringer, A Graves, F Schiel, and J Schmidhuber. Classifying unprompted speech by retraining LSTM Nets. In W Duch, J Kacprzyk, E Oja, and S Zadrozny, editors, Artiﬁcial Neural Networks: Biological Inspirations (ICANN), volume 3696 LNCS, pages 575–581. Springer-Verlag Berlin Heidelberg, 2005.
+[7] Herv´e A. Bourlard and Nelson Morgan. Connectionist Speech Recognition - a hybrid approach. Kluwer Academic Publishers, Boston, MA, 1994.
+[8] William Chan, Navdeep Jaitly, Quoc V. Le, and Oriol Vinyals. Listen, Attend and Spell. arXiv preprint, pages 1–16, aug 2015.
+[9] Jinmiao Chen and Narendra S. Chaudhari. Capturing Long-Term Dependencies for Protein Secondary Structure Prediction. In Fu-Liang Yin, Jun Wang, and Chengan Guo, editors, Advances in Neural Networks - Proc. of the Int. Symp. on Neural Networks (ISNN 2004), pages 494–500, Berlin, Heidelberg, 2004. Springer Berlin Heidelberg.
+[10] Kyunghyun Cho, Bart Van Merri¨enboer, Caglar Gulcehre, Dzmitry Bahdanau, Fethi Bougares, Holger Schwenk, Yoshua Bengio, Bart van Merrienboer, Caglar Gulcehre, Dzmitry Bahdanau, Fethi Bougares, Holger Schwenk, and Yoshua Bengio. Learning phrase representations using RNN encoder-decoder for statistical machine translation. In Proc. of the Conf. on Empirical Methods in Natural Language Processing (EMNLP’14), pages 1724–1734, Stroudsburg, PA, USA, 2014. Association for Computational Linguistics.
+[11] Jan Chorowski, Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio. End-to-end continuous speech recognition using attention-based recurrent NN: ﬁrst results. Deep Learning and Representation Learning Workshop (NIPS 2014), pages 1–10, dec 2014.
+[12] Jan K Chorowski, Dzmitry Bahdanau, Dmitriy Serdyuk, Kyunghyun Cho, and Yoshua Bengio. Attention-based models for speech recognition. In C Cortes, N D Lawrence, D D Lee, M Sugiyama, and R Garnett, editors, Advances in Neural Information Processing Systems 28, pages 577–585. Curran Associates, Inc., jun 2015.
+[13] Junyoung Chung, Caglar Gulcehre, Kyunghyun Cho, and Yoshua Bengio. Empirical evaluation of gated recurrent neural networks on sequence modeling. In arXiv, pages 1–9, dec 2014.
+36
+
+[14] Jeﬀrey Donahue, Lisa Anne Hendricks, Sergio Guadarrama, Marcus Rohrbach, Subhashini Venugopalan, Kate Saenko, Trevor Darrell, U T Austin, Umass Lowell, U C Berkeley, Lisa Anne Hendricks, Sergio Guadarrama, Marcus Rohrbach, Subhashini Venugopalan, Kate Saenko, and Trevor Darrell. Long-Term Recurrent Convolutional Networks for Visual Recognition and Description. In Proc. of the Conf. on Computer Vision and Pattern Recognition (CVPR’15), pages 2625–2634, jun 2015.
+[15] Douglas Eck and Ju¨rgen Schmidhuber. Finding temporal structure in music: Blues improvisation with LSTM recurrent networks. In Proc. of the 12th Workshop on Neural Networks for Signal Processing, pages 747–756. IEEE, IEEE, 2002.
+[16] Jeﬀrey L. Elman. Finding structure in time. Cognitive Science, 14(2):179– 211, mar 1990.
+[17] Florian Eyben, Martin Wollmer, Bjorn Schuller, and Alex Graves. From speech to letters - using a novel neural network architecture for grapheme based ASR. In Workshop on Automatic Speech Recognition & Understanding, pages 376–380. IEEE, dec 2009.
+[18] Santiago Fernandez, Alex Graves, and Ju¨rgen Schmidhuber. Sequence labelling in structured domains with hierarchical recurrent neural networks. In Proc. of the 20th Int. Joint Conf. on Artiﬁcial Intelligence (IJCAI’07), pages 774–779, 2007.
+[19] Santiago Fern´andez, Alex Graves, and Ju¨rgen Schmidhuber. Phoneme recognition in TIMIT with BLSTM-CTC. Arxiv preprint arXiv08043269, abs/0804.3:8, 2008.
+[20] T Geiger, Zixing Zhang, Felix Weninger, Gerhard Rigoll, Ju¨rgen T Geiger, Zixing Zhang, Felix Weninger, Bj¨orn Schuller, and Gerhard Rigoll. Robust speech recognition using long short-term memory recurrent neural networks for hybrid acoustic modelling. Proc. of the Ann. Conf. of International Speech Communication Association (INTERSPEECH 2014), (September):631–635, 2014.
+[21] Felix A. Gers and Ju¨rgen Schmidhuber. LSTM recurrent networks learn simple context-free and context-sensitive languages. IEEE Trans. on Neural Networks, 12(6):1333–1340, jan 2001.
+[22] Felix A. Gers, Ju¨rgen Schmidhuber, and Fred Cummins. Learning to Forget: Continual Prediction with LSTM. Neural Computation, 12(10):2451– 2471, oct 2000.
+[23] Felix A. Gers, Nicol N. Schraudolph, and Ju¨rgen Schmidhuber. Learning precise timing with LSTM recurrent networks. Journal of Machine Learning Research (JMLR), 3(1):115–143, 2002.
+[24] Alex Graves. Generating sequences with recurrent neural networks. Proc. of the 23rd Int. Conf. on Information and Knowledge Management (CIKM ’14), pages 101–110, aug 2014.
+37
+
+[25] Alex Graves, Nicole Beringer, and Ju¨rgen Schmidhuber. A comparison between spiking and diﬀerentiable recurrent neural networks on spoken digit recognition. In Proc. of the 23rd IASTED Int. Conf. on Modelling, Identiﬁcation, and Control, Grindelwald, 2003.
+[26] Alex Graves, Nicole Beringer, and Ju¨rgen Schmidhuber. Rapid retraining on speech data with LSTM recurrent networks. Technical Report IDSIA09-05, IDSIA, 2005.
+[27] Alex Graves, S Fern´andez, and Marcus Liwicki. Unconstrained online handwriting recognition with recurrent neural networks. Neural Information Processing Systems (NIPS’07), 20:577–584, 2007.
+[28] Alex Graves, Santiago Fern´andez, Faustino Gomez, and Ju¨rgen Schmidhuber. Connectionist temporal classiﬁcation: Labelling unsegmented sequence data with recurrent neural networks. In Proc. of the 23rd Int. Conf. on Machine Learning (ICML’06), number January, pages 369–376, New York, New York, USA, 2006. ACM Press.
+[29] Alex Graves, Santiago Fernandez, and Ju¨rgen Schmidhuber. MultiDimensional Recurrent Neural Networks. Proc. of the Int. Conf. on Artiﬁcial Neural Networks (ICANN’07), 4668(1):549–558, may 2007.
+[30] Alex Graves and Navdeep Jaitly. Towards End-To-End Speech Recognition with Recurrent Neural Networks. JMLR Workshop and Conference Proceedings, 32(1):1764–1772, 2014.
+[31] Alex Graves, Navdeep Jaitly, and Abdel Rahman Mohamed. Hybrid speech recognition with Deep Bidirectional LSTM. In Proc. of the workshop on Automatic Speech Recognition and Understanding (ASRU’13), pages 273– 278, 2013.
+[32] Alex Graves, Marcus Liwicki, Santiago Fern´andez, Roman Bertolami, Horst Bunke, and Ju¨rgen Schmidhuber. A novel connectionist system for unconstrained handwriting recognition. IEEE trans. on Pattern Analysis and Machine Intelligence, 31(5):855–68, may 2009.
+[33] Alex Graves, Abdel-rahman Mohamed, and Geoﬀrey Hinton. Speech recognition with deep recurrent neural networks. In Int. Conf. on Acoustics, Speech and Signal Processing (ICASSP’13), number 3, pages 6645–6649. IEEE, may 2013.
+[34] Alex Graves and Ju¨rgen Schmidhuber. Framewise phoneme classiﬁcation with bidirectional LSTM networks. In Proc. of the Int. Joint Conf. on Neural Networks, volume 18, pages 2047–2052, Oxford, UK, UK, jun 2005. Elsevier Science Ltd.
+[35] Alex Graves and Ju¨rgen Schmidhuber. Oﬄine handwriting recognition with multidimensional recurrent neural networks. In Advances in Neural Information Processing Systems 21 (NIPS’09), pages 545–552. MIT Press, 2009.
+[36] Alex Graves, Greg Wayne, and Ivo Danihelka. Neural Turing Machines. Arxiv, pages 1–26, 2014.
+38
+
+[37] Geoﬀrey E. Hinton, Nitish Srivastava, Alex Krizhevsky, Ilya Sutskever, and Ruslan R. Salakhutdinov. Improving neural networks by preventing co-adaptation of feature detectors. ArXiv e-prints, pages 1–18, 2012.
+[38] Josef Hochreiter. Untersuchungen zu dynamischen neuronalen Netzen. Master’s thesis, Institut fur Informatik, Technische Universitat, Munchen, (April 1991):1–71, 1991.
+[39] Sepp Hochreiter, Yoshua Bengio, Paolo Frasconi, and Ju¨rgen Schmidhuber. Gradient ﬂow in recurrent nets: the diﬃculty of learning long-term dependencies. A Field Guide to Dynamical Recurrent Neural Networks, page 15, 2001.
+[40] Sepp Hochreiter, Martin Heusel, and Klaus Obermayer. Fast modelbased protein homology detection without alignment. Bioinformatics, 23(14):1728–1736, jul 2007.
+[41] Sepp; Hochreiter and Ju¨rgen Schmidhuber. Long Short-Term Memory. Neural computation, 9(8):1735–1780, 1997.
+[42] Sepp Hochreiter and Ju¨rgen Schmidhuber. LSTM can solve hard long time lag problems. Neural Information Processing Systems, pages 473–479, 1997.
+[43] Sepp Hochreiter, A Steven Younger, and Peter R Conwell. Learning to learn using gradient descent. In Georg Dorﬀner, Horst Bischof, and Kurt Hornik, editors, Proc. of the Int. Conf. of Artiﬁcial Neural Networks (ICANN 2001), pages 87–94, Berlin, Heidelberg, 2001. Springer Berlin Heidelberg.
+[44] Emanuel Indermuehle, Volkmar Frinken, Andreas Fischer, and Horst Bunke. Keyword spotting in online handwritten documents containing text and non-text using BLSTM neural networks. In Int. Conf. on Document Analysis and Recognition (ICDAR), pages 73–77. IEEE, 2011.
+[45] Emanuel Indermuhle, Volkmar Frinken, and Horst Bunke. Mode detection in online handwritten documents using BLSTM neural networks. In Int. Conf. on Frontiers in Handwriting Recognition (ICFHR), pages 302–307. IEEE, 2012.
+[46] Michael I. Jordan. Attractor dynamics and parallelism in a connectionist sequential machine. In Proc. of the Eigth Annual Conf. of the Cognitive Science Society, pages 531–546. IEEE Press, jan 1986.
+[47] Rafal Jozefowicz, Wojciech Zaremba, and Ilya Sutskever. An empirical exploration of Recurrent Network Architectures. In Proc. of the 32nd Int. Conf on Machine Learning, pp. 23422350, 2015, pages 2342—-2350, 2015.
+[48] Nal Kalchbrenner and Phil Blunsom. Recurrent Continuous Translation Models. In Proc. of the Conf. on Empirical Methods in Natural Language Processing (EMNLP’13), volume 3, page 413. Proceedings of the 2013 Conference on Empirical Methods in Natural Language Processing, 2013.
+[49] Nal Kalchbrenner, Ivo Danihelka, and Alex Graves. Grid Long Short-Term Memory. In arXiv preprint, page 14, jul 2016.
+39
+
+[50] Jan Koutnik, Klaus Greﬀ, Faustino Gomez, and Ju¨rgen Schmidhuber. A Clockwork RNN. In Proc. of the 31st Int. Conf. on Machine Learning (ICML 2014), volume 32, pages 1863–1871, 2014.
+[51] Alex Krizhevsky, Ilya Sutskever, and Geoﬀrey E Hinton. ImageNet Classiﬁcation with Deep Convolutional Neural Networks. In F Pereira, C J C Burges, L Bottou, and K Q Weinberger, editors, Advances in Neural Information Processing Systems 25, pages 1–9. Curran Associates, Inc., 2012.
+[52] M Liwicki, A Graves, H Bunke, and J Schmidhuber. A novel approach to on-line handwriting recognition based on bidirectional long short-term memory networks. In Proc. of the 9th Int. Conf. on Document Analysis and Recognition, pages 367{—-}371, 2007.
+[53] Minh-Thang Luong, Ilya Sutskever, Quoc V. Le, Oriol Vinyals, and Wojciech Zaremba. Addressing the rare word problem in neural machine translation. Arxiv, pages 1–11, 2014.
+[54] Qi Lyu and Jun Zhu. Revisit long short-term memory: an optimization perspective. In Deep Learning and Representation Learning Workshop (NIPS 2014), pages 1–9, 2014.
+[55] Marvin L. Minsky and Seymour A. Papert. Perceptrons: An introduction to computational geometry. Expanded. MIT Press, Cambridge, 1988.
+[56] Michael C Mozer. Induction of Multiscale Temporal Structure. In Advances in Neural Information Processing Systems 4, pages 275–282. Morgan Kaufmann, 1992.
+[57] Thibauld Nion, Fares Menasri, Jerome Louradour, Cedric Sibade, Thomas Retornaz, Pierre Yves Metaireau, and Christopher Kermorvant. Handwritten information extraction from historical census documents. Proc. of the Int. Conf. on Document Analysis and Recognition (ICDAR 2013), pages 822–826, 2013.
+[58] Randall C O’Reilly and Michael J Frank. Making working memory work: a computational model of learning in the prefrontal cortex and basal ganglia. Neural Computation, 18(2):283–328, feb 2006.
+[59] Sebastian Otte, Dirk Krechel, Marcus Liwicki, and Andreas Dengel. Local Feature Based Online Mode Detection with Recurrent Neural Networks. Int. Conf. on Frontiers in Handwriting Recognition, pages 533–537, 2012.
+[60] JA A P´erez-Ortiz, FA A Felix A. Gers, Douglas Eck, J??rgen U. Schmidhuber, Juan Antonio P??rez-Ortiz, FA A Felix A. Gers, Douglas Eck, and J??rgen U. Schmidhuber. Kalman ﬁlters improve LSTM network performance in problems unsolvable by traditional recurrent nets. Neural Networks, 16(2):241–250, 2003.
+[61] Vu Pham, Th´eodore Theodore Th´eodore Bluche, Christopher Kermorvant, and J´erˆome Jerome J´erˆome Louradour. Dropout improves recurrent neural networks for handwriting recognition. In Proc. of the Int. Conf. on Frontiers in Handwriting Recognition (ICFHR’13), volume 2014-Decem, pages 285– 290. IEEE, nov 2013.
+40
+
+[62] David E. Rumelhart, Geoﬀrey E. Hinton, and Ronald J. Williams. Learning internal representations by error propagation. In J L McClelland and D E Rumelhart, editors, Parallel distributed processing: Explorations in the microstructure of cognition, volume 1, pages 318–362. MIT Press, jan 1985.
+[63] Haim Sak, Andrew Senior, and Franc¸oise Beaufays. Long short-term memory based recurrent neural network architectures for large scale acoustic modeling. In Interspeech 2014, number September, pages 338–342, feb 2014.
+[64] Nitisch Srivastava. Improving Neural Networks with Dropout. PhD thesis, University of Toronto, 2013.
+[65] Ralf C. Staudemeyer. The importance of time: Modelling network intrusions with long short-term memory recurrent neural networks. PhD thesis, 2012.
+[66] Ralf C. Staudemeyer. Applying long short-term memory recurrent neural networks to intrusion detection. South African Computer Journal, 56(1):136–154, jul 2015.
+[67] Ilya Sutskever, James Martens, and Geoﬀrey E. Hinton. Generating text with recurrent neural networks. In Proc. of the 28th Int. Conf. on Machine Learning (ICML-11)., pages 1017–1024, 2011.
+[68] Ilya Sutskever, Oriol Vinyals, and Quoc V Le. Sequence to Sequence learning with neural networks. Advances in Neural Information Processing Systems (NIPS’14), pages 3104–3112, sep 2014.
+[69] Oriol Vinyals, Samy Bengio, and Manjunath Kudlur. Order Matters: Sequence to Sequence for sets. In Proc. of the 4th Int. Conf. on Learning Representations (ICLR’17), pages 1–11, 2016.
+[70] Oriol Vinyals, Meire Fortunato, and Navdeep Jaitly. Pointer Networks. Neural Information Processing Systems 2015, pages 1–9, 2015.
+[71] Oriol Vinyals, Lukasz Kaiser, Terry Koo, Slav Petrov, Ilya Sutskever, and Geoﬀrey Hinton. Grammar as a foreign language. In C Cortes, N D Lawrence, D D Lee, M Sugiyama, and R Garnett, editors, Advances in Neural Information Processing Systems 28, pages 2773–2781. Curran Associates, Inc., dec 2014.
+[72] Oriol Vinyals and Quoc V. Le. A neural conversational model. arXiv, 37, jun 2015.
+[73] Oriol Vinyals, Alexander Toshev, Samy Bengio, and Dumitru Erhan. Show and Tell: A Neural Image Caption Generator. In Conf. on Computer Vision and Pattern Recognition (CVPR’15), pages 3156–3164, jun 2015.
+[74] Paul J. Werbos. Backpropagation through time: What it does and how to do it. Proc. of the IEEE, 78(10):1550–1560, 1990.
+[75] Ronald J. Williams and David Zipser. A learning algorithm for continually running fully recurrent neural networks. Neural Computation, 1(2):270– 280, jun 1989.
+41
+
+[76] Ronald J. Williams and David Zipser. Gradient-based learning algorithms for recurrent networks and their computational complexity. In Back-propagation: Theory, Architectures and Applications, pages 1–45. L. Erlbaum Associates Inc., jan 1995.
+[77] Martin Woellmer, Bj¨orn Schuller, and Gerhard Rigoll. Keyword spotting exploiting Long Short-Term Memory. Speech Communication, 55(2):252– 265, feb 2013.
+[78] Martin W¨ollmer, Florian Eyben, Stephan Reiter, Bj¨orn Schuller, Cate Cox, Ellen Douglas-Cowie, and Roddy Cowie. Abandoning emotion classes Towards continuous emotion recognition with modelling of long-range dependencies. In Proc. of the Ann. Conf. of the Int. Speech Communication Association (INTERSPEECH’08), number January, pages 597–600, 2008.
+[79] Kelvin Xu, Jimmy Ba, Ryan Kiros, Kyunghyun Cho, Aaron Courville, Ruslan Salakhutdinov, Richard Zemel, and Yoshua Bengio. Show, Attend and Tell: Neural image caption generation with visual attention. IEEE Transactions on Neural Networks, 5(2):157–166, feb 2015.
+[80] Wojciech Zaremba and Ilya Sutskever. Learning to Execute. arXiv preprint, pages 1–25, oct 2014.
+[81] Wojciech Zaremba, Ilya Sutskever, and Oriol Vinyals. Recurrent Neural Network Regularization. Icrl, (2013):1–8, sep 2014.
+42
+
